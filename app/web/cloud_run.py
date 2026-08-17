@@ -32,6 +32,7 @@ class CloudRunPublicDemoPlan:
     max_instances: int = 1
     concurrency: int = 4
     timeout_s: int = 30
+    health_path: str = "/health"
 
     def __post_init__(self) -> None:
         if not _PROJECT_ID.fullmatch(self.project_id):
@@ -56,6 +57,8 @@ class CloudRunPublicDemoPlan:
             raise ValueError("concurrency must stay between one and four")
         if not 1 <= self.timeout_s <= 30:
             raise ValueError("timeout_s must stay between one and 30 seconds")
+        if self.health_path != "/health":
+            raise ValueError("the Cloud Run health path must be /health")
 
     @property
     def image_uri(self) -> str:
@@ -92,6 +95,7 @@ class CloudRunPublicDemoPlan:
             "max_instances": self.max_instances,
             "concurrency": self.concurrency,
             "timeout_s": self.timeout_s,
+            "health_path": self.health_path,
             "ingress": "all",
             "environment": dict(self.environment),
             "deployment_approved": False,
@@ -136,6 +140,12 @@ class CloudRunPublicDemoPlan:
             f"--concurrency={self.concurrency}",
             f"--timeout={self.timeout_s}",
             "--port=8080",
+            (
+                "--startup-probe="
+                f"httpGet.path={self.health_path},httpGet.port=8080,"
+                "initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=10,"
+                "failureThreshold=3"
+            ),
             "--ingress=all",
             f"--set-env-vars={environment}",
             public_flag,

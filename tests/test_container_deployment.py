@@ -21,6 +21,8 @@ def test_dockerfile_uses_public_demo_nonroot_and_whitelisted_copy() -> None:
     assert "COPY ." not in dockerfile
     assert "USER ride" in dockerfile
     assert "HEALTHCHECK" in dockerfile
+    assert "+ '/health'" in dockerfile
+    assert "+ '/healthz'" not in dockerfile
     assert '"gunicorn"' in dockerfile
     assert "app.web.server:application" in dockerfile
 
@@ -99,10 +101,13 @@ def request(path):
     body = b''.join(application({'PATH_INFO': path, 'QUERY_STRING': 'lang=en'}, start_response))
     return captured['status'], json.loads(body)
 
-health_status, health = request('/healthz')
+health_status, health = request('/health')
+legacy_health_status, legacy_health = request('/healthz')
 demo_status, demo = request('/api/demo')
 assert health_status == '200 OK'
 assert health['mode'] == 'public_demo'
+assert legacy_health_status == '200 OK'
+assert legacy_health == health
 assert demo_status == '200 OK'
 assert demo['demo_mode'] is True
 google_modules_after = {

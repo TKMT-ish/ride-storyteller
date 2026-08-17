@@ -43,7 +43,7 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
     path = environ.get("PATH_INFO", "/")
     query = parse_qs(str(environ.get("QUERY_STRING", "")))
     deployment = WebDeploymentSettings.from_environment()
-    if path == "/healthz":
+    if path in {"/health", "/healthz"}:
         return _respond(
             start_response,
             "200 OK",

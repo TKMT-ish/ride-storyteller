@@ -295,11 +295,13 @@ docker run --rm --publish 127.0.0.1:8767:8080 \
 ```
 
 The image uses Gunicorn 26, runs as a non-root user, copies only the application
-allowlist, and refuses to start outside `public_demo` mode. `/healthz` exposes
-safe mode/capability flags only. The image has been built and health-checked
-locally for Cloud Run's `linux/amd64` target. One private Tokyo Cloud Run
-revision is Ready, but unauthenticated access is disabled and hosted `/healthz`
-still returns a Google-generated 404. A
+allowlist, and refuses to start outside `public_demo` mode. `/health` exposes
+safe mode/capability flags only; `/healthz` remains a local compatibility alias
+but is not used on Cloud Run because paths ending in `z` may be reserved. The
+image has been built and health-checked locally for Cloud Run's `linux/amd64`
+target. The current private Tokyo Cloud Run revision is Ready, its HTTP startup
+probe and authenticated `/health` request both pass, and unauthenticated access
+remains disabled. A
 credential-free, non-mutating Cloud Run plan is available with
 `python -m app.web.cloud_run`. See
 [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md) and

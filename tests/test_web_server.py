@@ -384,7 +384,8 @@ def test_public_demo_keeps_deterministic_views_and_health_check_available(
     monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
 
     demo_status, _, demo_body = _request("/api/demo")
-    health_status, health_headers, health_body = _request("/healthz")
+    health_status, health_headers, health_body = _request("/health")
+    legacy_status, _, legacy_body = _request("/healthz")
 
     assert demo_status == "200 OK"
     assert '"demo_mode": true' in demo_body.decode()
@@ -398,3 +399,5 @@ def test_public_demo_keeps_deterministic_views_and_health_check_available(
     assert health_headers["Referrer-Policy"] == "no-referrer"
     assert health_headers["X-Content-Type-Options"] == "nosniff"
     assert health_headers["X-Frame-Options"] == "DENY"
+    assert legacy_status == "200 OK"
+    assert legacy_body == health_body

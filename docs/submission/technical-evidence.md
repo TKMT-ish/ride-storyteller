@@ -32,8 +32,8 @@
 - A Python 3.12 / Gunicorn 26 container that requires public
   mode, runs non-root, uses allowlisted source copies, excludes private formats
   from the build context, and has been built and health-checked locally for
-  `linux/amd64`. The 44,497,520-byte image contains no Google SDK and blocks all
-  private/Google execution endpoints.
+  `linux/amd64`. The current 44,513,334-byte image contains no Google SDK and
+  blocks all private/Google execution endpoints.
 - A credential-free Cloud Run target model that pins Tokyo, 1 CPU / 512 MiB,
   minimum zero / maximum one instance, concurrency four, a dedicated no-role
   service identity, and separate private-deployment/public-access approval
@@ -42,6 +42,10 @@
   the reviewed limits. Authenticated verification returned 200 for the English
   synthetic demo and 403 for all five private/Google execution routes. There is
   no unauthenticated IAM binding.
+- A canonical `/health` endpoint selected after confirming Google's warning
+  about reserved paths ending in `z`. The current revision's HTTP startup probe,
+  authenticated hosted request, security headers, and unauthenticated 403 are
+  verified. `/healthz` remains only a local compatibility alias.
 
 ## Proven with synthetic Google calls
 
@@ -73,9 +77,8 @@ and model response text are intentionally excluded.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
-- hosted `/healthz` verification and separate public IAM approval. A private
-  revision exists and its application routes were authenticated successfully,
-  but the Cloud Run frontend/proxy returned a Google-generated 404 for
-  `/healthz`; the exact cause remains unresolved.
+- separate public IAM approval, public URL verification, abuse controls, and
+  budget alert verification. The private revision and hosted health endpoint are
+  verified but are not public evidence.
 - Real route/media-derived LLM story prose, final English wording, and human
   language review.

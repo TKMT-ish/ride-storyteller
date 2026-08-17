@@ -88,6 +88,23 @@ same results and no application startup error. The hosted `/healthz` path
 returned a Google-generated HTTP 404, so hosted health is recorded as unresolved
 rather than passed.
 
+After approval of the health correction and replacement revision, Google's
+documented reserved-path warning was applied: `/health` became canonical while
+`/healthz` remained a local compatibility alias. The replacement `linux/amd64`
+image was 44,513,334 bytes and its remote OCI index digest matched
+`sha256:22fd60d9067c678e878c1d11c08de71dfa1d065f36a72062365afcc0350d2fe3`.
+The executable manifest digest was
+`sha256:0c5842d77ac53c90644951b60a3cfa15b4561b3ffa8a9473311f1a82777c4163`.
+
+The second private revision became Ready, received 100% of traffic, and reported
+`ContainerHealthy` after its HTTP startup probe called `/health` successfully.
+Through the authenticated Cloud Run proxy, `/health` and the English synthetic
+demo returned 200; all five private/Google execution routes returned 403. The
+health response included every required security header. A direct
+unauthenticated `/health` request returned 403, and no `allUsers` IAM binding was
+present. Revision logs recorded the startup-probe 200, authenticated 200/403
+results, and no application startup error.
+
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.
 

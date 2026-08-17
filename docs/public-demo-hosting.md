@@ -22,7 +22,8 @@ Agent Platform preflight, private GPX summary, and optional Google Maps paths.
 - the corresponding UI controls are disabled;
 - deterministic synthetic decision, Story Plan, candidate-plan, and client-only
   video-inventory views remain available;
-- `/healthz` reports only mode and boolean capability flags.
+- `/health` reports only mode and boolean capability flags. `/healthz` remains a
+  local compatibility alias but is not used as a Cloud Run endpoint.
 
 Local mode rejects a wildcard bind. This prevents accidentally exposing the
 billable or private-input endpoints by changing only the host address.
@@ -62,7 +63,7 @@ The Gunicorn configuration:
 - writes access and error logs to standard output/error;
 - disables the optional control socket, so the non-root application does not
   need a writable home directory;
-- uses `/healthz` as the container health check.
+- uses `/health` as the container health check.
 
 Local verification on 2026-08-17 proved that both the host-native image and a
 Cloud Run-compatible `linux/amd64` image build. The latter is 44,497,520 bytes,
@@ -87,18 +88,23 @@ The credential-free Cloud Run plan is printed with
 service creation separate from unauthenticated public access. See
 [`cloud-run-public-demo.md`](cloud-run-public-demo.md).
 
-Authenticated hosted verification returned HTTP 200 for the English synthetic
-demo and HTTP 403 for all five private/Google execution routes. The same requests
-appear in Cloud Run logs and no application startup error was recorded. Hosted
-`/healthz` is not yet proven: it returned a Google-generated HTTP 404 through the
-Cloud Run frontend/proxy despite passing in the local container.
+Google documents that some Cloud Run paths ending in `z` are reserved. The
+canonical health endpoint is therefore `/health`; the legacy `/healthz` is kept
+only for local compatibility. The current image uses `/health` in Docker and the
+private Cloud Run revision has an HTTP startup probe on the same path.
+
+Authenticated hosted verification returned HTTP 200 for `/health` and the
+English synthetic demo, and HTTP 403 for all five private/Google execution
+routes. The health response retained all safe headers. Cloud Run reported the
+container healthy, the same requests appear in logs, and no application startup
+error was recorded. An unauthenticated `/health` request returned 403.
 
 ## Deliberately unresolved
 
 - domain, abuse controls, and budget alerts;
-- resolution and re-verification of the hosted `/healthz` 404;
-- unauthenticated public-access authorization. One private service/revision,
-  one 44.500 MB tagged `linux/amd64` candidate image, the Tokyo repository, and
+- unauthenticated public-access authorization. One private service with two
+  revisions (only the second receives traffic), one tagged `linux/amd64`
+  candidate image, the Tokyo repository, and
   the dedicated no-role service account now exist; Cloud Build remains disabled
   and optional;
 - exact current hackathon requirement for a hosted application;

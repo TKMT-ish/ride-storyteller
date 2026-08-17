@@ -21,6 +21,7 @@ def test_cloud_run_plan_uses_approved_safe_defaults() -> None:
     assert plan.min_instances == 0
     assert plan.max_instances == 1
     assert plan.concurrency == 4
+    assert plan.health_path == "/health"
     assert plan.environment == (
         ("RIDE_WEB_MODE", "public_demo"),
         ("RIDE_WEB_HOST", "0.0.0.0"),
@@ -57,6 +58,11 @@ def test_private_first_arguments_do_not_allow_unauthenticated_access() -> None:
     assert "--allow-unauthenticated" not in arguments
     assert "--max=1" in arguments
     assert "--min=0" in arguments
+    assert (
+        "--startup-probe=httpGet.path=/health,httpGet.port=8080,"
+        "initialDelaySeconds=0,timeoutSeconds=3,periodSeconds=10,"
+        "failureThreshold=3"
+    ) in arguments
 
 
 def test_public_access_is_a_separate_explicit_argument() -> None:
@@ -79,6 +85,7 @@ def test_public_access_is_a_separate_explicit_argument() -> None:
         {"max_instances": 2},
         {"concurrency": 5},
         {"timeout_s": 31},
+        {"health_path": "/healthz"},
     ),
 )
 def test_cloud_run_plan_rejects_unreviewed_capacity_or_region(

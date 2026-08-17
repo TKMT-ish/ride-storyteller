@@ -3,11 +3,12 @@
 ## Current status
 
 The deterministic public-demo image is deployed as a **private** Cloud Run
-service in Tokyo. The service has one ready revision,
-`ride-storyteller-public-demo-00001-x62`, receives 100% of traffic, and has no
+service in Tokyo. The current ready revision,
+`ride-storyteller-public-demo-00002-f7x`, receives 100% of traffic and has no
 `allUsers` IAM binding. Unauthenticated public access has not been approved or
 enabled. No project IAM role was granted to the dedicated runtime identity and
-no user-managed service-account key was created.
+no user-managed service-account key was created. Its HTTP startup probe uses
+`/health` and Cloud Run reports the container healthy.
 
 Run the local, non-mutating plan display with:
 
@@ -99,10 +100,26 @@ ADK, Agent Platform preflight, and hosted-Runtime execution routes each returned
 HTTP 403. Cloud Run request logs independently recorded the same 200 and five
 403 results and showed no application startup error.
 
-The hosted `/healthz` request returned a Google-generated HTTP 404 through the
-Cloud Run frontend/proxy even though the same path returns 200 in the local
-container. The precise hosted cause has not been proven. Therefore hosted health
-verification remains unresolved and must not be reported as passed.
+The first revision's hosted `/healthz` request returned a Google-generated HTTP
+404. Google Cloud's current known-issues page warns that some paths ending in
+`z` are reserved. The application now exposes `/health` as the canonical hosted
+endpoint, keeps `/healthz` only as a local compatibility alias, and uses
+`/health` for both the Docker health check and Cloud Run HTTP startup probe.
+
+After another explicit approval, the replacement `linux/amd64` candidate was
+built and pushed. Its remote OCI index digest is
+`sha256:22fd60d9067c678e878c1d11c08de71dfa1d065f36a72062365afcc0350d2fe3`;
+the executable manifest digest is
+`sha256:0c5842d77ac53c90644951b60a3cfa15b4561b3ffa8a9473311f1a82777c4163`.
+The local image size is 44,513,334 bytes. The second private revision became
+Ready, reported `ContainerHealthy`, and receives 100% of traffic.
+
+Authenticated hosted verification returned 200 from `/health` and the English
+synthetic demo, while all five private/Google execution routes returned 403.
+The health response retained `no-store`, frame denial, MIME-sniffing denial,
+no-referrer, and camera/microphone/geolocation denial headers. An unauthenticated
+`/health` request returned 403. The legacy `/healthz` remains 404 at the Cloud
+Run frontend as expected and is not the hosted health contract.
 
 ## Staged approval gates
 
@@ -118,9 +135,10 @@ into one unattended command.
    usage.
 4. **Complete:** the owner approved creation and cost, and one private Cloud Run
    service/revision was created with the reviewed limits.
-5. **Partly complete:** authenticated synthetic-demo and all five 403 boundaries
-   passed. Hosted `/healthz` still returns a Google-generated 404 and is a known
-   issue.
+5. **Complete:** the canonical hosted `/health`, authenticated synthetic demo,
+   all five 403 boundaries, security headers, startup probe, revision digest,
+   and unauthenticated 403 were verified. `/healthz` is no longer the hosted
+   contract.
 6. Separately approve unauthenticated public access. The command plan uses
    `--no-allow-unauthenticated` until that approval is explicit.
 7. Verify the public URL, response headers, abuse/cost controls, and budget
@@ -137,3 +155,5 @@ requests remain outside this service at every stage.
 - [Ingress restrictions](https://docs.cloud.google.com/run/docs/securing/ingress)
 - [Public access](https://docs.cloud.google.com/run/docs/authenticating/public)
 - [Test a private service with the Cloud Run proxy](https://docs.cloud.google.com/sdk/gcloud/reference/run/services/proxy)
+- [Cloud Run known issues: reserved URL paths](https://docs.cloud.google.com/run/docs/known-issues)
+- [Configure container health checks](https://docs.cloud.google.com/run/docs/configuring/healthchecks)
