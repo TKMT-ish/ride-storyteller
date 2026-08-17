@@ -13,6 +13,7 @@ _REQUIRED_DOCUMENTS = (
     "docs/google-story-copy.md",
     "docs/agent-platform-deployment-preflight.md",
     "docs/public-demo-hosting.md",
+    "docs/cloud-run-public-demo.md",
     "docs/submission/project-writeup-en.md",
     "docs/submission/architecture.md",
     "docs/submission/demo-script-en.md",

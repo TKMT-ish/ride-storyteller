@@ -14,8 +14,8 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-17: **205 pytest tests passed**, Ruff was clean, `pip check` found
-no broken requirements, and the offline submission-preparation preflight passed.
+2026-08-17: **220 pytest tests passed**, Ruff was clean, `pip check` found no
+broken requirements, and the offline submission-preparation preflight passed.
 
 The suite includes Japanese/English Story Plan API coverage and verifies that
 changing the output language does not change selected event IDs, chapter IDs,
@@ -51,6 +51,17 @@ pinned Gunicorn 26 dependency range. A real local Docker build also completed.
 The resulting container became healthy, returned HTTP 200 from `/healthz`,
 served the English synthetic demo, and returned HTTP 403 for the private GPX
 summary endpoint.
+
+The Cloud Run plan tests also verify the fixed Tokyo target, 1 CPU / 512 MiB,
+minimum zero / maximum one instance, concurrency four, non-secret environment,
+and the independent resource-creation and unauthenticated-access gates. A real
+`linux/amd64` image build produced a 44,497,520-byte image with no Google SDK.
+The emulated container was healthy, served the synthetic demo, and returned 403
+for all private and Google execution endpoints.
+
+An additional subprocess check removes the optional cloud package boundary and
+verifies that local cloud-only endpoints return a safe 503 without exposing the
+underlying import error. Public mode continues to return 403 before any import.
 
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.

@@ -3,9 +3,9 @@
 ## Status
 
 The repository is prepared for a **safe public demo mode** and now includes a
-provider-neutral production container. The image has been built and exercised
-locally, but no hosting provider, domain, public URL, or external deployment has
-been selected or created. This document is not public-deployment evidence.
+production container. Cloud Run in Tokyo is the proposed target, but no domain,
+public URL, registry, service account, or external deployment has been created.
+This document is not public-deployment evidence.
 
 ## Modes
 
@@ -65,25 +65,34 @@ The Gunicorn configuration:
   need a writable home directory;
 - uses `/healthz` as the container health check.
 
-Local verification on 2026-08-17 proved that the image builds, starts as
+Local verification on 2026-08-17 proved that both the host-native image and a
+Cloud Run-compatible `linux/amd64` image build. The latter is 44,497,520 bytes,
+contains Gunicorn but no Google SDK, starts as
 `uid=999(ride)`, becomes Docker-healthy, returns HTTP 200 from `/healthz`, serves
-the five-step English synthetic demo, and returns HTTP 403 for
-`/api/private-gpx-summary`. The temporary container was removed after the test.
+the five-step English synthetic demo, and returns HTTP 403 for every private or
+Google execution endpoint. The temporary container was removed after the test.
 The local image tag is not a publication or cloud deployment.
 
 Reproducible local build commands:
 
 ```text
 docker build --check .
-docker build --tag ride-storyteller:public-demo-local .
+docker build --platform linux/amd64 \
+  --tag ride-storyteller:public-demo-cloud-run .
 docker run --rm --publish 127.0.0.1:8767:8080 \
-  ride-storyteller:public-demo-local
+  ride-storyteller:public-demo-cloud-run
 ```
+
+The credential-free Cloud Run plan is printed with
+`python -m app.web.cloud_run`. It performs no external action and keeps private
+service creation separate from unauthenticated public access. See
+[`cloud-run-public-demo.md`](cloud-run-public-demo.md).
 
 ## Deliberately unresolved
 
-- provider, region, domain, TLS, access logs, abuse controls, and budget alerts;
-- provider-specific runtime settings and deployment authorization;
+- domain, access logs, abuse controls, and budget alerts;
+- Cloud Run and Artifact Registry API enablement, registry and service-account
+  creation, image push, private deployment, and public-access authorization;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
 - public repository review and deployment authorization.

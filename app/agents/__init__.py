@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, Any
+
 from .orchestrator import PrototypeOrchestrator
 from .story_agent import RuleBasedStoryAgent, StoryEvidenceFailure
 from .story_copy import (
@@ -7,7 +9,18 @@ from .story_copy import (
     StoryCopy,
 )
 from .story_planner import RuleBasedStoryPlanner, StoryOutputLanguage
-from .vertex_story_copy import VertexAIGeminiStoryCopyTransport
+
+if TYPE_CHECKING:
+    from .vertex_story_copy import VertexAIGeminiStoryCopyTransport
+
+
+def __getattr__(name: str) -> Any:
+    """Load the optional Google transport only when explicitly requested."""
+    if name == "VertexAIGeminiStoryCopyTransport":
+        from .vertex_story_copy import VertexAIGeminiStoryCopyTransport
+
+        return VertexAIGeminiStoryCopyTransport
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "GeminiStoryCopyError",

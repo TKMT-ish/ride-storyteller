@@ -25,6 +25,9 @@ GPS event -> Story Agent decides video evidence is needed
 Python 3.11 or later is required.
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -e '.[dev]'
 python -m app.main
 python -m pytest
 ```
@@ -285,13 +288,17 @@ RIDE_WEB_MODE=public_demo RIDE_WEB_HOST=0.0.0.0 RIDE_WEB_PORT=8080 \
 For a production-style local container check:
 
 ```bash
-docker build --tag ride-storyteller:public-demo-local .
+docker build --platform linux/amd64 \
+  --tag ride-storyteller:public-demo-cloud-run .
 docker run --rm --publish 127.0.0.1:8767:8080 \
-  ride-storyteller:public-demo-local
+  ride-storyteller:public-demo-cloud-run
 ```
 
 The image uses Gunicorn 26, runs as a non-root user, copies only the application
 allowlist, and refuses to start outside `public_demo` mode. `/healthz` exposes
 safe mode/capability flags only. The image has been built and health-checked
-locally; no hosting provider or public deployment has been selected. See
-[`docs/public-demo-hosting.md`](docs/public-demo-hosting.md).
+locally for Cloud Run's `linux/amd64` target; no public deployment exists. A
+credential-free, non-mutating Cloud Run plan is available with
+`python -m app.web.cloud_run`. See
+[`docs/public-demo-hosting.md`](docs/public-demo-hosting.md) and
+[`docs/cloud-run-public-demo.md`](docs/cloud-run-public-demo.md).

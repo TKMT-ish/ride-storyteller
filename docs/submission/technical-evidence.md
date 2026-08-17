@@ -29,10 +29,15 @@
 - A fail-closed public demo mode that rejects private GPX, Maps, Gemini/ADK,
   hosted Runtime, and configuration endpoints while retaining deterministic
   synthetic views and a safe health check.
-- A provider-neutral Python 3.12 / Gunicorn 26 container that requires public
+- A Python 3.12 / Gunicorn 26 container that requires public
   mode, runs non-root, uses allowlisted source copies, excludes private formats
-  from the build context, and has been built and health-checked locally. No
-  public deployment exists yet.
+  from the build context, and has been built and health-checked locally for
+  `linux/amd64`. The 44,497,520-byte image contains no Google SDK and blocks all
+  private/Google execution endpoints. No public deployment exists yet.
+- A credential-free Cloud Run target model that pins Tokyo, 1 CPU / 512 MiB,
+  minimum zero / maximum one instance, concurrency four, a dedicated no-role
+  service identity, and separate private-deployment/public-access approval
+  gates. It never invokes `gcloud` or a Google API.
 
 ## Proven with synthetic Google calls
 
@@ -64,5 +69,7 @@ and model response text are intentionally excluded.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
+- Cloud Run and Artifact Registry API enablement, registry/service-account
+  creation, image push, private verification, and separate public IAM approval.
 - Real route/media-derived LLM story prose, final English wording, and human
   language review.

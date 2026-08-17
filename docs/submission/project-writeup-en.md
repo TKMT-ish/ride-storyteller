@@ -45,9 +45,11 @@ the same stable internal contracts.
   without changing its decision status. Candidate-plan review reasons are also
   generated from structural evidence fields rather than translated by sentence
   matching.
-- A provider-neutral production container runs the public demo through Gunicorn
+- A lean production container runs the public demo through Gunicorn
   as a non-root user. Its build context allowlists application code and excludes
   environment files, private GPS/media formats, tests, and local documentation.
+  The verified `linux/amd64` image contains no Google SDK; a credential-free
+  Cloud Run plan keeps resource creation and public IAM as separate approvals.
 - An optional Gemini Story copy adapter rewrites only a fixed synthetic plan.
   JSON Schema and local checks preserve chapter IDs, count, and order, while the
   outbound payload excludes event IDs, coordinates, and media references.
@@ -86,7 +88,7 @@ for a successful hosted deployment.
 - A live synthetic English Story copy response from Gemini 2.5 Flash, validated
   without retaining model text or private data.
 - A locally built and health-checked public-demo container that rejects the
-  private GPX endpoint and exposes no cloud-call controls.
+  private and Google execution endpoints and exposes no cloud-call controls.
 - IBM Bob was used to review the codebase and identify gaps that were then
   implemented and covered by focused tests.
 

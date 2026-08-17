@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING, Any
+
 from .catalog import (
     ResolvedCandidateClip,
     VideoCatalog,
@@ -32,7 +34,18 @@ from .probe import (
     probe_local_video_metadata,
     write_local_video_metadata,
 )
-from .vertex_transport import VertexAIGeminiVideoTransport
+
+if TYPE_CHECKING:
+    from .vertex_transport import VertexAIGeminiVideoTransport
+
+
+def __getattr__(name: str) -> Any:
+    """Load the optional Google video transport only when explicitly requested."""
+    if name == "VertexAIGeminiVideoTransport":
+        from .vertex_transport import VertexAIGeminiVideoTransport
+
+        return VertexAIGeminiVideoTransport
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "GeminiVideoAnalysisError",

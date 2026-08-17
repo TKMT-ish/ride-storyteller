@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 
 from app.agent_runtime import AdkSyntheticRun, SyntheticAgentRuntimeVerification
-from app.web import server
 from app.web.server import _page, application
 
 
@@ -278,7 +277,7 @@ def test_adk_synthetic_endpoint_returns_safe_metadata(
             tool_called=True,
         )
 
-    monkeypatch.setattr(server, "run_synthetic_adk_demo", fake_adk_run)
+    monkeypatch.setattr("app.agent_runtime.run_synthetic_adk_demo", fake_adk_run)
     status, _, body = _request("/api/adk-synthetic-demo", method="POST")
 
     decoded = body.decode()
@@ -308,7 +307,10 @@ def test_agent_platform_synthetic_endpoint_returns_safe_metadata(
             tool_called=True,
         )
 
-    monkeypatch.setattr(server, "run_hosted_synthetic_agent_runtime", fake_hosted_run)
+    monkeypatch.setattr(
+        "app.agent_runtime.run_hosted_synthetic_agent_runtime",
+        fake_hosted_run,
+    )
     status, _, body = _request("/api/agent-platform-synthetic-demo", method="POST")
 
     decoded = body.decode()

@@ -12,15 +12,6 @@ from urllib.parse import parse_qs
 from wsgiref.simple_server import make_server
 from xml.etree import ElementTree
 
-from app.agent_runtime import (
-    AdkSyntheticRunError,
-    AgentPlatformDeploymentError,
-    AgentPlatformDeploymentSettings,
-    AgentPlatformPreparationError,
-    GoogleCloudRuntimeSettings,
-    run_hosted_synthetic_agent_runtime,
-    run_synthetic_adk_demo,
-)
 from app.agents import RuleBasedStoryPlanner, StoryOutputLanguage
 from app.demo import (
     build_demo_candidate_edit_plan,
@@ -42,6 +33,10 @@ _PUBLIC_DEMO_DISABLED_PATHS = {
     "/api/google-runtime",
     "/api/private-gpx-summary",
 }
+
+
+class _ExternalRuntimeUnavailable(RuntimeError):
+    """A safe local boundary for an unavailable optional cloud dependency."""
 
 
 def application(environ: dict[str, object], start_response: StartResponse) -> Iterable[bytes]:
@@ -141,18 +136,36 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
             ).encode(),
         )
     if path == "/api/google-runtime":
+        try:
+            payload = _google_runtime_payload()
+        except _ExternalRuntimeUnavailable:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                b'{"error":"Google Cloud support is not installed."}',
+            )
         return _respond(
             start_response,
             "200 OK",
             "application/json; charset=utf-8",
-            json.dumps(_google_runtime_payload(), ensure_ascii=False).encode(),
+            json.dumps(payload, ensure_ascii=False).encode(),
         )
     if path == "/api/agent-platform-preflight":
+        try:
+            payload = _agent_platform_preflight_payload()
+        except _ExternalRuntimeUnavailable:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                b'{"error":"Agent Platform support is not installed."}',
+            )
         return _respond(
             start_response,
             "200 OK",
             "application/json; charset=utf-8",
-            json.dumps(_agent_platform_preflight_payload(), ensure_ascii=False).encode(),
+            json.dumps(payload, ensure_ascii=False).encode(),
         )
     if path == "/api/adk-synthetic-demo":
         if environ.get("REQUEST_METHOD", "GET") != "POST":
@@ -171,7 +184,7 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
             )
         try:
             payload = _adk_synthetic_demo_payload()
-        except AdkSyntheticRunError:
+        except _ExternalRuntimeUnavailable:
             return _respond(
                 start_response,
                 "503 Service Unavailable",
@@ -201,7 +214,7 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
             )
         try:
             payload = _agent_platform_synthetic_demo_payload()
-        except (AgentPlatformDeploymentError, AgentPlatformPreparationError):
+        except _ExternalRuntimeUnavailable:
             return _respond(
                 start_response,
                 "503 Service Unavailable",
@@ -314,6 +327,10 @@ def _candidate_review_payload(
 
 
 def _google_runtime_payload() -> dict[str, object]:
+    try:
+        from app.agent_runtime import GoogleCloudRuntimeSettings
+    except (ImportError, ModuleNotFoundError) as error:
+        raise _ExternalRuntimeUnavailable("Google Cloud support is not installed") from error
     settings = GoogleCloudRuntimeSettings.from_environment()
     return {
         "private_data_used": False,
@@ -324,6 +341,10 @@ def _google_runtime_payload() -> dict[str, object]:
 
 
 def _agent_platform_preflight_payload() -> dict[str, object]:
+    try:
+        from app.agent_runtime import AgentPlatformDeploymentSettings
+    except (ImportError, ModuleNotFoundError) as error:
+        raise _ExternalRuntimeUnavailable("Agent Platform support is not installed") from error
     settings = AgentPlatformDeploymentSettings.from_environment()
     return {
         "private_data_used": False,
@@ -336,7 +357,20 @@ def _agent_platform_preflight_payload() -> dict[str, object]:
 
 
 def _adk_synthetic_demo_payload() -> dict[str, object]:
-    result = asyncio.run(run_synthetic_adk_demo(GoogleCloudRuntimeSettings.from_environment()))
+    try:
+        from app.agent_runtime import (
+            AdkSyntheticRunError,
+            GoogleCloudRuntimeSettings,
+            run_synthetic_adk_demo,
+        )
+    except (ImportError, ModuleNotFoundError) as error:
+        raise _ExternalRuntimeUnavailable("Google ADK support is not installed") from error
+    try:
+        result = asyncio.run(
+            run_synthetic_adk_demo(GoogleCloudRuntimeSettings.from_environment())
+        )
+    except AdkSyntheticRunError as error:
+        raise _ExternalRuntimeUnavailable("Google ADK synthetic demo is unavailable") from error
     return {
         "private_data_used": False,
         "notice": "固定の合成イベントだけをGoogle ADK / Geminiへ送信しました。",
@@ -345,9 +379,25 @@ def _adk_synthetic_demo_payload() -> dict[str, object]:
 
 
 def _agent_platform_synthetic_demo_payload() -> dict[str, object]:
-    runtime = GoogleCloudRuntimeSettings.from_environment()
-    deployment = AgentPlatformDeploymentSettings.from_environment(runtime)
-    result = run_hosted_synthetic_agent_runtime(deployment)
+    try:
+        from app.agent_runtime import (
+            AgentPlatformDeploymentError,
+            AgentPlatformDeploymentSettings,
+            AgentPlatformPreparationError,
+            GoogleCloudRuntimeSettings,
+            run_hosted_synthetic_agent_runtime,
+        )
+    except (ImportError, ModuleNotFoundError) as error:
+        raise _ExternalRuntimeUnavailable("Agent Platform support is not installed") from error
+    try:
+        runtime = GoogleCloudRuntimeSettings.from_environment()
+        deployment = AgentPlatformDeploymentSettings.from_environment(runtime)
+        result = run_hosted_synthetic_agent_runtime(deployment)
+    except (
+        AgentPlatformDeploymentError,
+        AgentPlatformPreparationError,
+    ) as error:
+        raise _ExternalRuntimeUnavailable("Hosted Agent Runtime is unavailable") from error
     return {
         "private_data_used": False,
         "external_service_called": True,
