@@ -4,10 +4,11 @@
 
 The deployment target is **not deployed**. This page records an inspectable,
 credential-free proposal for a later Cloud Run deployment of the deterministic
-public demo. After explicit approval on 2026-08-17, only the Cloud Run Admin API
-and Artifact Registry API were enabled. No registry was created, image pushed,
-service account created, Cloud Run service created, IAM policy changed, or
-public URL issued.
+public demo. After separate explicit approvals on 2026-08-17, the Cloud Run
+Admin and Artifact Registry APIs were enabled, then the empty Tokyo Docker
+repository and dedicated no-role runtime service account were created. No image
+was pushed, Cloud Run service created, project IAM role granted, user-managed
+service-account key created, or public URL issued.
 
 Run the local, non-mutating plan display with:
 
@@ -69,10 +70,12 @@ owner explicitly approved only the first two, they were enabled successfully
 and immediately re-listed as enabled. Cloud Build remains disabled and is
 optional for the selected local-build-and-push path.
 
-Post-change list operations returned no Cloud Run service and no Artifact
-Registry repository in `asia-northeast1`. The dedicated no-role runtime service
-account also has not been created or assigned. API enablement is therefore not
-deployment evidence and does not create a public or billable workload by itself.
+After a second explicit approval, repository `ride-storyteller` was created as a
+standard Docker repository in `asia-northeast1` with Google-managed encryption.
+It reported 0.000 MB and no images. Service account
+`ride-storyteller-public@ride-storyteller.iam.gserviceaccount.com` was created
+with no direct project IAM role and no user-managed key. Cloud Run service list
+remains empty. These resources are prerequisites, not deployment evidence.
 
 ## Staged approval gates
 
@@ -81,8 +84,8 @@ into one unattended command.
 
 1. **Complete:** Cloud Run and Artifact Registry APIs were explicitly approved,
    enabled, and verified. Cloud Build remains disabled.
-2. Approve creation of the Tokyo Artifact Registry repository and dedicated
-   no-role runtime service account.
+2. **Complete:** the empty Tokyo Docker repository and dedicated no-role,
+   no-user-key runtime service account were created and verified.
 3. Rebuild `linux/amd64`, inspect the image, authenticate Docker, and approve
    the one image push.
 4. Approve creating a **private** Cloud Run service with zero minimum and one

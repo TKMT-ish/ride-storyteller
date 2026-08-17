@@ -64,9 +64,12 @@ verifies that local cloud-only endpoints return a safe 503 without exposing the
 underlying import error. Public mode continues to return 403 before any import.
 
 After explicit approval, management-plane verification confirmed that the Cloud
-Run Admin and Artifact Registry APIs are enabled. Tokyo list operations returned
-no registry repository and no Cloud Run service. Cloud Build remains disabled;
-no image push, workload creation, IAM change, or public endpoint occurred.
+Run Admin and Artifact Registry APIs are enabled. A second explicit approval
+created a standard Docker repository in Tokyo using Google-managed encryption;
+it reported 0.000 MB and no images. The dedicated runtime service account has
+no direct project role and no user-managed key. Cloud Run service list remains
+empty and Cloud Build remains disabled; no image push, workload, or public
+endpoint exists.
 
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.

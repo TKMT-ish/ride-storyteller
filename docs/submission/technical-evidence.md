@@ -69,8 +69,8 @@ and model response text are intentionally excluded.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
-- Tokyo Artifact Registry and dedicated service-account creation, image push,
-  private verification, and separate public IAM approval. The Cloud Run and
-  Artifact Registry APIs are enabled; no workload or public URL exists.
+- image push, private Cloud Run verification, and separate public IAM approval.
+  The enabled APIs, empty Tokyo Docker repository, and dedicated no-role,
+  no-user-key service account are verified; no workload or public URL exists.
 - Real route/media-derived LLM story prose, final English wording, and human
   language review.
