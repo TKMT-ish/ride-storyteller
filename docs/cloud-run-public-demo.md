@@ -7,8 +7,10 @@ credential-free proposal for a later Cloud Run deployment of the deterministic
 public demo. After separate explicit approvals on 2026-08-17, the Cloud Run
 Admin and Artifact Registry APIs were enabled, then the empty Tokyo Docker
 repository and dedicated no-role runtime service account were created. No image
-was pushed, Cloud Run service created, project IAM role granted, user-managed
-service-account key created, or public URL issued.
+was pushed until a third explicit approval. The approved `public-demo:candidate`
+image is now stored in the repository. No Cloud Run service was created,
+project IAM role granted, user-managed service-account key created, or public
+URL issued.
 
 Run the local, non-mutating plan display with:
 
@@ -52,8 +54,8 @@ package. Under Docker's Apple Silicon emulation it:
 - returned 403 from the private-GPX, Google-runtime, local-ADK, Agent Platform
   preflight, and hosted-Runtime execution endpoints.
 
-The temporary validation container was stopped and removed. The local image is
-not a registry upload or hosted-deployment result.
+The temporary validation container was stopped and removed. After the later
+approved push, the local and remote OCI index digest matched exactly.
 
 Reproducible build target:
 
@@ -75,7 +77,21 @@ standard Docker repository in `asia-northeast1` with Google-managed encryption.
 It reported 0.000 MB and no images. Service account
 `ride-storyteller-public@ride-storyteller.iam.gserviceaccount.com` was created
 with no direct project IAM role and no user-managed key. Cloud Run service list
-remains empty. These resources are prerequisites, not deployment evidence.
+remains empty.
+
+After a third explicit approval, the local Docker credential helper was
+configured for the Tokyo host and exactly one tagged image was pushed:
+
+```text
+asia-northeast1-docker.pkg.dev/ride-storyteller/ride-storyteller/public-demo:candidate
+```
+
+The remote OCI index digest is
+`sha256:353ca0f87c281ee9d852ae997570fe21491640dda16bb20570e41c6cfd3112af`.
+Its executable manifest is `linux/amd64`; Docker also attached an untagged
+attestation manifest. Repository usage became 44.500 MB. The image contains no
+private media or Google SDK, but its presence is still not a Cloud Run
+deployment or public endpoint.
 
 ## Staged approval gates
 
@@ -86,8 +102,9 @@ into one unattended command.
    enabled, and verified. Cloud Build remains disabled.
 2. **Complete:** the empty Tokyo Docker repository and dedicated no-role,
    no-user-key runtime service account were created and verified.
-3. Rebuild `linux/amd64`, inspect the image, authenticate Docker, and approve
-   the one image push.
+3. **Complete:** the inspected `linux/amd64` candidate was authenticated,
+   pushed once, and verified by remote digest, platform, tag, and repository
+   usage. Cloud Run remained empty.
 4. Approve creating a **private** Cloud Run service with zero minimum and one
    maximum instance. `CloudRunPublicDemoPlan.gcloud_deploy_arguments()` refuses
    to produce arguments until this resource-creation gate is explicit.

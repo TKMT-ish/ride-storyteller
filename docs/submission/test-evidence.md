@@ -68,8 +68,15 @@ Run Admin and Artifact Registry APIs are enabled. A second explicit approval
 created a standard Docker repository in Tokyo using Google-managed encryption;
 it reported 0.000 MB and no images. The dedicated runtime service account has
 no direct project role and no user-managed key. Cloud Run service list remains
-empty and Cloud Build remains disabled; no image push, workload, or public
-endpoint exists.
+empty and Cloud Build remains disabled.
+
+After a third explicit approval, Docker authentication was configured for only
+the Tokyo registry host and one candidate tag was pushed. Remote inspection
+matched OCI index digest
+`sha256:353ca0f87c281ee9d852ae997570fe21491640dda16bb20570e41c6cfd3112af`,
+reported an executable `linux/amd64` manifest plus its attestation manifest,
+and showed repository usage of 44.500 MB. Cloud Run still had zero services;
+the push did not create a workload or public endpoint.
 
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.

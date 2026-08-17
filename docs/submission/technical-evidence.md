@@ -69,8 +69,9 @@ and model response text are intentionally excluded.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
-- image push, private Cloud Run verification, and separate public IAM approval.
-  The enabled APIs, empty Tokyo Docker repository, and dedicated no-role,
-  no-user-key service account are verified; no workload or public URL exists.
+- private Cloud Run verification and separate public IAM approval. The enabled
+  APIs, Tokyo repository, one digest-verified `linux/amd64` candidate, and
+  dedicated no-role/no-user-key service account are verified; no workload or
+  public URL exists.
 - Real route/media-derived LLM story prose, final English wording, and human
   language review.

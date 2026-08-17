@@ -91,9 +91,9 @@ service creation separate from unauthenticated public access. See
 ## Deliberately unresolved
 
 - domain, access logs, abuse controls, and budget alerts;
-- image push, private deployment, and public-access authorization. The empty
-  Tokyo Docker repository and dedicated no-role service account now exist;
-  Cloud Build remains disabled and optional;
+- private deployment and public-access authorization. One 44.500 MB tagged
+  `linux/amd64` candidate image, the Tokyo repository, and the dedicated no-role
+  service account now exist; Cloud Build remains disabled and optional;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
 - public repository review and deployment authorization.
