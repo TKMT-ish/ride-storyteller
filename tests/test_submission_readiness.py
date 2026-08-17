@@ -4,6 +4,7 @@ from app.submission import build_offline_submission_readiness
 
 REQUIRED_DOCUMENTS = (
     "README.md",
+    "devpost-submission.md",
     "docs/ui-localization.md",
     "docs/google-story-copy.md",
     "docs/agent-platform-deployment-preflight.md",
@@ -15,9 +16,35 @@ REQUIRED_DOCUMENTS = (
     "docs/submission/demo-subtitles-en.srt",
     "docs/submission/screenshot-plan.md",
     "docs/submission/ibm-bob-evidence.md",
+    "docs/submission/ibm-bob-review-sanitized.md",
+    "docs/submission/judging-alignment.md",
+    "docs/submission/official-rules-audit.md",
     "docs/submission/technical-evidence.md",
     "docs/submission/test-evidence.md",
 )
+
+MIT_LICENSE_SAMPLE = """MIT License
+
+Copyright (c) 2026 Test Author
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+"""
 
 
 def _prepared_root(root: Path) -> Path:
@@ -29,6 +56,7 @@ def _prepared_root(root: Path) -> Path:
         ".env\n*.gpx\n*.fit\n*.mp4\n*.mov\n*.lrv\nprivate-media/\n",
         encoding="utf-8",
     )
+    (root / "LICENSE").write_text(MIT_LICENSE_SAMPLE, encoding="utf-8")
     return root
 
 
@@ -52,6 +80,40 @@ def test_offline_submission_preflight_reports_missing_documents(tmp_path: Path) 
         check for check in report.checks if check.check_id == "submission_documents"
     )
     assert "demo-script-en.md" in document_check.detail
+
+
+def test_offline_submission_preflight_requires_recognized_root_license(tmp_path: Path) -> None:
+    root = _prepared_root(tmp_path)
+    (root / "LICENSE").unlink()
+
+    report = build_offline_submission_readiness(root)
+
+    assert report.offline_preparation_complete is False
+    license_check = next(check for check in report.checks if check.check_id == "osi_license")
+    assert license_check.ready is False
+    assert license_check.detail == "missing or unrecognized root OSI license file"
+
+
+def test_offline_submission_preflight_recognizes_mit_license(tmp_path: Path) -> None:
+    report = build_offline_submission_readiness(_prepared_root(tmp_path))
+
+    license_check = next(check for check in report.checks if check.check_id == "osi_license")
+    assert license_check.ready is True
+    assert license_check.detail == "recognized license: MIT"
+
+
+def test_offline_submission_preflight_rejects_license_fragment(tmp_path: Path) -> None:
+    root = _prepared_root(tmp_path)
+    (root / "LICENSE").write_text(
+        "Permission is hereby granted, free of charge\n"
+        'THE SOFTWARE IS PROVIDED "AS IS"\n',
+        encoding="utf-8",
+    )
+
+    report = build_offline_submission_readiness(root)
+
+    license_check = next(check for check in report.checks if check.check_id == "osi_license")
+    assert license_check.ready is False
 
 
 def test_offline_submission_preflight_detects_private_media_in_source_tree(

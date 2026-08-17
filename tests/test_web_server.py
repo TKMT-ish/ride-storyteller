@@ -368,6 +368,9 @@ def test_public_demo_page_disables_controls_and_never_loads_maps(
 
     assert status == "200 OK"
     assert "Public safe-demo mode" in page
+    assert 'id="ibm-evidence"' in page
+    assert "Built with IBM Bob review" in page
+    assert "real-media analysis" in page
     assert 'id="adkRun" disabled' in page
     assert 'id="platformRun" disabled' in page
     assert 'id="platformPreflight" disabled' in page

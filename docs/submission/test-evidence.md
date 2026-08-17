@@ -14,8 +14,19 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-17: **220 pytest tests passed**, Ruff was clean, `pip check` found no
-broken requirements, and the offline submission-preparation preflight passed.
+2026-08-17: **224 pytest tests passed**, Ruff was clean, `pip check` found no
+broken requirements, and the dependency-free Day 1 checks passed. The submission
+preflight now passes the document, private-ignore, private-file, and secret
+checks but intentionally reports `offline_preparation_complete=false` because
+the owner has not selected a root OSI license. This is a real submission blocker,
+not a test failure.
+
+The English `public_demo` UI was also opened in a browser and exercised through
+the accepted decision, Story Plan, and candidate-plan views. The IBM Bob
+development-evidence section rendered in English, cloud/private controls were
+disabled, the deterministic demo returned its five-step flow, and the candidate
+plan remained blocked for insufficient duration and unconfirmed evidence. The
+temporary local server and test tab were closed after inspection.
 
 The suite includes Japanese/English Story Plan API coverage and verifies that
 changing the output language does not change selected event IDs, chapter IDs,
@@ -104,6 +115,12 @@ health response included every required security header. A direct
 unauthenticated `/health` request returned 403, and no `allUsers` IAM binding was
 present. Revision logs recorded the startup-probe 200, authenticated 200/403
 results, and no application startup error.
+
+A later read-only management audit reconfirmed Ready status and no anonymous
+project IAM grant. Cloud Run reports service-level maximum one and revision-level
+maximum 20; Google's current rule uses the lower value, so the effective maximum
+is one. Minimum instances remains zero. The Cloud Billing Budget API is disabled;
+the automatic enable prompt was declined, so no budget or API change was made.
 
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.

@@ -1,7 +1,8 @@
 # Ride Storyteller — English project write-up draft
 
-> Local working draft. It has not been copied to Devpost, and the current
-> official form and track wording still require live verification.
+> Local working draft. It has not been copied to Devpost. The official form and
+> track wording were audited on 2026-08-17; registration and user answers remain
+> pending.
 
 ## Inspiration
 
@@ -94,8 +95,10 @@ for a successful hosted deployment.
 
 ## What remains before submission
 
-- Re-check the current official rules and exact Partner-track wording through
-  the authenticated Devpost workflow.
+- Complete Devpost registration, explicit eligibility/rules agreement, and
+  final IBM-track confirmation.
+- Select an OSI-approved license and add it at the repository root.
+- Re-capture a sanitized IBM Bob screenshot showing a project-specific finding.
 - Create and validate the local inventory when the real footage is accessible.
 - Obtain explicit approval before any real-video cloud transfer.
 - Run real-video analysis, complete human visual review, and record the final

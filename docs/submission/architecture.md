@@ -40,7 +40,9 @@ flowchart LR
 The solid local path can be prepared without video transfer. The dotted edge is
 not implemented as an uploader: a separate approved process must create the
 short GCS object. The hosted Runtime is a synthetic execution proof and has no
-tool that can read the private workspace. The public-demo container is prepared
-and verified locally as `linux/amd64`, but it has not been deployed to Cloud
-Run. Its deployment plan separates private resource creation from public IAM. It
-cannot invoke Gemini, the hosted Runtime, Maps, or private GPX processing.
+tool that can read the private workspace. The public-demo container was prepared
+and verified locally as `linux/amd64`, then deployed as a private Tokyo Cloud
+Run revision. Authenticated health and synthetic-demo requests pass, while
+private/Google execution routes and every unauthenticated request remain
+blocked. Public IAM is still a separate approval. The container cannot invoke
+Gemini, the hosted Runtime, Maps, or private GPX processing.

@@ -1,85 +1,83 @@
 # IBM development evidence and Partner-track gate
 
-## Why this gate exists
+## Official rule result
 
-Earlier planning used a rule snapshot that described Gemini plus Google Cloud
-agent technology and a selected Partner product or MCP server. It also described
-the IBM track in terms of using IBM Bob during development. That interpretation
-is retained as historical context only.
+On 2026-08-17, the authenticated Devpost workflow returned the live overview,
+legal terms, dates, judging criteria, prizes, announcements, registration form,
+and submission requirements for **Agentic Cinema: The Blockbuster Hackathon**.
+The detailed Partner wording is now verified.
 
-On 2026-08-17, the authenticated Devpost integration returned the current live
-overview for **Agentic Cinema: The Blockbuster Hackathon** with submissions open.
-The overview explicitly requires an agent or multi-agent workflow powered by
-Gemini and Google Cloud Agent Builder and integration with a Partner Entity's
-product or MCP server. It lists IBM, Grafana, Parallel, ClickHouse, and Replit
-resource paths. This proves that a Partner integration is required, but it does
-not yet prove the detailed eligibility, track-specific acceptance rules, or
-submission obligations; those remain behind the registration and rules-review
-gates.
+The five tracks are IBM, Grafana, Parallel, ClickHouse, and Replit. The
+IBM-specific rule requires the project to be built using IBM Bob during the
+development process and says entries without demonstrable Bob usage do not
+qualify. Confluent is optional. Box is not a Partner track.
 
-Ride Storyteller does have retained evidence that IBM Bob reviewed the codebase.
-It also has a local Gemini + Google ADK synthetic path and one verified
-synthetic-only Agent Platform Runtime in Tokyo. Those are technical facts, but
-they do not by themselves prove current track eligibility or submission
-readiness.
+Ride Storyteller has retained evidence that IBM Bob reviewed the codebase and
+that its findings drove later implementation and tests. It also has a local
+Gemini + Google ADK synthetic path, a verified synthetic-only Agent Platform
+Runtime in Tokyo, and a private Cloud Run public-safe demo revision. Those facts
+provide the technical basis for an IBM-track submission, but registration,
+explicit eligibility/rules agreement, final track selection, and a sanitized
+product-identifying Bob screenshot are still pending.
 
-## What this means for Ride Storyteller
+## Current decision
 
-- IBM is not the only available Partner path. The final track must be selected
-  against the live detailed rules and the integration must materially participate
-  in the agent workflow.
+- IBM is the lowest-change working path because Bob already materially
+  influenced the implementation. The user must still confirm the track in the
+  Devpost form.
 - No IBM MCP server will be added merely to satisfy a historical assumption.
-- Box remains an optional media-storage/search integration. It is not one of the
-  currently verified IBM evidence and must not be relabeled as an IBM service.
+- Box remains optional media-storage/search infrastructure and must not be
+  relabeled as IBM or as a submission track.
 - Gemini, Google ADK, and the Agent Platform Runtime are implemented and
-  synthetic-call evidence is retained. The current overview names Google Cloud
-  Agent Builder; whether the deployed object-style `AdkApp` path is accepted
-  under that wording still needs rule/form confirmation.
-- Retain the IBM Bob before-and-after evidence and obtain a sanitized screenshot.
-- Do not claim that a README mention, local mock, configuration presence, Bob
-  review, or hosted synthetic call satisfies a track condition until the current
-  rules and submission form are checked together.
+  synthetic-call evidence is retained. The rules name Google Cloud Agent
+  Builder; the current `AdkApp`/Agent Platform path must be described precisely
+  and must not be relabeled as a different product.
+- Bob evidence is development-process proof specific to the IBM rule. It is not
+  proof of real-video analysis, public hosting, or a finished submission.
 
-## Optional future MCP assessment
+## Clause ambiguity to preserve
+
+The general submission clause asks for Google Cloud and Partner services to be
+visible in code at runtime. The IBM-specific accepted-technology clause instead
+defines the mandatory IBM use as Bob during development and makes Confluent
+optional. The final submission should show Bob prominently. If the Devpost
+validator asks for an IBM runtime import, obtain written organizer clarification
+before adding a service that does not improve the product.
+
+## Optional future IBM services
 
 ### IBM Documentation MCP Server
 
-This endpoint could be technically validated from a future Google MCP client, but
-it is not needed for the current IBM-track path. Documentation search alone would
-not materially improve the video-story workflow, so do not add it unless a
-user-facing workflow need emerges.
+Documentation search alone would not materially improve the video-story
+workflow. Do not add it solely as a compliance decoration.
 
 ### watsonx Orchestrate ADK MCP Server
 
-This can expose tooling around watsonx Orchestrate resources. It requires a
-separate watsonx Orchestrate environment and an explicit security review,
-particularly if file access is enabled. It is not configured in this repository.
+This would require a separate watsonx Orchestrate environment and an explicit
+security, cost, authentication, and data-boundary review. It is not configured
+in this repository.
 
-## Required decision before submission
+## Required decisions before submission
 
-The authenticated Devpost workflow is initialized locally and the registration
-form has been fetched. Registration answers, explicit agreement, the full rules
-review, and final Partner-track selection are still pending. Before submission,
-complete those gates and make any selected Partner evidence clear in the demo
-and repository. If IBM is selected and its detailed wording requires a runtime
-service in addition to Bob development use, choose one that improves the
-workflow and then confirm its endpoint, authentication method, tools, data
-boundary, cost, and licensing:
+1. The user supplies the required registration answers and explicitly confirms
+   eligibility and official-rules agreement.
+2. The user confirms IBM as the final track.
+3. Capture a sanitized Bob screen showing both the IBM Bob identity and a
+   Ride Storyteller-specific finding, with no email, key, token, cloud resource,
+   private path, GPX data, or video filename.
+4. Select an OSI-approved repository license.
+5. Approve and verify the public repository, public hosted demo, and video.
 
-1. A production-workflow integration that contributes to the edit/approval flow.
-2. An IBM MCP tool with a direct filmmaking or media-workflow benefit.
-3. Written clarification from the hackathon organizers about an acceptable IBM
-   MCP role for the IBM track.
+The existing hosted synthetic Runtime proves a deployed Agent Platform call
+with tool use and a final response. It still does not prove real-video analysis,
+public access, registration, or final submission readiness.
 
-The existing hosted synthetic Runtime proves a deployed Agent Platform call with
-tool use and a final response. It still does not prove real-video analysis,
-current Agent Builder wording, final Partner integration, or track compliance.
+See `docs/submission/ibm-bob-evidence.md`,
+`docs/submission/ibm-bob-review-sanitized.md`, and
+`docs/submission/official-rules-audit.md`.
 
-See `docs/submission/ibm-bob-evidence.md` for the retained finding-to-fix index.
-
-## Links to re-check in the authenticated rule review
+## References
 
 - [Agentic Cinema Official Rules](https://agentic-cinema.devpost.com/rules)
-- [Google CX Agent Studio MCP tools](https://docs.cloud.google.com/gemini-enterprise-cx/cx-agent-studio/tool/mcp)
 - [IBM Orchestrate Documentation MCP Server](https://developer.watson-orchestrate.ibm.com/mcp_server/wxOmcp_docs_server)
 - [IBM Orchestrate ADK MCP configuration](https://developer.watson-orchestrate.ibm.com/mcp_server/wxOmcp_configuration)

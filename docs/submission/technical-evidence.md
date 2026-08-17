@@ -46,6 +46,10 @@
   about reserved paths ending in `z`. The current revision's HTTP startup probe,
   authenticated hosted request, security headers, and unauthenticated 403 are
   verified. `/healthz` remains only a local compatibility alias.
+- A read-only scaling audit confirmed that the service-level maximum is one.
+  Although the revision reports 20, Google applies the lower value, so the
+  effective limit is one. Minimum instances remains zero. The Cloud Billing
+  Budget API is disabled and was not auto-enabled.
 
 ## Proven with synthetic Google calls
 
@@ -66,17 +70,19 @@ and model response text are intentionally excluded.
 
 ## Not yet proven
 
-- The authenticated Devpost overview was fetched on 2026-08-17 and currently
-  shows submissions open. It confirms Gemini, Google Cloud Agent Builder, and a
-  Partner Entity product or MCP server as core requirements. Registration,
-  detailed rules acknowledgment, final Partner-track selection, and exact
-  submission obligations are not yet complete.
+- The authenticated Devpost overview, legal terms, dates, judging criteria,
+  prizes, announcements, registration form, and submission requirements were
+  audited on 2026-08-17. The IBM-specific rule requires demonstrable IBM Bob
+  development use and makes Confluent optional. Registration, explicit rules
+  agreement, final IBM-track selection, and the sanitized screenshot are not
+  complete.
 - Google Cloud Agent Builder compatibility if the current rules distinguish it
   from the deployed Agent Platform Runtime.
 - Real GoPro video transfer, Gemini analysis, and story update.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
+- Root OSI license selection and public-repository publication.
 - separate public IAM approval, public URL verification, abuse controls, and
   budget alert verification. The private revision and hosted health endpoint are
   verified but are not public evidence.

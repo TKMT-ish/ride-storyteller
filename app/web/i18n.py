@@ -82,6 +82,14 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "candidate.reason.duration": "目標尺を満たす候補クリップが不足しています。",
         "candidate.reason.awaiting": "候補クリップの映像証拠が未確認です。",
         "candidate.reason.rejected": "映像証拠が不適切な候補があります。差し替えが必要です。",
+        "ibm.heading": "IBM Bobによる開発レビュー",
+        "ibm.description": (
+            "IBM Bobが開発中のコード構成とAgentの流れをレビューし、優先課題を特定しました。"
+        ),
+        "ibm.finding.1": "Google ADKのAgent・ツール接続を追加",
+        "ibm.finding.2": "映像証拠の確認・却下状態と安全停止を追加",
+        "ibm.finding.3": "Gemini映像境界と不足していた境界テストを追加",
+        "ibm.limit": "開発工程の証跡です。実映像解析や公開完了を示すものではありません。",
         "adk.heading": "Google ADK 合成デモ",
         "adk.description": (
             "固定の合成イベントだけをGoogle ADK / Geminiへ送信し、Agentがツールを使うことを"
@@ -242,6 +250,18 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         ),
         "candidate.reason.awaiting": "Candidate clips still require visual evidence.",
         "candidate.reason.rejected": "Rejected visual evidence must be replaced.",
+        "ibm.heading": "Built with IBM Bob review",
+        "ibm.description": (
+            "IBM Bob reviewed the code architecture and agent flow during development, "
+            "then identified priority gaps."
+        ),
+        "ibm.finding.1": "Added Google ADK agent and tool wiring",
+        "ibm.finding.2": "Added attributed evidence confirmation, rejection, and safe blocking",
+        "ibm.finding.3": "Added a Gemini video boundary and missing edge-case tests",
+        "ibm.limit": (
+            "This is development-process evidence; it does not claim real-media analysis or "
+            "public-submission completion."
+        ),
         "adk.heading": "Google ADK synthetic demo",
         "adk.description": (
             "Sends only a fixed synthetic event to Google ADK / Gemini and verifies tool use. "

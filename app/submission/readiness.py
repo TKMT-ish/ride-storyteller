@@ -9,6 +9,7 @@ from pathlib import Path
 
 _REQUIRED_DOCUMENTS = (
     "README.md",
+    "devpost-submission.md",
     "docs/ui-localization.md",
     "docs/google-story-copy.md",
     "docs/agent-platform-deployment-preflight.md",
@@ -20,9 +21,33 @@ _REQUIRED_DOCUMENTS = (
     "docs/submission/demo-subtitles-en.srt",
     "docs/submission/screenshot-plan.md",
     "docs/submission/ibm-bob-evidence.md",
+    "docs/submission/ibm-bob-review-sanitized.md",
+    "docs/submission/judging-alignment.md",
+    "docs/submission/official-rules-audit.md",
     "docs/submission/technical-evidence.md",
     "docs/submission/test-evidence.md",
 )
+_LICENSE_FILE_NAMES = ("LICENSE", "LICENSE.txt", "LICENSE.md")
+_OSI_LICENSE_MARKERS = {
+    "Apache-2.0": (
+        "Apache License",
+        "Version 2.0, January 2004",
+        "END OF TERMS AND CONDITIONS",
+    ),
+    "BSD": (
+        "Redistribution and use in source and binary forms",
+        "THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS",
+    ),
+    "GPL": ("GNU GENERAL PUBLIC LICENSE", "NO WARRANTY"),
+    "MIT": (
+        "Permission is hereby granted, free of charge",
+        'THE SOFTWARE IS PROVIDED "AS IS"',
+    ),
+    "MPL-2.0": (
+        "Mozilla Public License Version 2.0",
+        "This Source Code Form is subject to the terms",
+    ),
+}
 _REQUIRED_IGNORE_PATTERNS = (
     ".env",
     "*.gpx",
@@ -90,8 +115,8 @@ class OfflineSubmissionReadiness:
             "media_gates": list(self.media_gates),
             "submission_ready": False,
             "submission_ready_reason": (
-                "This local preflight does not verify official rules, publication, hosting, "
-                "or real-media evidence."
+                "This local preflight intentionally does not claim external registration, "
+                "publication, public hosting, or real-media evidence."
             ),
         }
 
@@ -111,6 +136,7 @@ def build_offline_submission_readiness(
     )
     private_candidates = _private_candidates(root)
     secret_candidates = _secret_candidates(root)
+    license_result = _recognized_osi_license(root)
     devpost_state_present = (root / ".devpost-hackathon-state.json").is_file()
     source_control_present = (root / ".git").is_dir()
 
@@ -120,6 +146,15 @@ def build_offline_submission_readiness(
                 "submission_documents",
                 not missing_documents,
                 "complete" if not missing_documents else "missing: " + ", ".join(missing_documents),
+            ),
+            OfflineReadinessCheck(
+                "osi_license",
+                license_result is not None,
+                (
+                    f"recognized license: {license_result}"
+                    if license_result is not None
+                    else "missing or unrecognized root OSI license file"
+                ),
             ),
             OfflineReadinessCheck(
                 "private_data_ignore_rules",
@@ -145,7 +180,8 @@ def build_offline_submission_readiness(
         ),
         external_gates=(
             (
-                "Devpost workflow state is present; official rules still require live review."
+                "Devpost workflow state is present; rules were audited on 2026-08-17, while "
+                "registration and explicit acknowledgment remain pending."
                 if devpost_state_present
                 else "Initialize the Devpost hackathon workflow, authenticate, and review the "
                 "current official rules."
@@ -157,8 +193,14 @@ def build_offline_submission_readiness(
                 else "Initialize source control, review the first commit, then publish only "
                 "with explicit confirmation."
             ),
-            "Verify the final Partner-track wording and retain acceptable IBM Bob evidence.",
+            "Complete Devpost registration and explicitly acknowledge the eligibility and rules.",
+            "Confirm the final IBM track selection and retain a sanitized IBM Bob screenshot.",
             "Publish and verify the public application only with explicit approval.",
+            (
+                "Publish the reviewed repository under the selected OSI license only with "
+                "explicit approval."
+            ),
+            "Record and publish the final public three-minute English demo video.",
         ),
         media_gates=(
             "Build the local source-video inventory after the private files become accessible.",
@@ -167,6 +209,19 @@ def build_offline_submission_readiness(
             "Record the final English demo with real end-to-end evidence.",
         ),
     )
+
+
+def _recognized_osi_license(root: Path) -> str | None:
+    """Recognize a small set of common OSI-license texts at the repository root."""
+    for file_name in _LICENSE_FILE_NAMES:
+        path = root / file_name
+        if not path.is_file():
+            continue
+        contents = path.read_text(encoding="utf-8", errors="ignore")
+        for identifier, markers in _OSI_LICENSE_MARKERS.items():
+            if len(contents) >= 500 and all(marker in contents for marker in markers):
+                return identifier
+    return None
 
 
 def _is_nonempty_file(path: Path) -> bool:

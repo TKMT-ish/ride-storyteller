@@ -3,8 +3,9 @@
 ## Status
 
 The safe public demo is deployed to one **private** Cloud Run service in Tokyo.
-Its first revision is Ready and receives all traffic, but unauthenticated access
-has not been approved or enabled. There is no public deployment evidence yet.
+Its second revision is Ready, ContainerHealthy, and receives all traffic, but
+unauthenticated access has not been approved or enabled. There is no public
+deployment evidence yet.
 
 ## Modes
 
@@ -66,9 +67,10 @@ The Gunicorn configuration:
 - uses `/health` as the container health check.
 
 Local verification on 2026-08-17 proved that both the host-native image and a
-Cloud Run-compatible `linux/amd64` image build. The latter is 44,497,520 bytes,
+Cloud Run-compatible `linux/amd64` image build. The current candidate is
+44,513,334 bytes,
 contains Gunicorn but no Google SDK, starts as
-`uid=999(ride)`, becomes Docker-healthy, returns HTTP 200 from `/healthz`, serves
+`uid=999(ride)`, becomes Docker-healthy, returns HTTP 200 from `/health`, serves
 the five-step English synthetic demo, and returns HTTP 403 for every private or
 Google execution endpoint. The temporary container was removed after the test.
 The local image tag is not a publication or cloud deployment.
@@ -110,6 +112,12 @@ error was recorded. An unauthenticated `/health` request returned 403.
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
 - public repository review and deployment authorization.
+
+The effective Cloud Run maximum is one instance: Google applies the lower of
+the service-level limit (1) and revision-level limit (20). A read-only budget
+check could not proceed because the Cloud Billing Budget API is disabled. It was
+not auto-enabled. The owner must choose the exact monthly amount and recipients
+before that API and any alert are separately approved.
 
 The public safe mode intentionally does **not** make billable calls. Existing
 Gemini, local ADK, and hosted Agent Platform evidence must be shown separately

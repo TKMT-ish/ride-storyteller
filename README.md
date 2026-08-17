@@ -246,13 +246,17 @@ uses the legacy-compatible client because the pinned new-client streaming path
 does not reliably return the final event. See
 [`docs/agent-platform-deployment-preflight.md`](docs/agent-platform-deployment-preflight.md).
 
-An earlier rule snapshot was interpreted as allowing a selected Partner product
-or MCP server and naming IBM Bob development use for the IBM track. The current
-official wording must be re-checked through the authenticated Devpost workflow.
-We have retained Bob evidence and verified a synthetic Google Cloud + Gemini
-runtime, but neither should be presented as current track compliance yet. See
-[`docs/ibm-mcp-integration-gate.md`](docs/ibm-mcp-integration-gate.md) for the
-current decision record.
+The authenticated Devpost workflow was audited on 2026-08-17. The five Partner
+tracks are IBM, Grafana, Parallel, ClickHouse, and Replit; Box is not a track.
+The IBM-specific rule requires demonstrable IBM Bob use during development and
+describes Confluent as optional. Ride Storyteller therefore keeps IBM as the
+lowest-change working track, backed by a retained Bob review and implemented
+finding-to-test evidence. Registration, explicit rules agreement, final track
+confirmation, and a sanitized Bob screenshot remain external gates. The legal
+terms and Devpost dates endpoint currently disagree on the submission deadline,
+so the project uses the earlier legal-terms deadline: 2026-09-08 06:00 JST. See
+[`docs/submission/official-rules-audit.md`](docs/submission/official-rules-audit.md)
+and [`docs/ibm-mcp-integration-gate.md`](docs/ibm-mcp-integration-gate.md).
 
 After timestamp matching and explicit visual-evidence confirmation, `app.edit` can
 produce an inspectable FFmpeg command plan. It does not execute FFmpeg automatically;
@@ -261,17 +265,19 @@ confirmed.
 
 ## Offline submission preparation
 
-English write-up, three-minute demo script, screenshot plan, IBM Bob evidence
-index, and technical/test evidence are kept under `docs/submission/`. They are
-local drafts and are not submitted automatically. Run the safe local preflight:
+English write-up, three-minute demo script, screenshot plan, IBM Bob evidence,
+official-rules audit, Devpost form draft, and technical/test evidence are kept
+locally. They are not submitted automatically. Run the safe local preflight:
 
 ```bash
 python -m app.submission
 ```
 
-This checks offline artifacts and private-file protections only. It always keeps
-official rules, Devpost registration, publication, hosting, and real-media proof
-as separate external gates.
+This checks offline artifacts, a recognizable root OSI license, and private-file
+protections only. It always keeps Devpost registration, explicit rules
+agreement, publication, hosting, final video, and real-media proof as separate
+external gates. Until a license is selected, the preflight intentionally fails
+only that new requirement.
 
 ## Safe public demo mode
 

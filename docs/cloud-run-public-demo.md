@@ -36,6 +36,12 @@ deployment or IAM mutation.
 | Port | Cloud Run supplied `PORT` / container default 8080 |
 | UI language | English |
 
+Cloud Run currently reports a service-level maximum of 1 and a revision-level
+maximum of 20. Google documents that the effective maximum is the lower of the
+two values, so the effective cap is **1 instance**. The project intentionally
+uses the service-level cap because Google recommends it as the cost-safety
+boundary. Minimum instances remains unset at both levels, which means zero.
+
 The application environment contains only non-secret mode and worker settings.
 The public image contains no Google SDK and has no route that can make a Google,
 Agent Platform, Box, GPX, or video request.
@@ -144,6 +150,23 @@ into one unattended command.
 7. Verify the public URL, response headers, abuse/cost controls, and budget
    alerts before treating hosting as complete.
 
+## Budget-monitoring gate
+
+A read-only check on 2026-08-17 found that the Cloud Billing Budget API is not
+enabled for this project. The CLI offered to enable it; that prompt was declined
+and no change was made. No budget value should be invented because it is a
+financial operating limit chosen by the owner.
+
+Before public IAM is enabled:
+
+1. choose a monthly budget amount and notification destination;
+2. separately approve enabling `billingbudgets.googleapis.com`;
+3. create alert thresholds only after reviewing the exact amount, currency,
+   billing account scope, recipients, forecast behavior, and notification
+   limitations;
+4. verify the budget exists, but do not describe it as a hard spending cap;
+5. retain service-level maximum one and minimum zero even after alerts exist.
+
 Real GPX, route coordinates, GoPro media, Box content, credentials, and model
 requests remain outside this service at every stage.
 
@@ -152,6 +175,8 @@ requests remain outside this service at every stage.
 - [Container runtime contract](https://docs.cloud.google.com/run/docs/container-contract)
 - [Configure Cloud Run services](https://docs.cloud.google.com/run/docs/configuring)
 - [Maximum instances](https://docs.cloud.google.com/run/docs/configuring/max-instances-limits)
+- [Set maximum instances](https://docs.cloud.google.com/run/docs/configuring/max-instances)
+- [Budgets and alerts](https://docs.cloud.google.com/billing/docs/how-to/budgets)
 - [Ingress restrictions](https://docs.cloud.google.com/run/docs/securing/ingress)
 - [Public access](https://docs.cloud.google.com/run/docs/authenticating/public)
 - [Test a private service with the Cloud Run proxy](https://docs.cloud.google.com/sdk/gcloud/reference/run/services/proxy)

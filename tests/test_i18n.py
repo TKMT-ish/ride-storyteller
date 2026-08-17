@@ -76,6 +76,8 @@ def test_main_page_query_switches_to_english_and_preserves_inventory_language(
     assert '<html lang="en">' in page
     assert "Run decision demo" in page
     assert "Agent Platform cloud synthetic demo" in page
+    assert "Built with IBM Bob review" in page
+    assert "Added Google ADK agent and tool wiring" in page
     assert "Open video folder inventory" in page
     assert 'href="/local-media-inventory?lang=en"' in page
     assert 'href="/?lang=ja"' in page

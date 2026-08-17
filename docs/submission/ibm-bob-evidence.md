@@ -1,8 +1,9 @@
 # IBM Bob development evidence
 
-> This is a local evidence index, not a claim that the current official track
-> requirement has been re-verified. Track acceptability must be checked in the
-> authenticated Devpost workflow before submission.
+> The IBM-specific track requirement was verified through the authenticated
+> Devpost workflow on 2026-08-17. This index demonstrates Bob's development
+> influence; registration, final track confirmation, and a sanitized screenshot
+> remain separate gates.
 
 ## Retained source artifact
 
@@ -14,6 +15,7 @@ portable public reference.
 
 The earlier Bob screenshots are no longer available at their recorded paths.
 A new sanitized product-identifying screenshot is therefore still required.
+`ibm-bob-review-sanitized.md` is the portable public-safe transcript summary.
 
 ## Findings and implemented response
 
@@ -36,7 +38,7 @@ A new sanitized product-identifying screenshot is therefore still required.
   inventory, bilingual UI, and Vertex video-transport work; its architecture
   summary is historical, not a description of the current repository.
 - A sanitized IBM Bob screenshot still must be re-captured.
-- The current official IBM/Partner-track wording has not been live-verified in
-  this project because the dedicated Devpost workflow state is not initialized.
+- The official IBM wording is verified, but the user has not yet completed
+  registration, explicit rules agreement, or final form selection.
 - Real-video Gemini analysis is not yet evidence; no private media transfer has
   been authorized.
