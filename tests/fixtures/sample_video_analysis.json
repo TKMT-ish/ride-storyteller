@@ -1,0 +1,13 @@
+{
+  "asset_id": "box_file_placeholder_001",
+  "start_offset_s": 0,
+  "end_offset_s": 30,
+  "visual_description": "テスト映像の説明（モック）",
+  "road_type": "unknown",
+  "scenery_tags": ["test"],
+  "weather_visible": "unknown",
+  "visual_interest_score": 0.5,
+  "story_relevance_score": 0.8,
+  "confidence": 0.0,
+  "analysis_provider": "mock"
+}

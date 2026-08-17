@@ -1,0 +1,19 @@
+.env
+.venv/
+.DS_Store
+*.egg-info/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.py[cod]
+
+# Private source material and exports
+data/private/
+media/private/
+*.gpx
+*.fit
+*.mp4
+*.mov
+*.lrv
+private-media/
+ride-storyteller-local-video-inventory.json

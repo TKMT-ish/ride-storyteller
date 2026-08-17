@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ride-storyteller"
+version = "0.1.0"
+description = "Day 1 private-media-safe prototype for Ride Storyteller"
+requires-python = ">=3.11"
+dependencies = [
+    "google-adk[gcp]>=2.6.3,<3.0.0",
+    "google-cloud-aiplatform[agent_engines,adk]>=1.163.0,<2.0.0",
+    "google-genai>=2.17.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6"]
+deploy = ["gunicorn>=26.0.0,<27.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]

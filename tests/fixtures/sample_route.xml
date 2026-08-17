@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Ride Storyteller test" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>synthetic route</name><trkseg>
+    <trkpt lat="-45.031200" lon="168.662600"><ele>10.0</ele><time>2026-08-10T01:42:15Z</time></trkpt>
+    <trkpt lat="-45.031300" lon="168.662800"><ele>15.0</ele><time>2026-08-10T01:42:45Z</time></trkpt>
+    <trkpt lat="-45.031500" lon="168.663100"><ele>12.0</ele><time>2026-08-10T01:43:15Z</time></trkpt>
+  </trkseg></trk>
+</gpx>

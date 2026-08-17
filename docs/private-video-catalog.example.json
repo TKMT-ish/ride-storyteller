@@ -1,0 +1,12 @@
+{
+  "video_to_gps_offset_s": 0,
+  "entries": [
+    {
+      "asset_id": "gopro_example_001",
+      "file_name": "GX010001.MP4",
+      "recorded_start_time": "2026-08-10T01:42:00Z",
+      "duration_s": 1800,
+      "mime_type": "video/mp4"
+    }
+  ]
+}

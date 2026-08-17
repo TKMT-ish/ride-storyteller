@@ -1,0 +1,14 @@
+{
+  "event_id": "evt_sample_001",
+  "event_type": "scenery_change",
+  "start_time": "2026-08-10T01:42:15Z",
+  "end_time": "2026-08-10T01:43:00Z",
+  "location": {"latitude": -45.0312, "longitude": 168.6626},
+  "importance_hint": 0.72,
+  "evidence": ["elevation_change", "direction_change"],
+  "video_query": {
+    "asset_name_hint": "test_ride_001.mp4",
+    "clip_start_offset_s": 0,
+    "clip_end_offset_s": 30
+  }
+}

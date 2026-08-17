@@ -1,0 +1,9 @@
+{
+  "asset_id": "box_file_placeholder_001",
+  "provider": "box",
+  "name": "test_ride_001.mp4",
+  "mime_type": "video/mp4",
+  "duration_s": 30,
+  "source_uri": "box://placeholder/test_ride_001.mp4",
+  "retrieval_status": "found"
+}

@@ -1,0 +1,218 @@
+"""Safe local preflight for work that can be finished before real video arrives."""
+
+from __future__ import annotations
+
+import json
+import re
+from dataclasses import dataclass
+from pathlib import Path
+
+_REQUIRED_DOCUMENTS = (
+    "README.md",
+    "docs/ui-localization.md",
+    "docs/google-story-copy.md",
+    "docs/agent-platform-deployment-preflight.md",
+    "docs/public-demo-hosting.md",
+    "docs/submission/project-writeup-en.md",
+    "docs/submission/architecture.md",
+    "docs/submission/demo-script-en.md",
+    "docs/submission/demo-subtitles-en.srt",
+    "docs/submission/screenshot-plan.md",
+    "docs/submission/ibm-bob-evidence.md",
+    "docs/submission/technical-evidence.md",
+    "docs/submission/test-evidence.md",
+)
+_REQUIRED_IGNORE_PATTERNS = (
+    ".env",
+    "*.gpx",
+    "*.fit",
+    "*.mp4",
+    "*.mov",
+    "*.lrv",
+    "private-media/",
+)
+_PRIVATE_SUFFIXES = {".gpx", ".fit", ".mp4", ".mov", ".lrv"}
+_PUBLIC_TEXT_SUFFIXES = {
+    ".css",
+    ".html",
+    ".js",
+    ".json",
+    ".md",
+    ".py",
+    ".srt",
+    ".toml",
+    ".txt",
+    ".yaml",
+    ".yml",
+}
+_SECRET_PATTERNS = {
+    "google_api_key": re.compile(r"AIza[0-9A-Za-z_-]{30,}"),
+    "private_key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+}
+_EXCLUDED_DIRECTORIES = {
+    ".git",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+    "__pycache__",
+    "data/private",
+    "media/private",
+    "private-media",
+}
+
+
+@dataclass(frozen=True)
+class OfflineReadinessCheck:
+    check_id: str
+    ready: bool
+    detail: str
+
+    def to_dict(self) -> dict[str, object]:
+        return {"check_id": self.check_id, "ready": self.ready, "detail": self.detail}
+
+
+@dataclass(frozen=True)
+class OfflineSubmissionReadiness:
+    checks: tuple[OfflineReadinessCheck, ...]
+    external_gates: tuple[str, ...]
+    media_gates: tuple[str, ...]
+
+    @property
+    def offline_preparation_complete(self) -> bool:
+        return all(check.ready for check in self.checks)
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "offline_preparation_complete": self.offline_preparation_complete,
+            "checks": [check.to_dict() for check in self.checks],
+            "external_gates": list(self.external_gates),
+            "media_gates": list(self.media_gates),
+            "submission_ready": False,
+            "submission_ready_reason": (
+                "This local preflight does not verify official rules, publication, hosting, "
+                "or real-media evidence."
+            ),
+        }
+
+
+def build_offline_submission_readiness(
+    root: Path = Path("."),
+) -> OfflineSubmissionReadiness:
+    """Inspect only filenames and text configuration needed for offline preparation."""
+    root = root.resolve()
+    missing_documents = tuple(
+        relative for relative in _REQUIRED_DOCUMENTS if not _is_nonempty_file(root / relative)
+    )
+    ignore_file = root / ".gitignore"
+    ignore_text = ignore_file.read_text(encoding="utf-8") if ignore_file.is_file() else ""
+    missing_ignores = tuple(
+        pattern for pattern in _REQUIRED_IGNORE_PATTERNS if pattern not in ignore_text
+    )
+    private_candidates = _private_candidates(root)
+    secret_candidates = _secret_candidates(root)
+    devpost_state_present = (root / ".devpost-hackathon-state.json").is_file()
+    source_control_present = (root / ".git").is_dir()
+
+    return OfflineSubmissionReadiness(
+        checks=(
+            OfflineReadinessCheck(
+                "submission_documents",
+                not missing_documents,
+                "complete" if not missing_documents else "missing: " + ", ".join(missing_documents),
+            ),
+            OfflineReadinessCheck(
+                "private_data_ignore_rules",
+                not missing_ignores,
+                "complete"
+                if not missing_ignores
+                else "missing ignore patterns: " + ", ".join(missing_ignores),
+            ),
+            OfflineReadinessCheck(
+                "no_private_media_in_public_source_tree",
+                not private_candidates,
+                "complete"
+                if not private_candidates
+                else "private file candidates: " + ", ".join(private_candidates),
+            ),
+            OfflineReadinessCheck(
+                "no_secret_markers_in_public_text",
+                not secret_candidates,
+                "complete"
+                if not secret_candidates
+                else "secret markers: " + ", ".join(secret_candidates),
+            ),
+        ),
+        external_gates=(
+            (
+                "Devpost workflow state is present; official rules still require live review."
+                if devpost_state_present
+                else "Initialize the Devpost hackathon workflow, authenticate, and review the "
+                "current official rules."
+            ),
+            (
+                "Local source control exists; public repository publication still needs "
+                "explicit confirmation."
+                if source_control_present
+                else "Initialize source control, review the first commit, then publish only "
+                "with explicit confirmation."
+            ),
+            "Verify the final Partner-track wording and retain acceptable IBM Bob evidence.",
+            "Publish and verify the public application only with explicit approval.",
+        ),
+        media_gates=(
+            "Build the local source-video inventory after the private files become accessible.",
+            "Validate camera timestamps, GPS clock correction, and proxy strategy locally.",
+            "Run the approved real-video Gemini analysis and complete visual-evidence review.",
+            "Record the final English demo with real end-to-end evidence.",
+        ),
+    )
+
+
+def _is_nonempty_file(path: Path) -> bool:
+    return path.is_file() and path.stat().st_size > 0
+
+
+def _private_candidates(root: Path) -> tuple[str, ...]:
+    candidates: list[str] = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in _PRIVATE_SUFFIXES:
+            continue
+        relative = path.relative_to(root)
+        if _is_excluded(relative):
+            continue
+        candidates.append(relative.as_posix())
+    return tuple(sorted(candidates))
+
+
+def _secret_candidates(root: Path) -> tuple[str, ...]:
+    candidates: list[str] = []
+    for path in root.rglob("*"):
+        if not path.is_file() or path.suffix.lower() not in _PUBLIC_TEXT_SUFFIXES:
+            continue
+        relative = path.relative_to(root)
+        if relative.as_posix() == ".env" or _is_excluded(relative):
+            continue
+        contents = path.read_text(encoding="utf-8", errors="ignore")
+        for label, pattern in _SECRET_PATTERNS.items():
+            if pattern.search(contents):
+                candidates.append(f"{relative.as_posix()}:{label}")
+    return tuple(sorted(candidates))
+
+
+def _is_excluded(relative: Path) -> bool:
+    as_posix = relative.as_posix()
+    return any(
+        as_posix == excluded or as_posix.startswith(excluded + "/")
+        for excluded in _EXCLUDED_DIRECTORIES
+    )
+
+
+def main() -> None:
+    report = build_offline_submission_readiness()
+    print(json.dumps(report.to_dict(), ensure_ascii=False, indent=2))
+    if not report.offline_preparation_complete:
+        raise SystemExit(1)
+
+
+if __name__ == "__main__":
+    main()
