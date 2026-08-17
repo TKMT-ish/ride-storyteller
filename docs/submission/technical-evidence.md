@@ -33,11 +33,15 @@
   mode, runs non-root, uses allowlisted source copies, excludes private formats
   from the build context, and has been built and health-checked locally for
   `linux/amd64`. The 44,497,520-byte image contains no Google SDK and blocks all
-  private/Google execution endpoints. No public deployment exists yet.
+  private/Google execution endpoints.
 - A credential-free Cloud Run target model that pins Tokyo, 1 CPU / 512 MiB,
   minimum zero / maximum one instance, concurrency four, a dedicated no-role
   service identity, and separate private-deployment/public-access approval
   gates. It never invokes `gcloud` or a Google API.
+- A private Tokyo Cloud Run revision that became Ready with 100% traffic under
+  the reviewed limits. Authenticated verification returned 200 for the English
+  synthetic demo and 403 for all five private/Google execution routes. There is
+  no unauthenticated IAM binding.
 
 ## Proven with synthetic Google calls
 
@@ -69,9 +73,9 @@ and model response text are intentionally excluded.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
-- private Cloud Run verification and separate public IAM approval. The enabled
-  APIs, Tokyo repository, one digest-verified `linux/amd64` candidate, and
-  dedicated no-role/no-user-key service account are verified; no workload or
-  public URL exists.
+- hosted `/healthz` verification and separate public IAM approval. A private
+  revision exists and its application routes were authenticated successfully,
+  but the Cloud Run frontend/proxy returned a Google-generated 404 for
+  `/healthz`; the exact cause remains unresolved.
 - Real route/media-derived LLM story prose, final English wording, and human
   language review.

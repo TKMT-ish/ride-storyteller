@@ -75,8 +75,18 @@ the Tokyo registry host and one candidate tag was pushed. Remote inspection
 matched OCI index digest
 `sha256:353ca0f87c281ee9d852ae997570fe21491640dda16bb20570e41c6cfd3112af`,
 reported an executable `linux/amd64` manifest plus its attestation manifest,
-and showed repository usage of 44.500 MB. Cloud Run still had zero services;
-the push did not create a workload or public endpoint.
+and showed repository usage of 44.500 MB. The push itself did not create a
+workload or public endpoint.
+
+After a fourth explicit approval of one private service and its cost, one Tokyo
+revision became Ready and received 100% of traffic with the reviewed 1 CPU /
+512 MiB, minimum zero / maximum one instance, concurrency four, and 30-second
+timeout. There is no unauthenticated IAM binding. Using the authenticated Cloud
+Run proxy, the English synthetic demo returned HTTP 200 and all five
+private/Google execution routes returned HTTP 403. Cloud Run logs recorded the
+same results and no application startup error. The hosted `/healthz` path
+returned a Google-generated HTTP 404, so hosted health is recorded as unresolved
+rather than passed.
 
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.

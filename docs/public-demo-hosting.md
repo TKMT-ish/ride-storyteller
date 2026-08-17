@@ -2,10 +2,9 @@
 
 ## Status
 
-The repository is prepared for a **safe public demo mode** and now includes a
-production container. Cloud Run in Tokyo is the proposed target, but no domain,
-public URL, registry, service account, or external deployment has been created.
-This document is not public-deployment evidence.
+The safe public demo is deployed to one **private** Cloud Run service in Tokyo.
+Its first revision is Ready and receives all traffic, but unauthenticated access
+has not been approved or enabled. There is no public deployment evidence yet.
 
 ## Modes
 
@@ -88,12 +87,20 @@ The credential-free Cloud Run plan is printed with
 service creation separate from unauthenticated public access. See
 [`cloud-run-public-demo.md`](cloud-run-public-demo.md).
 
+Authenticated hosted verification returned HTTP 200 for the English synthetic
+demo and HTTP 403 for all five private/Google execution routes. The same requests
+appear in Cloud Run logs and no application startup error was recorded. Hosted
+`/healthz` is not yet proven: it returned a Google-generated HTTP 404 through the
+Cloud Run frontend/proxy despite passing in the local container.
+
 ## Deliberately unresolved
 
-- domain, access logs, abuse controls, and budget alerts;
-- private deployment and public-access authorization. One 44.500 MB tagged
-  `linux/amd64` candidate image, the Tokyo repository, and the dedicated no-role
-  service account now exist; Cloud Build remains disabled and optional;
+- domain, abuse controls, and budget alerts;
+- resolution and re-verification of the hosted `/healthz` 404;
+- unauthenticated public-access authorization. One private service/revision,
+  one 44.500 MB tagged `linux/amd64` candidate image, the Tokyo repository, and
+  the dedicated no-role service account now exist; Cloud Build remains disabled
+  and optional;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
 - public repository review and deployment authorization.

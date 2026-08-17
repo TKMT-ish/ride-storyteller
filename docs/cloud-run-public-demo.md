@@ -1,16 +1,13 @@
-# Cloud Run public-demo deployment preflight
+# Cloud Run public-demo deployment record
 
 ## Current status
 
-The deployment target is **not deployed**. This page records an inspectable,
-credential-free proposal for a later Cloud Run deployment of the deterministic
-public demo. After separate explicit approvals on 2026-08-17, the Cloud Run
-Admin and Artifact Registry APIs were enabled, then the empty Tokyo Docker
-repository and dedicated no-role runtime service account were created. No image
-was pushed until a third explicit approval. The approved `public-demo:candidate`
-image is now stored in the repository. No Cloud Run service was created,
-project IAM role granted, user-managed service-account key created, or public
-URL issued.
+The deterministic public-demo image is deployed as a **private** Cloud Run
+service in Tokyo. The service has one ready revision,
+`ride-storyteller-public-demo-00001-x62`, receives 100% of traffic, and has no
+`allUsers` IAM binding. Unauthenticated public access has not been approved or
+enabled. No project IAM role was granted to the dedicated runtime identity and
+no user-managed service-account key was created.
 
 Run the local, non-mutating plan display with:
 
@@ -18,8 +15,8 @@ Run the local, non-mutating plan display with:
 .venv/bin/python -m app.web.cloud_run
 ```
 
-The output deliberately reports `deployment_approved=false`,
-`public_access_approved=false`, and `mutation_performed=false`.
+The output is a credential-free plan display; it deliberately performs no
+deployment or IAM mutation.
 
 ## Reviewed target
 
@@ -76,8 +73,7 @@ After a second explicit approval, repository `ride-storyteller` was created as a
 standard Docker repository in `asia-northeast1` with Google-managed encryption.
 It reported 0.000 MB and no images. Service account
 `ride-storyteller-public@ride-storyteller.iam.gserviceaccount.com` was created
-with no direct project IAM role and no user-managed key. Cloud Run service list
-remains empty.
+with no direct project IAM role and no user-managed key.
 
 After a third explicit approval, the local Docker credential helper was
 configured for the Tokyo host and exactly one tagged image was pushed:
@@ -90,8 +86,23 @@ The remote OCI index digest is
 `sha256:353ca0f87c281ee9d852ae997570fe21491640dda16bb20570e41c6cfd3112af`.
 Its executable manifest is `linux/amd64`; Docker also attached an untagged
 attestation manifest. Repository usage became 44.500 MB. The image contains no
-private media or Google SDK, but its presence is still not a Cloud Run
-deployment or public endpoint.
+private media or Google SDK.
+
+After a fourth explicit approval, the candidate was deployed with the reviewed
+1 CPU / 512 MiB, minimum zero / maximum one instance, concurrency four,
+30-second timeout, port 8080, and dedicated no-role service account. The first
+revision became Ready and receives all traffic. The service remains private.
+
+Authenticated verification used Google's local Cloud Run proxy. The synthetic
+English demo returned HTTP 200. The private-GPX summary, Google runtime, local
+ADK, Agent Platform preflight, and hosted-Runtime execution routes each returned
+HTTP 403. Cloud Run request logs independently recorded the same 200 and five
+403 results and showed no application startup error.
+
+The hosted `/healthz` request returned a Google-generated HTTP 404 through the
+Cloud Run frontend/proxy even though the same path returns 200 in the local
+container. The precise hosted cause has not been proven. Therefore hosted health
+verification remains unresolved and must not be reported as passed.
 
 ## Staged approval gates
 
@@ -104,12 +115,12 @@ into one unattended command.
    no-user-key runtime service account were created and verified.
 3. **Complete:** the inspected `linux/amd64` candidate was authenticated,
    pushed once, and verified by remote digest, platform, tag, and repository
-   usage. Cloud Run remained empty.
-4. Approve creating a **private** Cloud Run service with zero minimum and one
-   maximum instance. `CloudRunPublicDemoPlan.gcloud_deploy_arguments()` refuses
-   to produce arguments until this resource-creation gate is explicit.
-5. Verify the private service through authenticated health and synthetic-demo
-   requests, including all 403 boundaries.
+   usage.
+4. **Complete:** the owner approved creation and cost, and one private Cloud Run
+   service/revision was created with the reviewed limits.
+5. **Partly complete:** authenticated synthetic-demo and all five 403 boundaries
+   passed. Hosted `/healthz` still returns a Google-generated 404 and is a known
+   issue.
 6. Separately approve unauthenticated public access. The command plan uses
    `--no-allow-unauthenticated` until that approval is explicit.
 7. Verify the public URL, response headers, abuse/cost controls, and budget
@@ -125,3 +136,4 @@ requests remain outside this service at every stage.
 - [Maximum instances](https://docs.cloud.google.com/run/docs/configuring/max-instances-limits)
 - [Ingress restrictions](https://docs.cloud.google.com/run/docs/securing/ingress)
 - [Public access](https://docs.cloud.google.com/run/docs/authenticating/public)
+- [Test a private service with the Cloud Run proxy](https://docs.cloud.google.com/sdk/gcloud/reference/run/services/proxy)
