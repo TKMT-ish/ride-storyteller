@@ -91,8 +91,9 @@ service creation separate from unauthenticated public access. See
 ## Deliberately unresolved
 
 - domain, access logs, abuse controls, and budget alerts;
-- Cloud Run and Artifact Registry API enablement, registry and service-account
-  creation, image push, private deployment, and public-access authorization;
+- Tokyo Artifact Registry and dedicated service-account creation, image push,
+  private deployment, and public-access authorization. The Cloud Run and
+  Artifact Registry APIs are enabled; Cloud Build remains disabled and optional;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
 - public repository review and deployment authorization.

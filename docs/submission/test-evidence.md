@@ -63,6 +63,11 @@ An additional subprocess check removes the optional cloud package boundary and
 verifies that local cloud-only endpoints return a safe 503 without exposing the
 underlying import error. Public mode continues to return 403 before any import.
 
+After explicit approval, management-plane verification confirmed that the Cloud
+Run Admin and Artifact Registry APIs are enabled. Tokyo list operations returned
+no registry repository and no Cloud Run service. Cloud Build remains disabled;
+no image push, workload creation, IAM change, or public endpoint occurred.
+
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.
 

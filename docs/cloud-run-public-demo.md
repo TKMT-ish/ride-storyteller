@@ -4,9 +4,10 @@
 
 The deployment target is **not deployed**. This page records an inspectable,
 credential-free proposal for a later Cloud Run deployment of the deterministic
-public demo. No API was enabled, registry created, image pushed, service account
-created, Cloud Run service created, IAM policy changed, or public URL issued by
-this preflight.
+public demo. After explicit approval on 2026-08-17, only the Cloud Run Admin API
+and Artifact Registry API were enabled. No registry was created, image pushed,
+service account created, Cloud Run service created, IAM policy changed, or
+public URL issued.
 
 Run the local, non-mutating plan display with:
 
@@ -60,24 +61,26 @@ docker build --platform linux/amd64 \
   --tag ride-storyteller:public-demo-cloud-run .
 ```
 
-## Read-only Google Cloud finding
+## Google Cloud management-plane status
 
-A read-only check on 2026-08-17 found that the Cloud Run Admin API and Artifact
-Registry API were disabled in project `ride-storyteller`. Cloud Build was also
-not enabled. The failed list operations did not accept the CLI's offer to enable
-an API and made no project change.
+An initial read-only check on 2026-08-17 found the Cloud Run Admin, Artifact
+Registry, and Cloud Build APIs disabled in project `ride-storyteller`. After the
+owner explicitly approved only the first two, they were enabled successfully
+and immediately re-listed as enabled. Cloud Build remains disabled and is
+optional for the selected local-build-and-push path.
 
-Cloud Build is optional for the selected local-build-and-push path. Cloud Run
-and Artifact Registry must be explicitly enabled before that path can proceed.
-The dedicated no-role runtime service account and repository also do not exist
-as verified resources yet; their creation remains an external change.
+Post-change list operations returned no Cloud Run service and no Artifact
+Registry repository in `asia-northeast1`. The dedicated no-role runtime service
+account also has not been created or assigned. API enablement is therefore not
+deployment evidence and does not create a public or billable workload by itself.
 
 ## Staged approval gates
 
 Each stage requires a separate exact-target review. Do not combine the stages
 into one unattended command.
 
-1. Approve enabling Cloud Run and Artifact Registry APIs.
+1. **Complete:** Cloud Run and Artifact Registry APIs were explicitly approved,
+   enabled, and verified. Cloud Build remains disabled.
 2. Approve creation of the Tokyo Artifact Registry repository and dedicated
    no-role runtime service account.
 3. Rebuild `linux/amd64`, inspect the image, authenticate Docker, and approve
