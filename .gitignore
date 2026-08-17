@@ -1,4 +1,5 @@
 .env
+.devpost-hackathon-state.json
 .venv/
 .DS_Store
 *.egg-info/

@@ -53,7 +53,11 @@ and model response text are intentionally excluded.
 
 ## Not yet proven
 
-- Exact current hackathon/track compliance in the authenticated Devpost flow.
+- The authenticated Devpost overview was fetched on 2026-08-17 and currently
+  shows submissions open. It confirms Gemini, Google Cloud Agent Builder, and a
+  Partner Entity product or MCP server as core requirements. Registration,
+  detailed rules acknowledgment, final Partner-track selection, and exact
+  submission obligations are not yet complete.
 - Google Cloud Agent Builder compatibility if the current rules distinguish it
   from the deployed Agent Platform Runtime.
 - Real GoPro video transfer, Gemini analysis, and story update.
