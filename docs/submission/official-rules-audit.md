@@ -1,20 +1,47 @@
 # Official Agentic Cinema rules audit
 
-> Verified through the authenticated Devpost workflow on 2026-08-17. This is a
+> Verified through the authenticated Devpost workflow on 2026-08-20. This is a
 > working compliance record, not a substitute for the official rules.
 
-## Safe working deadline
+## Live refresh on 2026-08-20
 
-The official surfaces are inconsistent:
+The authenticated Devpost surfaces were refreshed at approximately 10:01 UTC:
 
-- the authenticated dates endpoint lists submissions through **September 9,
-  2026 at 2:00 PM Pacific Time** (2026-09-10 06:00 JST); and
-- the legal terms state that the Contest Period ends **September 7, 2026 at
-  2:00 PM Pacific Time** (2026-09-08 06:00 JST).
+- submissions remain open;
+- the dates endpoint ends submissions at 2026-09-09 21:00 UTC;
+- the legal terms now also end the Contest Period on September 9, 2026 at
+  2:00 PM Pacific Time;
+- the earlier two-day discrepancy is resolved;
+- eligibility, deliverables, judging criteria, and the IBM Bob requirement are
+  unchanged from the rules presented for acknowledgment;
+- recent announcements cover Partner build sessions and do not announce another
+  deadline change.
 
-Ride Storyteller therefore uses the earlier legal-terms time as its internal
-submission deadline until Devpost resolves the discrepancy. Do not plan a
-submission after 2026-09-08 06:00 JST.
+The IBM evidence strategy remains unchanged. The current official deadline is
+2026-09-10 06:00 JST.
+
+## Historical refresh on 2026-08-17 (superseded)
+
+The authenticated Devpost surfaces were refreshed at approximately 13:40 UTC:
+
+- submissions remain open;
+- the dates endpoint still ends submissions at 2026-09-09 21:00 UTC;
+- the legal terms still state September 7, 2026 at 2:00 PM Pacific Time;
+- no retrieved announcement changes or reconciles that deadline;
+- registration is available, but this participant is not registered;
+- the latest announcement promotes an IBM Bob live build session and describes
+  Bob as an AI coding teammate for generating, documenting, and refining code.
+
+The earlier-deadline policy was appropriate for that snapshot, but it was
+superseded when the legal terms changed to September 9. The IBM evidence
+strategy remains current.
+
+## Current official deadline
+
+The authenticated dates endpoint and the legal terms now agree: submissions
+end **September 9, 2026 at 2:00 PM Pacific Time**, which is
+**2026-09-10 06:00 JST**. Final publication and submission validation should be
+scheduled at least 24 hours earlier rather than relying on the closing hour.
 
 ## Required project shape
 
@@ -77,6 +104,12 @@ Registration is still incomplete. The user must personally provide the required
 profile answers and explicitly agree that they meet the age, territory, export,
 employment/conflict, and official-rules conditions. Codex must not infer those
 answers or agreement.
+
+The live registration form currently requires one of `Working solo`, `Looking
+for teammates`, or `Already have a team`; Company Name; Job Title; self-assessed
+AI experience; self-assessed Google Cloud Agent Builder experience; and one or
+more primary goals. The exact options and a one-message answer template are kept
+in `devpost-registration-worksheet-ja.md`.
 
 ## Official references
 

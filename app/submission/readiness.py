@@ -19,13 +19,40 @@ _REQUIRED_DOCUMENTS = (
     "docs/submission/architecture.md",
     "docs/submission/demo-script-en.md",
     "docs/submission/demo-subtitles-en.srt",
+    "docs/submission/demo-recording-runbook-ja.md",
     "docs/submission/screenshot-plan.md",
+    "docs/submission/devpost-registration-worksheet-ja.md",
+    "docs/submission/ibm-bob-capture-checklist-ja.md",
     "docs/submission/ibm-bob-evidence.md",
     "docs/submission/ibm-bob-review-sanitized.md",
     "docs/submission/judging-alignment.md",
     "docs/submission/official-rules-audit.md",
     "docs/submission/technical-evidence.md",
     "docs/submission/test-evidence.md",
+    "docs/submission/assets/01-home-en-public-safe.jpg",
+    "docs/submission/assets/02-agent-accepted-en.jpg",
+    "docs/submission/assets/03-agent-missing-asset-en.jpg",
+    "docs/submission/assets/04-candidate-evidence-blocked-en.jpg",
+    "docs/submission/assets/05-story-plan-synthetic-en.jpg",
+)
+_REQUIRED_DEVPOST_SECTIONS = (
+    "# Ride Storyteller",
+    "## One-line Summary",
+    "## Problem",
+    "## Solution",
+    "## Why This Matters",
+    "## How We Used AI",
+    "## How We Used Codex",
+    "## Key Features",
+    "## Architecture",
+    "## Testing Instructions",
+    "## Public Demo Link",
+    "## Public Repository Link",
+    "## Demo Video",
+    "## Screenshot Shot List",
+    "## Submission Readiness Notes",
+    "## Known Limitations",
+    "## TODO Official Form Fields",
 )
 _LICENSE_FILE_NAMES = ("LICENSE", "LICENSE.txt", "LICENSE.md")
 _OSI_LICENSE_MARKERS = {
@@ -137,6 +164,7 @@ def build_offline_submission_readiness(
     private_candidates = _private_candidates(root)
     secret_candidates = _secret_candidates(root)
     license_result = _recognized_osi_license(root)
+    missing_devpost_sections = _missing_devpost_sections(root / "devpost-submission.md")
     devpost_state_present = (root / ".devpost-hackathon-state.json").is_file()
     source_control_present = (root / ".git").is_dir()
 
@@ -146,6 +174,15 @@ def build_offline_submission_readiness(
                 "submission_documents",
                 not missing_documents,
                 "complete" if not missing_documents else "missing: " + ", ".join(missing_documents),
+            ),
+            OfflineReadinessCheck(
+                "devpost_draft_sections",
+                not missing_devpost_sections,
+                (
+                    "complete"
+                    if not missing_devpost_sections
+                    else "missing headings: " + ", ".join(missing_devpost_sections)
+                ),
             ),
             OfflineReadinessCheck(
                 "osi_license",
@@ -180,7 +217,7 @@ def build_offline_submission_readiness(
         ),
         external_gates=(
             (
-                "Devpost workflow state is present; rules were audited on 2026-08-17, while "
+                "Devpost workflow state is present; rules were refreshed on 2026-08-20, while "
                 "registration and explicit acknowledgment remain pending."
                 if devpost_state_present
                 else "Initialize the Devpost hackathon workflow, authenticate, and review the "
@@ -226,6 +263,13 @@ def _recognized_osi_license(root: Path) -> str | None:
 
 def _is_nonempty_file(path: Path) -> bool:
     return path.is_file() and path.stat().st_size > 0
+
+
+def _missing_devpost_sections(path: Path) -> tuple[str, ...]:
+    if not path.is_file():
+        return _REQUIRED_DEVPOST_SECTIONS
+    contents = path.read_text(encoding="utf-8", errors="ignore")
+    return tuple(heading for heading in _REQUIRED_DEVPOST_SECTIONS if heading not in contents)
 
 
 def _private_candidates(root: Path) -> tuple[str, ...]:

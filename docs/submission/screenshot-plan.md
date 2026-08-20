@@ -14,6 +14,27 @@
 9. Synthetic Gemini Story copy success metadata only; do not show generated
    model text or credentials.
 
+## Captured synthetic-only assets — 2026-08-20
+
+The following English screenshots were captured from the loopback-only local
+public demo and manually inspected at full resolution. They contain synthetic
+data only and are safe submission candidates. They are not evidence of a public
+deployment, hosted Google execution, IBM Bob use, or real-media completion.
+
+1. [`01-home-en-public-safe.jpg`](assets/01-home-en-public-safe.jpg) — English
+   home screen, synthetic-data notice, and public-safe controls.
+2. [`02-agent-accepted-en.jpg`](assets/02-agent-accepted-en.jpg) — deterministic
+   accepted decision and tool-flow evidence.
+3. [`03-agent-missing-asset-en.jpg`](assets/03-agent-missing-asset-en.jpg) —
+   missing-asset fail-closed result.
+4. [`04-candidate-evidence-blocked-en.jpg`](assets/04-candidate-evidence-blocked-en.jpg)
+   — candidate plan blocked while evidence is unresolved.
+5. [`05-story-plan-synthetic-en.jpg`](assets/05-story-plan-synthetic-en.jpg) —
+   synthetic Story Plan view.
+
+The hosted synthetic metadata, IBM Bob, and approved real-media captures remain
+separate items and must not be represented by these local screenshots.
+
 ## Captures that must wait
 
 1. Actual GoPro inventory summary.
@@ -34,6 +55,11 @@ recorded local paths. Re-open Bob and capture a screen that shows:
 - the IBM Bob product chrome or identity;
 - no account email, API key, token, project secret, Runtime resource name,
   staging bucket, GPX data, video file name, or private filesystem path.
+
+The terminal-free click/check workflow and a public-files-only Bob prompt are in
+`ibm-bob-capture-checklist-ja.md`. The checklist is preparation, not Bob-usage
+proof; only the newly captured product-identifying review screen satisfies this
+remaining evidence item.
 
 ## Capture rules
 

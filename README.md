@@ -253,8 +253,9 @@ describes Confluent as optional. Ride Storyteller therefore keeps IBM as the
 lowest-change working track, backed by a retained Bob review and implemented
 finding-to-test evidence. Registration, explicit rules agreement, final track
 confirmation, and a sanitized Bob screenshot remain external gates. The legal
-terms and Devpost dates endpoint currently disagree on the submission deadline,
-so the project uses the earlier legal-terms deadline: 2026-09-08 06:00 JST. See
+terms and Devpost dates endpoint were refreshed on 2026-08-20 and now agree on
+the deadline: 2026-09-10 06:00 JST. Final validation should finish at least
+24 hours earlier. See
 [`docs/submission/official-rules-audit.md`](docs/submission/official-rules-audit.md)
 and [`docs/ibm-mcp-integration-gate.md`](docs/ibm-mcp-integration-gate.md).
 
@@ -265,9 +266,11 @@ confirmed.
 
 ## Offline submission preparation
 
-English write-up, three-minute demo script, screenshot plan, IBM Bob evidence,
-official-rules audit, Devpost form draft, and technical/test evidence are kept
-locally. They are not submitted automatically. Run the safe local preflight:
+English write-up, three-minute demo script, recording runbook, screenshot plan,
+five synthetic-only English UI captures, IBM Bob evidence and re-capture
+checklist, Devpost registration worksheet, official-rules audit, Devpost form
+draft, and technical/test evidence are kept locally. They are not submitted
+automatically. Run the safe local preflight:
 
 ```bash
 python -m app.submission

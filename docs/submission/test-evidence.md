@@ -14,19 +14,28 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-17: **224 pytest tests passed**, Ruff was clean, `pip check` found no
+2026-08-20: **225 pytest tests passed**, Ruff was clean, `pip check` found no
 broken requirements, and the dependency-free Day 1 checks passed. The submission
-preflight now passes the document, private-ignore, private-file, and secret
-checks but intentionally reports `offline_preparation_complete=false` because
-the owner has not selected a root OSI license. This is a real submission blocker,
-not a test failure.
+preflight now passes the document, required Devpost-draft headings,
+private-ignore, private-file, and secret checks but intentionally reports
+`offline_preparation_complete=false` because the owner has not selected a root
+OSI license. This is a real submission blocker, not a test failure.
 
-The English `public_demo` UI was also opened in a browser and exercised through
-the accepted decision, Story Plan, and candidate-plan views. The IBM Bob
-development-evidence section rendered in English, cloud/private controls were
-disabled, the deterministic demo returned its five-step flow, and the candidate
-plan remained blocked for insufficient duration and unconfirmed evidence. The
-temporary local server and test tab were closed after inspection.
+The new focused test removes one required Devpost heading and verifies that the
+preflight reports the exact missing section. The preflight also requires the
+registration worksheet, IBM Bob re-capture checklist, and recording runbook, so
+those handoff documents cannot silently disappear from a public candidate.
+
+On 2026-08-20, the English `public_demo` UI was opened in a browser and exercised
+through the accepted decision, missing-asset decision, Story Plan, and
+candidate-plan views. The IBM Bob development-evidence section rendered in
+English, cloud/private controls were disabled, the deterministic demo returned
+its five-step flow, and the candidate plan remained blocked for insufficient
+duration and unconfirmed evidence. Five synthetic-only screenshots were saved
+under `docs/submission/assets/` and manually inspected at full resolution. The
+temporary loopback server and test tab were closed after inspection. These
+captures do not claim hosted execution, public availability, Bob usage, or
+real-media completion.
 
 The suite includes Japanese/English Story Plan API coverage and verifies that
 changing the output language does not change selected event IDs, chapter IDs,

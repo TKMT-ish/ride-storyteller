@@ -14,13 +14,41 @@ REQUIRED_DOCUMENTS = (
     "docs/submission/architecture.md",
     "docs/submission/demo-script-en.md",
     "docs/submission/demo-subtitles-en.srt",
+    "docs/submission/demo-recording-runbook-ja.md",
     "docs/submission/screenshot-plan.md",
+    "docs/submission/devpost-registration-worksheet-ja.md",
+    "docs/submission/ibm-bob-capture-checklist-ja.md",
     "docs/submission/ibm-bob-evidence.md",
     "docs/submission/ibm-bob-review-sanitized.md",
     "docs/submission/judging-alignment.md",
     "docs/submission/official-rules-audit.md",
     "docs/submission/technical-evidence.md",
     "docs/submission/test-evidence.md",
+    "docs/submission/assets/01-home-en-public-safe.jpg",
+    "docs/submission/assets/02-agent-accepted-en.jpg",
+    "docs/submission/assets/03-agent-missing-asset-en.jpg",
+    "docs/submission/assets/04-candidate-evidence-blocked-en.jpg",
+    "docs/submission/assets/05-story-plan-synthetic-en.jpg",
+)
+
+REQUIRED_DEVPOST_SECTIONS = (
+    "# Ride Storyteller",
+    "## One-line Summary",
+    "## Problem",
+    "## Solution",
+    "## Why This Matters",
+    "## How We Used AI",
+    "## How We Used Codex",
+    "## Key Features",
+    "## Architecture",
+    "## Testing Instructions",
+    "## Public Demo Link",
+    "## Public Repository Link",
+    "## Demo Video",
+    "## Screenshot Shot List",
+    "## Submission Readiness Notes",
+    "## Known Limitations",
+    "## TODO Official Form Fields",
 )
 
 MIT_LICENSE_SAMPLE = """MIT License
@@ -52,6 +80,10 @@ def _prepared_root(root: Path) -> Path:
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("prepared", encoding="utf-8")
+    (root / "devpost-submission.md").write_text(
+        "\n\n".join(REQUIRED_DEVPOST_SECTIONS),
+        encoding="utf-8",
+    )
     (root / ".gitignore").write_text(
         ".env\n*.gpx\n*.fit\n*.mp4\n*.mov\n*.lrv\nprivate-media/\n",
         encoding="utf-8",
@@ -80,6 +112,23 @@ def test_offline_submission_preflight_reports_missing_documents(tmp_path: Path) 
         check for check in report.checks if check.check_id == "submission_documents"
     )
     assert "demo-script-en.md" in document_check.detail
+
+
+def test_offline_submission_preflight_reports_missing_devpost_heading(tmp_path: Path) -> None:
+    root = _prepared_root(tmp_path)
+    draft = root / "devpost-submission.md"
+    draft.write_text(
+        draft.read_text(encoding="utf-8").replace("## How We Used Codex", "## Codex"),
+        encoding="utf-8",
+    )
+
+    report = build_offline_submission_readiness(root)
+
+    section_check = next(
+        check for check in report.checks if check.check_id == "devpost_draft_sections"
+    )
+    assert section_check.ready is False
+    assert "## How We Used Codex" in section_check.detail
 
 
 def test_offline_submission_preflight_requires_recognized_root_license(tmp_path: Path) -> None:
