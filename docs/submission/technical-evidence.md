@@ -81,7 +81,8 @@ and model response text are intentionally excluded.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
-- Public-repository publication under the selected root MIT license.
+- Public-repository publication under the selected root AGPL-3.0-only license,
+  including a visible source link from the public network interface.
 - separate public IAM approval, public URL verification, abuse controls, and
   budget alert verification. The private revision and hosted health endpoint are
   verified but are not public evidence.

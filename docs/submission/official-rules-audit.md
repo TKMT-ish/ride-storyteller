@@ -13,6 +13,20 @@ public English or English-subtitled video of no more than three minutes, and one
 Partner track. The authenticated account has a live `registered` relationship
 to Agentic Cinema. No project has been sent to Devpost.
 
+## License decision on 2026-08-24
+
+The live official rules require the submitted source code to use an
+OSI-approved license that does not limit commercial use. A non-commercial
+restriction is therefore not eligible for this submission. The selected root
+license is `AGPL-3.0-only`, replacing the earlier MIT choice. AGPL still permits
+commercial use, but requires covered modifications to remain under its
+copyleft terms and applies its Corresponding Source offer to modified network
+services.
+
+Before public application access, the interface must link visibly to the exact
+public corresponding-source repository. The current hosted demo remains private
+and no repository has been published.
+
 ## Live refresh on 2026-08-20
 
 The authenticated Devpost surfaces were refreshed at approximately 10:01 UTC:

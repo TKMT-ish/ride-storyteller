@@ -281,7 +281,7 @@ This checks offline artifacts, a recognizable root OSI license, and private-file
 protections only. It never treats local state as live Devpost proof, so current
 registration/form status must be re-verified at final submission. Publication,
 hosting, final video, and real-media proof remain separate external gates. The
-repository-root MIT license is checked as part of this preflight.
+repository-root AGPL-3.0 license is checked as part of this preflight.
 
 ## Safe public demo mode
 
@@ -319,4 +319,14 @@ credential-free, non-mutating Cloud Run plan is available with
 
 ## License
 
-Ride Storyteller is available under the [MIT License](LICENSE).
+Ride Storyteller source code and original text documentation are available under
+the [GNU Affero General Public License version 3 only](LICENSE) (`AGPL-3.0-only`),
+except where a file or directory explicitly states otherwise. Commercial use is
+permitted under that license, while modified network services must offer their
+corresponding source as required by AGPL section 13.
+
+Third-party dependencies retain their own licenses. Private GPX/video, music,
+credentials, and other excluded media are not licensed by this repository. The
+Ride Storyteller name and any logo are not granted for use in a way that implies
+endorsement. See [`docs/licensing.md`](docs/licensing.md) for scope and the
+publication checklist.

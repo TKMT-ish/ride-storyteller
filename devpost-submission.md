@@ -122,7 +122,7 @@ RIDE_WEB_MODE=public_demo RIDE_UI_DEFAULT_LANGUAGE=en \
 
 Open `http://127.0.0.1:8765/?lang=en`, run the synthetic decision scenarios,
 and inspect the candidate-plan evidence gate. Public mode intentionally rejects
-private GPX and Google execution endpoints. The selected MIT license is detected
+private GPX and Google execution endpoints. The selected AGPL-3.0 license is detected
 at the repository root, so `python -m app.submission` now passes every offline
 preparation check while preserving the separate external gates.
 
@@ -191,9 +191,9 @@ Still required as distinct evidence:
   sanitized project-specific screenshot are present. Its rendered-gate finding
   was checked against the current source and focused test.
 - Google Cloud synthetic agent use is verified. Real-media cloud use is not.
-- The 2026-08-24 regression run passed 228 tests, Ruff, `pip check`, the
+- The 2026-08-24 regression run passed 229 tests, Ruff, `pip check`, the
   dependency-free Day 1 checks, and `git diff --check`. All offline preparation
-  checks, including the MIT license and IBM Bob evidence image, pass.
+  checks, including the AGPL-3.0 license and IBM Bob evidence image, pass.
 - Devpost registration and the explicit rules/eligibility agreements are
   complete and were verified live. The registration identifier is intentionally
   not stored in this repository.
@@ -233,7 +233,7 @@ Still required as distinct evidence:
 - **Open-source repository URL:** `PENDING`
 - **Hosted project URL:** `PENDING`
 - **Public YouTube/Vimeo demo URL:** `PENDING`
-- **OSI-approved root license:** `MIT`; full text is in the repository-root
+- **OSI-approved root license:** `AGPL-3.0-only`; full text is in the repository-root
   `LICENSE` file
 - **Music title, creator, license, and source URL:** `PENDING`
 

@@ -66,7 +66,8 @@ in this repository.
 3. Capture a sanitized Bob screen showing both the IBM Bob identity and a
    Ride Storyteller-specific finding, with no email, key, token, cloud resource,
    private path, GPX data, or video filename. **Completed 2026-08-24.**
-4. Select an OSI-approved repository license. **MIT selected 2026-08-24.**
+4. Select an OSI-approved repository license. **AGPL-3.0-only selected
+   2026-08-24 after commercial-strategy review, replacing the earlier MIT choice.**
 5. Approve and verify the public repository, public hosted demo, and video.
 
 The existing hosted synthetic Runtime proves a deployed Agent Platform call

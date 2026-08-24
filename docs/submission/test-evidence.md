@@ -14,12 +14,21 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-24: **228 pytest tests passed**, Ruff was clean, `pip check` found no
+2026-08-24: **229 pytest tests passed**, Ruff was clean, `pip check` found no
 broken requirements, and the dependency-free Day 1 checks passed. The submission
 preflight now passes the document, required Devpost-draft headings,
-MIT-license, private-ignore, private-file, and secret checks and reports
+AGPL-3.0-license, private-ignore, private-file, and secret checks and reports
 `offline_preparation_complete=true`. External publication, hosted-app, video,
 and real-media gates remain separate and are not claimed by the offline result.
+
+The canonical repository `LICENSE` SHA-256 exactly matched the file fetched from
+GNU at `https://www.gnu.org/licenses/agpl-3.0.txt`. The readiness recognizer now
+reports `recognized license: AGPL-3.0`; a focused regression test keeps MIT
+recognition as a supported generic preflight case without selecting it for this
+project. The installed direct dependencies were inspected separately and no
+blocking conflict was identified among their Apache-2.0 and MIT-family licenses.
+Seven third-party SDK deprecation warnings remain non-fatal and unchanged in
+character.
 
 The sanitized IBM Bob image was inspected at full resolution and matched against
 the current render-gate source and focused test. A new regression test removes

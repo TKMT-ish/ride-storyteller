@@ -7,6 +7,7 @@ REQUIRED_DOCUMENTS = (
     "devpost-submission.md",
     "docs/ui-localization.md",
     "docs/google-story-copy.md",
+    "docs/licensing.md",
     "docs/agent-platform-deployment-preflight.md",
     "docs/public-demo-hosting.md",
     "docs/cloud-run-public-demo.md",
@@ -76,6 +77,27 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
 
+AGPL_LICENSE_SAMPLE = """GNU AFFERO GENERAL PUBLIC LICENSE
+Version 3, 19 November 2007
+
+Copyright (C) 2007 Free Software Foundation, Inc.
+Everyone is permitted to copy and distribute verbatim copies of this license
+document, but changing it is not allowed.
+
+The GNU Affero General Public License is a free, copyleft license for software
+and other kinds of works, specifically designed to ensure cooperation with the
+community in the case of network server software. The terms allow recipients
+to run, modify, and convey the covered work, subject to the complete license.
+
+Remote Network Interaction requires a modified version used through a computer
+network to offer its Corresponding Source to those users. The complete license
+contains the detailed conditions for conveying source and object code.
+
+THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.
+
+END OF TERMS AND CONDITIONS
+"""
+
 
 def _prepared_root(root: Path) -> Path:
     for relative in REQUIRED_DOCUMENTS:
@@ -91,7 +113,7 @@ def _prepared_root(root: Path) -> Path:
         "*.gpx\n*.fit\n*.mp4\n*.mov\n*.lrv\nprivate-media/\n",
         encoding="utf-8",
     )
-    (root / "LICENSE").write_text(MIT_LICENSE_SAMPLE, encoding="utf-8")
+    (root / "LICENSE").write_text(AGPL_LICENSE_SAMPLE, encoding="utf-8")
     return root
 
 
@@ -188,8 +210,19 @@ def test_offline_submission_preflight_requires_recognized_root_license(tmp_path:
     assert license_check.detail == "missing or unrecognized root OSI license file"
 
 
-def test_offline_submission_preflight_recognizes_mit_license(tmp_path: Path) -> None:
+def test_offline_submission_preflight_recognizes_agpl_license(tmp_path: Path) -> None:
     report = build_offline_submission_readiness(_prepared_root(tmp_path))
+
+    license_check = next(check for check in report.checks if check.check_id == "osi_license")
+    assert license_check.ready is True
+    assert license_check.detail == "recognized license: AGPL-3.0"
+
+
+def test_offline_submission_preflight_recognizes_mit_license(tmp_path: Path) -> None:
+    root = _prepared_root(tmp_path)
+    (root / "LICENSE").write_text(MIT_LICENSE_SAMPLE, encoding="utf-8")
+
+    report = build_offline_submission_readiness(root)
 
     license_check = next(check for check in report.checks if check.check_id == "osi_license")
     assert license_check.ready is True

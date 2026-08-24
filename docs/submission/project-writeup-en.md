@@ -2,7 +2,7 @@
 
 > Local working draft. It has not been copied to Devpost. Registration and the
 > rules/eligibility agreements were completed and verified live on 2026-08-24.
-> The IBM track, submission-specific participant answers, and MIT license are
+> The IBM track, submission-specific participant answers, and AGPL-3.0 license are
 > confirmed; public deliverables remain pending.
 
 ## Inspiration

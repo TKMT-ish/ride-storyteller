@@ -12,6 +12,7 @@ _REQUIRED_DOCUMENTS = (
     "devpost-submission.md",
     "docs/ui-localization.md",
     "docs/google-story-copy.md",
+    "docs/licensing.md",
     "docs/agent-platform-deployment-preflight.md",
     "docs/public-demo-hosting.md",
     "docs/cloud-run-public-demo.md",
@@ -58,6 +59,12 @@ _REQUIRED_DEVPOST_SECTIONS = (
 )
 _LICENSE_FILE_NAMES = ("LICENSE", "LICENSE.txt", "LICENSE.md")
 _OSI_LICENSE_MARKERS = {
+    "AGPL-3.0": (
+        "GNU AFFERO GENERAL PUBLIC LICENSE",
+        "Version 3, 19 November 2007",
+        "Remote Network Interaction",
+        "END OF TERMS AND CONDITIONS",
+    ),
     "Apache-2.0": (
         "Apache License",
         "Version 2.0, January 2004",
