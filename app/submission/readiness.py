@@ -27,6 +27,7 @@ _REQUIRED_DOCUMENTS = (
     "docs/submission/ibm-bob-review-sanitized.md",
     "docs/submission/judging-alignment.md",
     "docs/submission/official-rules-audit.md",
+    "docs/submission/public-repository-preflight-ja.md",
     "docs/submission/technical-evidence.md",
     "docs/submission/test-evidence.md",
     "docs/submission/assets/01-home-en-public-safe.jpg",
@@ -34,6 +35,7 @@ _REQUIRED_DOCUMENTS = (
     "docs/submission/assets/03-agent-missing-asset-en.jpg",
     "docs/submission/assets/04-candidate-evidence-blocked-en.jpg",
     "docs/submission/assets/05-story-plan-synthetic-en.jpg",
+    "docs/submission/assets/06-ibm-bob-video-evidence-gate.png",
 )
 _REQUIRED_DEVPOST_SECTIONS = (
     "# Ride Storyteller",
@@ -77,6 +79,7 @@ _OSI_LICENSE_MARKERS = {
 }
 _REQUIRED_IGNORE_PATTERNS = (
     ".env",
+    ".devpost-submission-answers.json",
     "*.gpx",
     "*.fit",
     "*.mp4",
@@ -165,7 +168,9 @@ def build_offline_submission_readiness(
     secret_candidates = _secret_candidates(root)
     license_result = _recognized_osi_license(root)
     missing_devpost_sections = _missing_devpost_sections(root / "devpost-submission.md")
-    devpost_state_present = (root / ".devpost-hackathon-state.json").is_file()
+    devpost_state_path = root / ".devpost-hackathon-state.json"
+    devpost_state_present = devpost_state_path.is_file()
+    rules_acknowledged = _rules_acknowledged(devpost_state_path)
     source_control_present = (root / ".git").is_dir()
 
     return OfflineSubmissionReadiness(
@@ -217,11 +222,16 @@ def build_offline_submission_readiness(
         ),
         external_gates=(
             (
-                "Devpost workflow state is present; rules were refreshed on 2026-08-20, while "
-                "registration and explicit acknowledgment remain pending."
-                if devpost_state_present
-                else "Initialize the Devpost hackathon workflow, authenticate, and review the "
-                "current official rules."
+                "Devpost workflow state is present and records local rules acknowledgment; "
+                "live registration and submission status must be re-verified through Devpost."
+                if rules_acknowledged
+                else (
+                    "Devpost workflow state is present, but local rules acknowledgment is "
+                    "incomplete or unreadable."
+                    if devpost_state_present
+                    else "Initialize the Devpost hackathon workflow, authenticate, and review "
+                    "the current official rules."
+                )
             ),
             (
                 "Local source control exists; public repository publication still needs "
@@ -230,8 +240,8 @@ def build_offline_submission_readiness(
                 else "Initialize source control, review the first commit, then publish only "
                 "with explicit confirmation."
             ),
-            "Complete Devpost registration and explicitly acknowledge the eligibility and rules.",
-            "Confirm the final IBM track selection and retain a sanitized IBM Bob screenshot.",
+            "Re-verify current registration and official form requirements immediately before "
+            "submission.",
             "Publish and verify the public application only with explicit approval.",
             (
                 "Publish the reviewed repository under the selected OSI license only with "
@@ -246,6 +256,17 @@ def build_offline_submission_readiness(
             "Record the final English demo with real end-to-end evidence.",
         ),
     )
+
+
+def _rules_acknowledged(path: Path) -> bool:
+    """Read only the local rules flag; Devpost-owned status is always verified live."""
+    if not path.is_file():
+        return False
+    try:
+        state = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return False
+    return state.get("rules_acknowledged") is True
 
 
 def _recognized_osi_license(root: Path) -> str | None:

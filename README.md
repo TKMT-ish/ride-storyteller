@@ -249,13 +249,14 @@ does not reliably return the final event. See
 The authenticated Devpost workflow was audited on 2026-08-17. The five Partner
 tracks are IBM, Grafana, Parallel, ClickHouse, and Replit; Box is not a track.
 The IBM-specific rule requires demonstrable IBM Bob use during development and
-describes Confluent as optional. Ride Storyteller therefore keeps IBM as the
-lowest-change working track, backed by a retained Bob review and implemented
-finding-to-test evidence. Registration, explicit rules agreement, final track
-confirmation, and a sanitized Bob screenshot remain external gates. The legal
-terms and Devpost dates endpoint were refreshed on 2026-08-20 and now agree on
-the deadline: 2026-09-10 06:00 JST. Final validation should finish at least
-24 hours earlier. See
+describes Confluent as optional. Ride Storyteller therefore confirms IBM as the
+submission track, backed by a retained Bob review and implemented
+finding-to-test evidence. Registration and the explicit rules/eligibility
+agreements were completed and verified live on 2026-08-24. A sanitized Bob
+screenshot with a Ride Storyteller-specific render-gate finding was captured,
+checked against the current source, and retained on 2026-08-24. The legal
+terms and Devpost dates endpoint agree on the deadline: 2026-09-10 06:00 JST.
+Final validation should finish at least 24 hours earlier. See
 [`docs/submission/official-rules-audit.md`](docs/submission/official-rules-audit.md)
 and [`docs/ibm-mcp-integration-gate.md`](docs/ibm-mcp-integration-gate.md).
 
@@ -267,8 +268,8 @@ confirmed.
 ## Offline submission preparation
 
 English write-up, three-minute demo script, recording runbook, screenshot plan,
-five synthetic-only English UI captures, IBM Bob evidence and re-capture
-checklist, Devpost registration worksheet, official-rules audit, Devpost form
+five synthetic-only English UI captures, a sanitized IBM Bob evidence image and
+capture checklist, Devpost registration worksheet, official-rules audit, Devpost form
 draft, and technical/test evidence are kept locally. They are not submitted
 automatically. Run the safe local preflight:
 
@@ -277,10 +278,10 @@ python -m app.submission
 ```
 
 This checks offline artifacts, a recognizable root OSI license, and private-file
-protections only. It always keeps Devpost registration, explicit rules
-agreement, publication, hosting, final video, and real-media proof as separate
-external gates. Until a license is selected, the preflight intentionally fails
-only that new requirement.
+protections only. It never treats local state as live Devpost proof, so current
+registration/form status must be re-verified at final submission. Publication,
+hosting, final video, and real-media proof remain separate external gates. The
+repository-root MIT license is checked as part of this preflight.
 
 ## Safe public demo mode
 
@@ -315,3 +316,7 @@ credential-free, non-mutating Cloud Run plan is available with
 `python -m app.web.cloud_run`. See
 [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md) and
 [`docs/cloud-run-public-demo.md`](docs/cloud-run-public-demo.md).
+
+## License
+
+Ride Storyteller is available under the [MIT License](LICENSE).

@@ -14,16 +14,23 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-20: **225 pytest tests passed**, Ruff was clean, `pip check` found no
+2026-08-24: **228 pytest tests passed**, Ruff was clean, `pip check` found no
 broken requirements, and the dependency-free Day 1 checks passed. The submission
 preflight now passes the document, required Devpost-draft headings,
-private-ignore, private-file, and secret checks but intentionally reports
-`offline_preparation_complete=false` because the owner has not selected a root
-OSI license. This is a real submission blocker, not a test failure.
+MIT-license, private-ignore, private-file, and secret checks and reports
+`offline_preparation_complete=true`. External publication, hosted-app, video,
+and real-media gates remain separate and are not claimed by the offline result.
 
-The new focused test removes one required Devpost heading and verifies that the
-preflight reports the exact missing section. The preflight also requires the
-registration worksheet, IBM Bob re-capture checklist, and recording runbook, so
+The sanitized IBM Bob image was inspected at full resolution and matched against
+the current render-gate source and focused test. A new regression test removes
+the image from a prepared fixture and verifies that the submission-document
+check fails with its exact file name.
+
+Two additional focused tests verify that the preflight reads only the local
+rules-acknowledgment flag, never treats it as live registration proof, and fails
+safely when the local state is unreadable. The existing focused test removes one
+required Devpost heading and verifies the exact missing section. The preflight also requires the
+registration worksheet, IBM Bob capture checklist and evidence image, and recording runbook, so
 those handoff documents cannot silently disappear from a public candidate.
 
 On 2026-08-20, the English `public_demo` UI was opened in a browser and exercised

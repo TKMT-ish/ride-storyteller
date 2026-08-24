@@ -16,15 +16,16 @@ Ride Storyteller has retained evidence that IBM Bob reviewed the codebase and
 that its findings drove later implementation and tests. It also has a local
 Gemini + Google ADK synthetic path, a verified synthetic-only Agent Platform
 Runtime in Tokyo, and a private Cloud Run public-safe demo revision. Those facts
-provide the technical basis for an IBM-track submission, but registration,
-explicit eligibility/rules agreement, final track selection, and a sanitized
-product-identifying Bob screenshot are still pending.
+provide the technical basis for an IBM-track submission. Registration,
+explicit eligibility/rules agreement, and final IBM track selection are now
+complete. A sanitized, product-identifying Bob screenshot with a Ride
+Storyteller-specific render-gate finding was captured and validated on
+2026-08-24.
 
 ## Current decision
 
-- IBM is the lowest-change working path because Bob already materially
-  influenced the implementation. The user must still confirm the track in the
-  Devpost form.
+- IBM is the confirmed submission track because Bob already materially
+  influenced the implementation.
 - No IBM MCP server will be added merely to satisfy a historical assumption.
 - Box remains optional media-storage/search infrastructure and must not be
   relabeled as IBM or as a submission track.
@@ -59,18 +60,18 @@ in this repository.
 
 ## Required decisions before submission
 
-1. The user supplies the required registration answers and explicitly confirms
-   eligibility and official-rules agreement.
-2. The user confirms IBM as the final track.
+1. Registration answers and explicit eligibility/rules agreement. **Completed
+   2026-08-24.**
+2. IBM final track selection. **Completed 2026-08-24.**
 3. Capture a sanitized Bob screen showing both the IBM Bob identity and a
    Ride Storyteller-specific finding, with no email, key, token, cloud resource,
-   private path, GPX data, or video filename.
-4. Select an OSI-approved repository license.
+   private path, GPX data, or video filename. **Completed 2026-08-24.**
+4. Select an OSI-approved repository license. **MIT selected 2026-08-24.**
 5. Approve and verify the public repository, public hosted demo, and video.
 
 The existing hosted synthetic Runtime proves a deployed Agent Platform call
 with tool use and a final response. It still does not prove real-video analysis,
-public access, registration, or final submission readiness.
+public access or final submission readiness.
 
 See `docs/submission/ibm-bob-evidence.md`,
 `docs/submission/ibm-bob-review-sanitized.md`, and

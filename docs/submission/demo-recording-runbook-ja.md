@@ -60,8 +60,9 @@ Candidate Planを表示する。未確認映像があるためFFmpeg準備完了
 
 ### 2:15–2:35
 
-再取得したIBM Bob画面と`ibm-bob-evidence.md`の対応表を表示する。Bob画面は
-`ibm-bob-capture-checklist-ja.md`の禁止情報検査を通す。
+取得・検証済みの`06-ibm-bob-video-evidence-gate.png`と
+`ibm-bob-evidence.md`の対応表を表示する。Bob画面は
+`ibm-bob-capture-checklist-ja.md`の禁止情報検査を通過済み。
 
 ### 2:35–2:55
 

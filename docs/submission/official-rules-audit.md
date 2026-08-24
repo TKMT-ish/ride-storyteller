@@ -1,7 +1,17 @@
 # Official Agentic Cinema rules audit
 
-> Verified through the authenticated Devpost workflow on 2026-08-20. This is a
+> Verified through the authenticated Devpost workflow on 2026-08-24. This is a
 > working compliance record, not a substitute for the official rules.
+
+## Live submission-preparation refresh on 2026-08-24
+
+The authenticated Devpost workflow returned complete submission requirements,
+judging criteria, and dates. Submissions remain open and the deadline remains
+2026-09-09 21:00 UTC / 2026-09-10 06:00 JST. The official form still requires a
+hosted-project URL, a public repository with a visible complete OSI license, a
+public English or English-subtitled video of no more than three minutes, and one
+Partner track. The authenticated account has a live `registered` relationship
+to Agentic Cinema. No project has been sent to Devpost.
 
 ## Live refresh on 2026-08-20
 
@@ -64,7 +74,8 @@ IBM Bob usage are ineligible for the IBM track. Confluent is optional, although
 the rule encourages it for real-time/event-driven workflows.
 
 Ride Storyteller has an IBM Bob review transcript and a finding-to-fix evidence
-index. A sanitized product-identifying screenshot still needs to be captured.
+index. A sanitized product-identifying screenshot with a project-specific
+render-gate finding was captured and validated on 2026-08-24.
 The general submission text asks for Google Cloud and Partner services to be
 visible in code at runtime, while the IBM-specific accepted-technology text
 defines Bob as a development-process requirement. Because those clauses are not
@@ -100,16 +111,18 @@ Each criterion is scored on a five-point scale:
 
 ## Registration and eligibility gates
 
-Registration is still incomplete. The user must personally provide the required
-profile answers and explicitly agree that they meet the age, territory, export,
-employment/conflict, and official-rules conditions. Codex must not infer those
-answers or agreement.
+Registration and the explicit rules/eligibility agreements were completed and
+verified live on 2026-08-24. The participant also confirmed every currently
+available submission-specific answer and selected the IBM track. Exact personal
+values are stored only in an ignored local answer file and are not copied into
+public repository documentation or Notion. Public URLs and the final video remain
+unavailable.
 
-The live registration form currently requires one of `Working solo`, `Looking
+The registration form required one of `Working solo`, `Looking
 for teammates`, or `Already have a team`; Company Name; Job Title; self-assessed
 AI experience; self-assessed Google Cloud Agent Builder experience; and one or
-more primary goals. The exact options and a one-message answer template are kept
-in `devpost-registration-worksheet-ja.md`.
+more primary goals. The historical answer template is retained in
+`devpost-registration-worksheet-ja.md` without storing the submitted answers.
 
 ## Official references
 

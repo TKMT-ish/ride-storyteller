@@ -32,8 +32,20 @@ deployment, hosted Google execution, IBM Bob use, or real-media completion.
 5. [`05-story-plan-synthetic-en.jpg`](assets/05-story-plan-synthetic-en.jpg) —
    synthetic Story Plan view.
 
-The hosted synthetic metadata, IBM Bob, and approved real-media captures remain
-separate items and must not be represented by these local screenshots.
+The hosted synthetic metadata and approved real-media captures remain separate
+items and must not be represented by these local screenshots.
+
+## Captured IBM Bob evidence — 2026-08-24
+
+[`06-ibm-bob-video-evidence-gate.png`](assets/06-ibm-bob-video-evidence-gate.png)
+shows IBM Bob, the Ride Storyteller project context, the public-safe prompt, and
+a concrete finding about the fail-closed render gate. The current source and
+focused test were checked independently before accepting the image.
+
+The full-resolution image contains no account identity, credentials, environment
+values, cloud resource names, absolute paths, GPX coordinates, or private media
+names. It is evidence of IBM Bob use during development, not hosted execution or
+real-media completion.
 
 ## Captures that must wait
 
@@ -44,11 +56,10 @@ separate items and must not be represented by these local screenshots.
 5. Public repository and hosted application URLs after verification.
 6. Final subtitle alignment against the recorded English demo.
 
-## IBM Bob capture to re-create
+## IBM Bob capture completed
 
-The preserved text review proves that Bob inspected the code and produced
-specific findings, but the earlier screenshots are no longer available at their
-recorded local paths. Re-open Bob and capture a screen that shows:
+The preserved text review and the new screenshot together show that Bob inspected
+the code and produced a project-specific finding. The accepted screen shows:
 
 - the Ride Storyteller project context;
 - one or more specific technical findings;
@@ -56,10 +67,9 @@ recorded local paths. Re-open Bob and capture a screen that shows:
 - no account email, API key, token, project secret, Runtime resource name,
   staging bucket, GPX data, video file name, or private filesystem path.
 
-The terminal-free click/check workflow and a public-files-only Bob prompt are in
-`ibm-bob-capture-checklist-ja.md`. The checklist is preparation, not Bob-usage
-proof; only the newly captured product-identifying review screen satisfies this
-remaining evidence item.
+The terminal-free click/check workflow and public-files-only prompt remain in
+`ibm-bob-capture-checklist-ja.md` as the reproducible capture record. The accepted
+product-identifying review screen now satisfies this evidence item.
 
 ## Capture rules
 

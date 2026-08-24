@@ -22,6 +22,7 @@ REQUIRED_DOCUMENTS = (
     "docs/submission/ibm-bob-review-sanitized.md",
     "docs/submission/judging-alignment.md",
     "docs/submission/official-rules-audit.md",
+    "docs/submission/public-repository-preflight-ja.md",
     "docs/submission/technical-evidence.md",
     "docs/submission/test-evidence.md",
     "docs/submission/assets/01-home-en-public-safe.jpg",
@@ -29,6 +30,7 @@ REQUIRED_DOCUMENTS = (
     "docs/submission/assets/03-agent-missing-asset-en.jpg",
     "docs/submission/assets/04-candidate-evidence-blocked-en.jpg",
     "docs/submission/assets/05-story-plan-synthetic-en.jpg",
+    "docs/submission/assets/06-ibm-bob-video-evidence-gate.png",
 )
 
 REQUIRED_DEVPOST_SECTIONS = (
@@ -85,7 +87,8 @@ def _prepared_root(root: Path) -> Path:
         encoding="utf-8",
     )
     (root / ".gitignore").write_text(
-        ".env\n*.gpx\n*.fit\n*.mp4\n*.mov\n*.lrv\nprivate-media/\n",
+        ".env\n.devpost-submission-answers.json\n"
+        "*.gpx\n*.fit\n*.mp4\n*.mov\n*.lrv\nprivate-media/\n",
         encoding="utf-8",
     )
     (root / "LICENSE").write_text(MIT_LICENSE_SAMPLE, encoding="utf-8")
@@ -101,6 +104,33 @@ def test_offline_submission_preflight_passes_complete_local_preparation(tmp_path
     assert report.media_gates
 
 
+def test_offline_submission_preflight_uses_local_rules_state_without_claiming_registration(
+    tmp_path: Path,
+) -> None:
+    root = _prepared_root(tmp_path)
+    (root / ".devpost-hackathon-state.json").write_text(
+        '{"rules_acknowledged": true}',
+        encoding="utf-8",
+    )
+
+    report = build_offline_submission_readiness(root)
+
+    assert "records local rules acknowledgment" in report.external_gates[0]
+    assert "live registration and submission status must be re-verified" in (
+        report.external_gates[0]
+    )
+    assert all("Complete Devpost registration" not in gate for gate in report.external_gates)
+
+
+def test_offline_submission_preflight_rejects_unreadable_rules_state(tmp_path: Path) -> None:
+    root = _prepared_root(tmp_path)
+    (root / ".devpost-hackathon-state.json").write_text("not-json", encoding="utf-8")
+
+    report = build_offline_submission_readiness(root)
+
+    assert "incomplete or unreadable" in report.external_gates[0]
+
+
 def test_offline_submission_preflight_reports_missing_documents(tmp_path: Path) -> None:
     root = _prepared_root(tmp_path)
     (root / "docs/submission/demo-script-en.md").unlink()
@@ -112,6 +142,21 @@ def test_offline_submission_preflight_reports_missing_documents(tmp_path: Path) 
         check for check in report.checks if check.check_id == "submission_documents"
     )
     assert "demo-script-en.md" in document_check.detail
+
+
+def test_offline_submission_preflight_requires_ibm_bob_evidence_image(
+    tmp_path: Path,
+) -> None:
+    root = _prepared_root(tmp_path)
+    (root / "docs/submission/assets/06-ibm-bob-video-evidence-gate.png").unlink()
+
+    report = build_offline_submission_readiness(root)
+
+    document_check = next(
+        check for check in report.checks if check.check_id == "submission_documents"
+    )
+    assert document_check.ready is False
+    assert "06-ibm-bob-video-evidence-gate.png" in document_check.detail
 
 
 def test_offline_submission_preflight_reports_missing_devpost_heading(tmp_path: Path) -> None:

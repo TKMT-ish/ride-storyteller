@@ -2,8 +2,8 @@
 
 > The IBM-specific track requirement was verified through the authenticated
 > Devpost workflow on 2026-08-17. This index demonstrates Bob's development
-> influence; registration, final track confirmation, and a sanitized screenshot
-> remain separate gates.
+> influence. Registration, the IBM track selection, and a sanitized
+> project-specific IBM Bob screenshot are complete.
 
 ## Retained source artifact
 
@@ -13,9 +13,24 @@ GPS-to-render flow, identified three priority gaps, and listed focused missing
 tests. The original artifact must remain private because its local path is not a
 portable public reference.
 
-The earlier Bob screenshots are no longer available at their recorded paths.
-A new sanitized product-identifying screenshot is therefore still required.
+The earlier Bob screenshots are no longer available at their recorded paths;
+the known locations were checked again on 2026-08-24. A replacement screenshot
+was captured and validated on the same date.
 `ibm-bob-review-sanitized.md` is the portable public-safe transcript summary.
+
+## Sanitized screenshot — 2026-08-24
+
+[`assets/06-ibm-bob-video-evidence-gate.png`](assets/06-ibm-bob-video-evidence-gate.png)
+shows the IBM Bob product identity, the Ride Storyteller project context, the
+public-only review prompt, and Bob's concrete finding about the fail-closed
+render gate in `app/edit/render_plan.py` with its focused test in
+`tests/test_render_plan.py`.
+
+The image was inspected at its original 3232 x 3548 resolution. It does not
+show an email address, account identity, credential, environment value, cloud
+resource name, absolute filesystem path, GPX coordinate, or private media name.
+The stated safeguard was independently checked against the current source and
+test before the image was accepted.
 
 ## Findings and implemented response
 
@@ -37,8 +52,9 @@ A new sanitized product-identifying screenshot is therefore still required.
 - The retained Bob review predates the ADK deployment, evidence-state, probe,
   inventory, bilingual UI, and Vertex video-transport work; its architecture
   summary is historical, not a description of the current repository.
-- A sanitized IBM Bob screenshot still must be re-captured.
-- The official IBM wording is verified, but the user has not yet completed
-  registration, explicit rules agreement, or final form selection.
+- The replacement screenshot proves one current, project-specific Bob review;
+  it does not imply that Bob executed the application or reviewed private media.
+- The official IBM wording, hackathon registration, IBM track selection, and
+  submission-specific participant answers are confirmed.
 - Real-video Gemini analysis is not yet evidence; no private media transfer has
   been authorized.

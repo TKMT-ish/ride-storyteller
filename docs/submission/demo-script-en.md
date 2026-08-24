@@ -53,8 +53,9 @@ Run the hosted synthetic test once. Keep the usage-cost notice visible.
 evidence transitions, and boundary-test gaps. We implemented those findings and
 retained the before-and-after evidence.”
 
-Show a re-captured Bob review screenshot and the evidence table. Do not show an
-email address, API key, Runtime name, bucket name, or private path.
+Show `06-ibm-bob-video-evidence-gate.png` and the evidence table. The validated
+image does not show an email address, API key, Runtime name, bucket name, or
+private path.
 
 ## 2:35–2:55 — Real output
 

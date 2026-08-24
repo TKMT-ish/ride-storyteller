@@ -1,7 +1,8 @@
 # Ride Storyteller
 
-> Devpost working draft only. Nothing in this file has been submitted. `PENDING`
-> values require participant input, public verification, or the real-media gate.
+> Devpost working draft only. The participant is registered for Agentic Cinema,
+> but no project has been sent to Devpost. `PENDING` values require participant
+> input, public verification, or the real-media gate.
 
 ## One-line Summary
 
@@ -121,9 +122,9 @@ RIDE_WEB_MODE=public_demo RIDE_UI_DEFAULT_LANGUAGE=en \
 
 Open `http://127.0.0.1:8765/?lang=en`, run the synthetic decision scenarios,
 and inspect the candidate-plan evidence gate. Public mode intentionally rejects
-private GPX and Google execution endpoints. Until the participant selects an
-OSI-approved root license, `python -m app.submission` intentionally reports only
-the license check as incomplete.
+private GPX and Google execution endpoints. The selected MIT license is detected
+at the repository root, so `python -m app.submission` now passes every offline
+preparation check while preserving the separate external gates.
 
 ## Public Demo Link
 
@@ -156,31 +157,47 @@ Captured local synthetic-only candidates:
 4. [Candidate plan blocked by unresolved evidence](docs/submission/assets/04-candidate-evidence-blocked-en.jpg).
 5. [Synthetic Story Plan](docs/submission/assets/05-story-plan-synthetic-en.jpg).
 
+Captured partner-development evidence:
+
+6. [IBM Bob review of the video-evidence gate](docs/submission/assets/06-ibm-bob-video-evidence-gate.png),
+   showing the product identity, Ride Storyteller context, and a current
+   project-specific finding without account data or private paths.
+
 Still required as distinct evidence:
 
-6. Synthetic-only hosted ADK result with `private_data_used=false` and no model
+7. Synthetic-only hosted ADK result with `private_data_used=false` and no model
    response text.
-7. IBM Bob product-identifying screen with a project-specific finding, sanitized
-   of account data, secrets, resource names, and private paths.
 8. Architecture and automated-test evidence.
 9. One real source-to-confirmed-output sequence only after explicit real-media
    approval and successful human review.
 
 ## Submission Readiness Notes
 
-- The live Devpost surfaces were rechecked on 2026-08-20.
+- Devpost authentication and the Agentic Cinema `registered` relationship were
+  verified live on 2026-08-24. The project itself has not been sent to Devpost.
+- The official submission requirements, judging criteria, and dates were
+  rechecked on 2026-08-24 and returned complete data.
 - The official dates endpoint and legal rules now agree on
   **2026-09-09 21:00 UTC / 2026-09-10 06:00 JST**. The earlier two-day
   discrepancy is resolved; final validation should finish at least 24 hours
   before the official deadline.
-- Working partner track: `IBM`; final participant confirmation is required.
-- IBM Bob review transcript and finding-to-fix mapping exist. A new sanitized Bob
-  screenshot is still required because earlier image paths no longer exist.
+- The four official judging criteria are Technological Implementation, Design,
+  Potential Impact, and Quality of the Idea.
+- Official deliverables require a hosted-project URL, a public open-source
+  repository with a complete visible OSI license, and a public YouTube or Vimeo
+  demo of no more than three minutes in English or with English subtitles.
+- Partner track: `IBM`; confirmed by the participant on 2026-08-24.
+- IBM Bob review transcript, finding-to-fix mapping, and a newly captured
+  sanitized project-specific screenshot are present. Its rendered-gate finding
+  was checked against the current source and focused test.
 - Google Cloud synthetic agent use is verified. Real-media cloud use is not.
-- Local automated checks pass, except the intentionally incomplete root-license
-  gate.
-- Devpost registration and explicit eligibility/rules agreement are incomplete.
-- Nothing has been sent to Devpost.
+- The 2026-08-24 regression run passed 228 tests, Ruff, `pip check`, the
+  dependency-free Day 1 checks, and `git diff --check`. All offline preparation
+  checks, including the MIT license and IBM Bob evidence image, pass.
+- Devpost registration and the explicit rules/eligibility agreements are
+  complete and were verified live. The registration identifier is intentionally
+  not stored in this repository.
+- No Devpost project entry has been created or sent from this draft.
 
 ## Known Limitations
 
@@ -201,27 +218,23 @@ Still required as distinct evidence:
 - **Project name:** Ride Storyteller
 - **Tagline:** Turn motorcycle telemetry into questions, video into evidence,
   and evidence into a travel story.
-- **Submitter Type:** `PENDING` — Individual / Team / Organization
-- **Organization name:** `PENDING` — use `N/A` if applicable
-- **Country of residence:** `PENDING`
-- **Canadian province:** `PENDING` — use `N/A` if applicable
-- **Government employee:** `PENDING` — Yes / No
-- **New or existing before July 27, 2026:** working answer `New`; participant must
-  confirm that no pre-contest implementation is being entered
-- **Partner track:** working answer `IBM`; participant confirmation required
-- **Team size:** `PENDING` — maximum four
-- **First time using IBM tools:** `PENDING`
-- **First time using other-track tools:** use the exact `N/A` choices after IBM is
-  confirmed
-- **Optional IBM contact sharing:** `PENDING`; never opt in without the
-  participant's explicit choice
+- **Private participant fields:** confirmed on 2026-08-24. Exact official values
+  are stored only in the ignored local `.devpost-submission-answers.json` file
+  and must not be committed or copied to Notion.
+- **Partner track:** `IBM` — confirmed
+- **Team size:** one — confirmed
+- **First time using IBM tools:** confirmed
+- **Other-track first-use fields:** confirmed using the exact official `N/A`
+  choices
+- **Optional IBM contact sharing:** declined
 
 ### Links and assets
 
 - **Open-source repository URL:** `PENDING`
 - **Hosted project URL:** `PENDING`
 - **Public YouTube/Vimeo demo URL:** `PENDING`
-- **OSI-approved root license:** `PENDING`
+- **OSI-approved root license:** `MIT`; full text is in the repository-root
+  `LICENSE` file
 - **Music title, creator, license, and source URL:** `PENDING`
 
 ### Product lists
@@ -233,8 +246,8 @@ Still required as distinct evidence:
 
 ### Registration profile and agreements
 
-- Team preference, company, job title, AI experience, Google Cloud Agent Builder
-  experience, and primary goals: `PENDING` participant answers.
-- Age-of-majority, territory/sanctions, employment/conflict, and official-rules
-  eligibility: `PENDING` explicit participant confirmation.
-- Devpost official rules and terms: `PENDING` explicit participant agreement.
+- **Hackathon registration:** completed and verified live on 2026-08-24.
+- **Rules, eligibility, and Devpost terms:** explicitly agreed for registration.
+- Registration answers and identifiers are intentionally not duplicated in this
+  public-submission draft. Submission-specific fields above still require their
+  own participant confirmation.

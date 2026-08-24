@@ -70,19 +70,18 @@ and model response text are intentionally excluded.
 
 ## Not yet proven
 
-- The authenticated Devpost overview, legal terms, dates, judging criteria,
-  prizes, announcements, registration form, and submission requirements were
-  audited on 2026-08-17. The IBM-specific rule requires demonstrable IBM Bob
-  development use and makes Confluent optional. Registration, explicit rules
-  agreement, final IBM-track selection, and the sanitized screenshot are not
-  complete.
+- The authenticated Devpost relationship confirms registration, and the
+  submission requirements, judging criteria, and dates were refreshed on
+  2026-08-24. No Devpost project has been created or sent. The IBM track is
+  confirmed; the sanitized IBM Bob screenshot and its current-source
+  cross-check are complete.
 - Google Cloud Agent Builder compatibility if the current rules distinguish it
   from the deployed Agent Platform Runtime.
 - Real GoPro video transfer, Gemini analysis, and story update.
 - Actual camera-to-GPS clock correction across source files.
 - Final public repository, hosted application, English recording, and complete
   five-to-ten-minute film.
-- Root OSI license selection and public-repository publication.
+- Public-repository publication under the selected root MIT license.
 - separate public IAM approval, public URL verification, abuse controls, and
   budget alert verification. The private revision and hosted health endpoint are
   verified but are not public evidence.
