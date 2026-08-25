@@ -317,6 +317,10 @@ The image uses Gunicorn 26, runs as a non-root user, copies only the application
 allowlist, and refuses to start outside `public_demo` mode. `/health` exposes
 safe mode/capability flags only; `/healthz` remains a local compatibility alias
 but is not used on Cloud Run because paths ending in `z` may be reserved. The
+public mode accepts body-free GET requests only, applies a fixed-window limit of
+60 non-health requests per minute in each of at most two worker processes, and
+returns 429 with `Retry-After` after the limit. This is a dependency-free
+baseline guard, not a distributed rate limiter or DDoS service. The
 image has been built and health-checked locally for Cloud Run's `linux/amd64`
 target. The current private Tokyo Cloud Run revision is Ready, its HTTP startup
 probe and authenticated `/health` request both pass, and unauthenticated access

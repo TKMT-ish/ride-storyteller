@@ -14,7 +14,7 @@ def test_cloud_run_plan_uses_approved_safe_defaults() -> None:
     assert plan.region == "asia-northeast1"
     assert plan.image_uri == (
         "asia-northeast1-docker.pkg.dev/ride-storyteller/"
-        "ride-storyteller/public-demo:candidate"
+        "ride-storyteller/public-demo:64adfed"
     )
     assert plan.cpu == 1
     assert plan.memory == "512Mi"
@@ -54,8 +54,8 @@ def test_private_first_arguments_do_not_allow_unauthenticated_access() -> None:
         public_access_approved=False,
     )
 
-    assert "--no-allow-unauthenticated" in arguments
-    assert "--allow-unauthenticated" not in arguments
+    assert "--invoker-iam-check" in arguments
+    assert "--no-invoker-iam-check" not in arguments
     assert "--max=1" in arguments
     assert "--min=0" in arguments
     assert (
@@ -73,8 +73,8 @@ def test_public_access_is_a_separate_explicit_argument() -> None:
         public_access_approved=True,
     )
 
-    assert "--allow-unauthenticated" in arguments
-    assert "--no-allow-unauthenticated" not in arguments
+    assert "--no-invoker-iam-check" in arguments
+    assert "--invoker-iam-check" not in arguments
     assert any(
         "RIDE_SOURCE_REPOSITORY_URL=https://github.com/owner/ride-storyteller" in value
         for value in arguments
@@ -100,6 +100,9 @@ def test_public_access_requires_validated_source_repository_url() -> None:
         {"concurrency": 5},
         {"timeout_s": 31},
         {"health_path": "/healthz"},
+        {"image_tag": "candidate"},
+        {"image_tag": "latest"},
+        {"image_tag": "64adfez"},
     ),
 )
 def test_cloud_run_plan_rejects_unreviewed_capacity_or_region(

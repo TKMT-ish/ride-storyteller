@@ -29,10 +29,14 @@
 - A fail-closed public demo mode that rejects private GPX, Maps, Gemini/ADK,
   hosted Runtime, and configuration endpoints while retaining deterministic
   synthetic views and a safe health check.
+- A dependency-free public request guard that rejects non-GET methods and any
+  request body, limits each of at most two workers to 60 non-health requests per
+  minute, returns 429 with `Retry-After`, and leaves local mode unchanged. This
+  is a process-local baseline rather than a distributed DDoS control.
 - A Python 3.12 / Gunicorn 26 container that requires public
   mode, runs non-root, uses allowlisted source copies, excludes private formats
   from the build context, and has been built and health-checked locally for
-  `linux/amd64`. The current 44,513,334-byte image contains no Google SDK and
+  `linux/amd64`. The current 44,271,065-byte image contains no Google SDK and
   blocks all private/Google execution endpoints.
 - A credential-free Cloud Run target model that pins Tokyo, 1 CPU / 512 MiB,
   minimum zero / maximum one instance, concurrency four, a dedicated no-role
@@ -40,8 +44,8 @@
   gates. It never invokes `gcloud` or a Google API.
 - A private Tokyo Cloud Run revision that became Ready with 100% traffic under
   the reviewed limits. Authenticated verification returned 200 for the English
-  synthetic demo and 403 for all five private/Google execution routes. There is
-  no unauthenticated IAM binding.
+  synthetic demo, the exact GitHub AGPL Source link, and 403 for all five
+  private/Google execution routes. There is no unauthenticated IAM binding.
 - A canonical `/health` endpoint selected after confirming Google's warning
   about reserved paths ending in `z`. The current revision's HTTP startup probe,
   authenticated hosted request, security headers, and unauthenticated 403 are
@@ -83,7 +87,8 @@ and model response text are intentionally excluded.
   five-to-ten-minute film.
 - Public-repository publication under the selected root AGPL-3.0-only license,
   including a visible source link from the public network interface.
-- separate public IAM approval, public URL verification, abuse controls, and
+- deployment of the locally verified process-local request guard, separate
+  public IAM approval, public URL verification, distributed abuse controls, and
   budget alert verification. The private revision and hosted health endpoint are
   verified but are not public evidence.
 - Real route/media-derived LLM story prose, final English wording, and human

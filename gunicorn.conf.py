@@ -21,8 +21,8 @@ if not deployment.public_demo:
     raise RuntimeError("Gunicorn production mode requires RIDE_WEB_MODE=public_demo")
 
 bind = f"{deployment.host}:{deployment.port}"
-workers = _positive_int("WEB_CONCURRENCY", 2, maximum=8)
-threads = _positive_int("WEB_THREADS", 2, maximum=16)
+workers = _positive_int("WEB_CONCURRENCY", 2, maximum=2)
+threads = _positive_int("WEB_THREADS", 2, maximum=2)
 worker_class = "gthread"
 timeout = 30
 graceful_timeout = 30

@@ -241,8 +241,8 @@ def build_offline_submission_readiness(
                 )
             ),
             (
-                "Local source control exists; public repository publication still needs "
-                "explicit confirmation."
+                "Local source control exists; the live public repository URL, visibility, "
+                "default branch, and license must be re-verified before submission."
                 if source_control_present
                 else "Initialize source control, review the first commit, then publish only "
                 "with explicit confirmation."
@@ -250,10 +250,8 @@ def build_offline_submission_readiness(
             "Re-verify current registration and official form requirements immediately before "
             "submission.",
             "Publish and verify the public application only with explicit approval.",
-            (
-                "Publish the reviewed repository under the selected OSI license only with "
-                "explicit approval."
-            ),
+            "Verify that the reviewed repository remains public under the selected OSI "
+            "license immediately before submission.",
             "Record and publish the final public three-minute English demo video.",
         ),
         media_gates=(

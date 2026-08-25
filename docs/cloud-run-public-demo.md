@@ -4,9 +4,10 @@
 
 The deterministic public-demo image is deployed as a **private** Cloud Run
 service in Tokyo. The current ready revision,
-`ride-storyteller-public-demo-00002-f7x`, receives 100% of traffic and has no
+`ride-storyteller-public-demo-00004-2cr`, receives 100% of traffic and has no
 `allUsers` IAM binding. Unauthenticated public access has not been approved or
-enabled. No project IAM role was granted to the dedicated runtime identity and
+enabled. Its authenticated English UI exposes the validated AGPL Source link
+to the public repository. No project IAM role was granted to the dedicated runtime identity and
 no user-managed service-account key was created. Its HTTP startup probe uses
 `/health` and Cloud Run reports the container healthy.
 
@@ -27,7 +28,7 @@ deployment or IAM mutation.
 | Region | `asia-northeast1` (Tokyo) |
 | Service | `ride-storyteller-public-demo` |
 | Artifact Registry repository | `ride-storyteller` |
-| Image | `public-demo:candidate` |
+| Image | immutable deployed tag `public-demo:64adfed` |
 | Runtime service account | `ride-storyteller-public` in the project, with no application roles |
 | CPU / memory | 1 CPU / 512 MiB |
 | Instances | minimum 0 / maximum 1 |
@@ -46,6 +47,21 @@ boundary. Minimum instances remains unset at both levels, which means zero.
 The application environment contains only non-secret mode and worker settings.
 The public image contains no Google SDK and has no route that can make a Google,
 Agent Platform, Box, GPX, or video request.
+
+The next source candidate also rejects request bodies and non-GET methods in
+`public_demo` mode and applies a dependency-free fixed-window limit of 60
+non-health requests per minute per worker. Gunicorn now accepts at most two
+workers and two threads, so one Cloud Run instance admits at most approximately
+120 non-health requests per minute before 429 responses. Health is exempt so
+the platform probe cannot be blocked. This is a process-local baseline guard,
+not a distributed DDoS control; it is not hosted until a newly reviewed image is
+separately pushed and deployed.
+
+The local `linux/amd64` verification image is 44,271,065 bytes, runs healthy as
+user `ride`, preserves the exact AGPL Source link and five private/Google 403
+boundaries, and returns 405/413 for invalid public request shapes. A rapid local
+sequence produced 429 with `Retry-After: 60`; the temporary containers were
+stopped and auto-removed.
 
 ## Local Cloud Run compatibility evidence
 
@@ -128,6 +144,15 @@ no-referrer, and camera/microphone/geolocation denial headers. An unauthenticate
 `/health` request returned 403. The legacy `/healthz` remains 404 at the Cloud
 Run frontend as expected and is not the hosted health contract.
 
+After the public repository was created, the Source-link implementation was
+built as `linux/amd64`, pushed under immutable tag `public-demo:64adfed`, and
+deployed as the fourth private revision. The remote OCI index and executable
+manifest matched the inspected local image. Authenticated hosted verification
+returned `source_repository_configured=true`, rendered the exact bilingual AGPL
+Source link, preserved the five-step accepted demo and security headers, and
+kept all five private/Google routes at 403. The unauthenticated service URL also
+returned 403, and the verification proxy was stopped.
+
 ## Staged approval gates
 
 Each stage requires a separate exact-target review. Do not combine the stages
@@ -146,20 +171,25 @@ into one unattended command.
    all five 403 boundaries, security headers, startup probe, revision digest,
    and unauthenticated 403 were verified. `/healthz` is no longer the hosted
    contract.
-6. Create and verify the reviewed public repository, then set its exact root URL
+6. **Complete:** create and verify the reviewed public repository, then set its exact root URL
    as `RIDE_SOURCE_REPOSITORY_URL`. The plan rejects non-HTTPS, unsupported-host,
    credential-bearing, query, fragment, and subpage URLs.
-7. Separately approve unauthenticated public access. The command plan refuses to
-   produce `--allow-unauthenticated` unless both approval and a validated Source
-   URL are present; private deployment remains possible without the URL.
-8. Verify the public URL, bilingual Source link, response headers, abuse/cost controls, and budget
+7. Implement and locally verify the public request-shape and process-local rate
+   guard, then push and deploy the reviewed immutable image under a separate
+   external-change approval.
+8. Separately approve unauthenticated public access. Following Google's current
+   recommended method, the command plan refuses to produce
+   `--no-invoker-iam-check` unless both approval and a validated Source URL are
+   present; private deployment explicitly uses `--invoker-iam-check`.
+9. Verify the public URL, bilingual Source link, response headers, abuse/cost controls, and budget
    alerts before treating hosting as complete.
 
 ## Budget-monitoring gate
 
-A read-only check on 2026-08-17 found that the Cloud Billing Budget API is not
-enabled for this project. The CLI offered to enable it; that prompt was declined
-and no change was made. No budget value should be invented because it is a
+A repeated read-only check on 2026-08-25 found that project billing is enabled
+but the Cloud Billing Budget API is still not enabled for this project. The CLI
+offered to enable it during the earlier check; that prompt was declined and no
+change was made. No budget value should be invented because it is a
 financial operating limit chosen by the owner.
 
 Before public IAM is enabled:

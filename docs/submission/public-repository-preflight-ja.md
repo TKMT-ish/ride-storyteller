@@ -38,7 +38,7 @@ git diff --check
   query、fragment、subpage、末尾slashを拒否する。
 - 設定時は公開UIに日英の`Source code (AGPL-3.0)`リンクを表示する。
 - 未設定の`public_demo`は公開準備未完了の警告を表示する。
-- Cloud Run計画は、Source URL未設定では`--allow-unauthenticated`を生成しない。
+- Cloud Run計画は、Source URL未設定では`--no-invoker-iam-check`を生成しない。
   private配備・認証付き確認は引き続き可能。
 - URL検証、日英表示、欠落時停止、Cloud Run公開ゲートの集中テスト63件が成功。
 

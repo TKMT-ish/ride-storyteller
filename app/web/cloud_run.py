@@ -15,6 +15,7 @@ from app.web.deployment import validate_source_repository_url
 
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _SERVICE_NAME = re.compile(r"^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$")
+_IMMUTABLE_IMAGE_TAG = re.compile(r"^[0-9a-f]{7,40}$")
 
 
 @dataclass(frozen=True)
@@ -26,7 +27,7 @@ class CloudRunPublicDemoPlan:
     service_name: str = "ride-storyteller-public-demo"
     repository_name: str = "ride-storyteller"
     image_name: str = "public-demo"
-    image_tag: str = "candidate"
+    image_tag: str = "64adfed"
     service_account_name: str = "ride-storyteller-public"
     cpu: int = 1
     memory: str = "512Mi"
@@ -50,8 +51,8 @@ class CloudRunPublicDemoPlan:
         ):
             if not _SERVICE_NAME.fullmatch(value):
                 raise ValueError(f"{label} must be a valid lowercase resource name")
-        if not self.image_tag or any(character.isspace() for character in self.image_tag):
-            raise ValueError("image_tag must be non-empty and contain no whitespace")
+        if not _IMMUTABLE_IMAGE_TAG.fullmatch(self.image_tag):
+            raise ValueError("image_tag must be a commit-derived immutable hexadecimal tag")
         if self.cpu != 1 or self.memory != "512Mi":
             raise ValueError("the reviewed public-demo size is 1 CPU and 512Mi")
         if self.min_instances != 0 or self.max_instances != 1:
@@ -130,10 +131,10 @@ class CloudRunPublicDemoPlan:
             raise PermissionError(
                 "public access requires a validated public source repository URL"
             )
-        public_flag = (
-            "--allow-unauthenticated"
+        invoker_flag = (
+            "--no-invoker-iam-check"
             if public_access_approved
-            else "--no-allow-unauthenticated"
+            else "--invoker-iam-check"
         )
         environment = ",".join(f"{name}={value}" for name, value in self.environment)
         return (
@@ -161,7 +162,7 @@ class CloudRunPublicDemoPlan:
             ),
             "--ingress=all",
             f"--set-env-vars={environment}",
-            public_flag,
+            invoker_flag,
         )
 
 

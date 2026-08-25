@@ -118,12 +118,16 @@ def _prepared_root(root: Path) -> Path:
 
 
 def test_offline_submission_preflight_passes_complete_local_preparation(tmp_path: Path) -> None:
-    report = build_offline_submission_readiness(_prepared_root(tmp_path))
+    root = _prepared_root(tmp_path)
+    (root / ".git").mkdir()
+    report = build_offline_submission_readiness(root)
 
     assert report.offline_preparation_complete is True
     assert report.to_dict()["submission_ready"] is False
     assert report.external_gates
     assert report.media_gates
+    assert "live public repository URL" in report.external_gates[1]
+    assert all("publication still needs" not in gate for gate in report.external_gates)
 
 
 def test_offline_submission_preflight_uses_local_rules_state_without_claiming_registration(

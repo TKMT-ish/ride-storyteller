@@ -53,8 +53,8 @@ def test_gunicorn_config_requires_public_mode_and_bounded_workers() -> None:
     config = _text("gunicorn.conf.py")
 
     assert "requires RIDE_WEB_MODE=public_demo" in config
-    assert '"WEB_CONCURRENCY", 2, maximum=8' in config
-    assert '"WEB_THREADS", 2, maximum=16' in config
+    assert '"WEB_CONCURRENCY", 2, maximum=2' in config
+    assert '"WEB_THREADS", 2, maximum=2' in config
     assert 'worker_class = "gthread"' in config
     assert 'accesslog = "-"' in config
     assert "control_socket_disable = True" in config

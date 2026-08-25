@@ -4,8 +4,19 @@ from pathlib import Path
 
 import pytest
 
+import app.web.server as web_server
 from app.agent_runtime import AdkSyntheticRun, SyntheticAgentRuntimeVerification
+from app.web.rate_limit import FixedWindowRateLimiter
 from app.web.server import _page, application
+
+
+@pytest.fixture(autouse=True)
+def _reset_public_demo_rate_limiter(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        web_server,
+        "_PUBLIC_DEMO_RATE_LIMITER",
+        FixedWindowRateLimiter(max_requests=60, window_seconds=60),
+    )
 
 
 def _request(
@@ -427,3 +438,60 @@ def test_public_demo_keeps_deterministic_views_and_health_check_available(
     assert health_headers["X-Frame-Options"] == "DENY"
     assert legacy_status == "200 OK"
     assert legacy_body == health_body
+
+
+def test_public_demo_rejects_request_bodies_and_non_get_methods(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+
+    body_status, _, body = _request("/api/demo", body=b"not allowed")
+    method_status, _, method_body = _request("/api/demo", method="POST")
+
+    assert body_status == "413 Payload Too Large"
+    assert body == b'{"error":"request body disabled in public demo"}'
+    assert method_status == "405 Method Not Allowed"
+    assert method_body == b'{"error":"GET required in public demo"}'
+
+
+def test_public_demo_rate_limit_returns_retry_after_but_exempts_health(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    monkeypatch.setattr(
+        web_server,
+        "_PUBLIC_DEMO_RATE_LIMITER",
+        FixedWindowRateLimiter(max_requests=2, window_seconds=60, clock=lambda: 0),
+    )
+
+    first_status, _, _ = _request("/api/demo")
+    second_status, _, _ = _request("/api/story-plan")
+    limited_status, limited_headers, limited_body = _request("/unknown")
+    health_status, _, _ = _request("/health")
+
+    assert first_status == "200 OK"
+    assert second_status == "200 OK"
+    assert limited_status == "429 Too Many Requests"
+    assert limited_headers["Retry-After"] == "60"
+    assert limited_body == b'{"error":"public demo request limit exceeded"}'
+    assert health_status == "200 OK"
+
+
+def test_local_mode_does_not_apply_public_request_shape_or_rate_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "local")
+    monkeypatch.setattr(
+        web_server,
+        "_PUBLIC_DEMO_RATE_LIMITER",
+        FixedWindowRateLimiter(max_requests=1, window_seconds=60, clock=lambda: 0),
+    )
+
+    first_status, _, _ = _request("/api/demo", method="POST")
+    second_status, _, _ = _request("/api/demo", method="POST")
+
+    assert first_status == "200 OK"
+    assert second_status == "200 OK"

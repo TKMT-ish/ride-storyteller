@@ -14,7 +14,7 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-25: **243 pytest tests passed**, Ruff was clean, `pip check` found no
+2026-08-25: **253 pytest tests passed**, Ruff was clean, `pip check` found no
 broken requirements, and the dependency-free Day 1 checks passed. The submission
 preflight now passes the document, required Devpost-draft headings,
 AGPL-3.0-license, private-ignore, private-file, and secret checks and reports
@@ -36,10 +36,22 @@ credential-bearing, query, fragment, subpage, trailing-slash, and traversal
 forms; bilingual link rendering; the missing-link public warning; and the
 Cloud Run refusal to generate unauthenticated-access arguments without a
 validated repository URL. The related Web, deployment, i18n, and Cloud Run
-subset passed **63 tests**. A local public-demo browser check with a synthetic
+subset passed **66 tests**. A local public-demo browser check with a synthetic
 placeholder URL confirmed the English AGPL Source link was visible at the page
 footer and the layout remained intact. The temporary server and tab were then
 closed; the placeholder was not recorded as a real repository.
+
+The public abuse-baseline update adds deterministic coverage for fixed-window
+reset/retry timing, invalid limits, body-free GET enforcement, HTTP 405/413/429,
+`Retry-After`, health-probe exemption, unchanged local mode, at-most-two
+Gunicorn workers/threads, and commit-derived immutable image tags. Docker's
+static check returned no warnings. The 44,271,065-byte `linux/amd64` image ran
+healthy as user `ride`; the live container returned 200 for health and the
+five-step demo, displayed the exact AGPL Source link, returned 403 for all five
+private/Google routes, returned 405/413 for disallowed public request shapes,
+and produced 429 with `Retry-After: 60` under a rapid local request sequence.
+The temporary containers were stopped and auto-removed. This proves the local
+image only; the current hosted revision predates the limiter.
 
 The sanitized IBM Bob image was inspected at full resolution and matched against
 the current render-gate source and focused test. A new regression test removes

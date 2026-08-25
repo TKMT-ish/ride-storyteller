@@ -24,6 +24,7 @@ from app.gps import consolidate_events, extract_events, parse_gpx_bytes
 from app.web.deployment import WebDeploymentSettings
 from app.web.i18n import UiLanguage, copy_for, resolve_language
 from app.web.maps_config import GoogleMapsSettings
+from app.web.rate_limit import FixedWindowRateLimiter
 
 StartResponse = Callable[[str, list[tuple[str, str]]], Callable[[bytes], object]]
 _PUBLIC_DEMO_DISABLED_PATHS = {
@@ -33,6 +34,11 @@ _PUBLIC_DEMO_DISABLED_PATHS = {
     "/api/google-runtime",
     "/api/private-gpx-summary",
 }
+_HEALTH_PATHS = {"/health", "/healthz"}
+_PUBLIC_DEMO_RATE_LIMITER = FixedWindowRateLimiter(
+    max_requests=60,
+    window_seconds=60,
+)
 
 
 class _ExternalRuntimeUnavailable(RuntimeError):
@@ -43,7 +49,27 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
     path = environ.get("PATH_INFO", "/")
     query = parse_qs(str(environ.get("QUERY_STRING", "")))
     deployment = WebDeploymentSettings.from_environment()
-    if path in {"/health", "/healthz"}:
+    if deployment.public_demo and path not in _HEALTH_PATHS:
+        allowed, retry_after = _PUBLIC_DEMO_RATE_LIMITER.allow()
+        if not allowed:
+            return _respond(
+                start_response,
+                "429 Too Many Requests",
+                "application/json; charset=utf-8",
+                b'{"error":"public demo request limit exceeded"}',
+                extra_headers=(("Retry-After", str(retry_after)),),
+            )
+    if deployment.public_demo and path not in _PUBLIC_DEMO_DISABLED_PATHS:
+        request_error = _public_demo_request_error(environ)
+        if request_error is not None:
+            status, body = request_error
+            return _respond(
+                start_response,
+                status,
+                "application/json; charset=utf-8",
+                body,
+            )
+    if path in _HEALTH_PATHS:
         return _respond(
             start_response,
             "200 OK",
@@ -258,7 +284,12 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
 
 
 def _respond(
-    start_response: StartResponse, status: str, content_type: str, body: bytes
+    start_response: StartResponse,
+    status: str,
+    content_type: str,
+    body: bytes,
+    *,
+    extra_headers: tuple[tuple[str, str], ...] = (),
 ) -> Iterable[bytes]:
     start_response(
         status,
@@ -270,9 +301,28 @@ def _respond(
             ("Referrer-Policy", "no-referrer"),
             ("X-Content-Type-Options", "nosniff"),
             ("X-Frame-Options", "DENY"),
+            *extra_headers,
         ],
     )
     return [body]
+
+
+def _public_demo_request_error(
+    environ: dict[str, object],
+) -> tuple[str, bytes] | None:
+    raw_content_length = str(environ.get("CONTENT_LENGTH", "") or "").strip()
+    transfer_encoding = str(environ.get("HTTP_TRANSFER_ENCODING", "") or "").strip()
+    try:
+        content_length = int(raw_content_length or "0")
+    except ValueError:
+        return "400 Bad Request", b'{"error":"invalid content length"}'
+    if content_length < 0:
+        return "400 Bad Request", b'{"error":"invalid content length"}'
+    if content_length > 0 or transfer_encoding:
+        return "413 Payload Too Large", b'{"error":"request body disabled in public demo"}'
+    if str(environ.get("REQUEST_METHOD", "GET")).upper() != "GET":
+        return "405 Method Not Allowed", b'{"error":"GET required in public demo"}'
+    return None
 
 
 def _demo_payload(scenario: str, language: UiLanguage) -> dict[str, object]:

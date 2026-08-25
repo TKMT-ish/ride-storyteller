@@ -3,9 +3,10 @@
 ## Status
 
 The safe public demo is deployed to one **private** Cloud Run service in Tokyo.
-Its second revision is Ready, ContainerHealthy, and receives all traffic, but
+Its fourth revision is Ready, ContainerHealthy, and receives all traffic, but
 unauthenticated access has not been approved or enabled. There is no public
-deployment evidence yet.
+deployment evidence yet. Authenticated hosted verification confirms the exact
+GitHub AGPL Source link and the private/Google route blocks.
 
 ## Modes
 
@@ -37,6 +38,16 @@ billable or private-input endpoints by changing only the host address.
 All responses use `no-store`, deny framing, disable MIME sniffing, send no
 referrer, and disable camera, microphone, and geolocation permissions. The app
 does not use browser geolocation.
+
+In `public_demo`, all non-disabled public routes accept body-free GET requests
+only. A fixed-window limiter permits 60 non-health requests per minute in each
+worker, then returns HTTP 429 and `Retry-After`. Health is exempt for platform
+probes. Gunicorn allows no more than two workers and two threads, while Cloud
+Run remains at one instance and concurrency four. The limiter is intentionally
+process-local: it is a low-dependency abuse baseline, not a distributed rate
+limiter or DDoS service. The current private revision predates this limiter; a
+new immutable image must be separately approved and deployed before claiming
+hosted coverage.
 
 ## Example hosted environment
 
@@ -77,11 +88,13 @@ The Gunicorn configuration:
 
 Local verification on 2026-08-17 proved that both the host-native image and a
 Cloud Run-compatible `linux/amd64` image build. The current candidate is
-44,513,334 bytes,
+44,271,065 bytes,
 contains Gunicorn but no Google SDK, starts as
 `uid=999(ride)`, becomes Docker-healthy, returns HTTP 200 from `/health`, serves
 the five-step English synthetic demo, and returns HTTP 403 for every private or
-Google execution endpoint. The temporary container was removed after the test.
+Google execution endpoint. It also returned 405/413 for disallowed public
+request shapes and 429 with `Retry-After: 60` after a rapid local sequence.
+The temporary containers were removed after the tests.
 The local image tag is not a publication or cloud deployment.
 
 Reproducible local build commands:
@@ -113,20 +126,21 @@ error was recorded. An unauthenticated `/health` request returned 403.
 ## Deliberately unresolved
 
 - domain, abuse controls, and budget alerts;
-- unauthenticated public-access authorization. One private service with two
-  revisions (only the second receives traffic), one tagged `linux/amd64`
-  candidate image, the Tokyo repository, and
+- unauthenticated public-access authorization. One private service with four
+  revisions (only the fourth receives traffic), immutable `linux/amd64`
+  images, the Tokyo repository, and
   the dedicated no-role service account now exist; Cloud Build remains disabled
   and optional;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
-- public repository creation, exact Source URL configuration, and public-access
-  authorization.
+- deployment and hosted verification of the new process-local request limiter;
+- public-access authorization and unauthenticated verification.
 
-The effective Cloud Run maximum is one instance: Google applies the lower of
-the service-level limit (1) and revision-level limit (20). A read-only budget
-check could not proceed because the Cloud Billing Budget API is disabled. It was
-not auto-enabled. The owner must choose the exact monthly amount and recipients
+The effective Cloud Run maximum is one instance. The Cloud Billing Budget API
+was rechecked on 2026-08-25 and remains disabled, while project billing is
+enabled. Google applies the lower of the service-level limit (1) and
+revision-level limit (20). A read-only budget listing cannot proceed until that
+API is enabled. It was not auto-enabled. The owner must choose the exact monthly amount and recipients
 before that API and any alert are separately approved.
 
 The public safe mode intentionally does **not** make billable calls. Existing
