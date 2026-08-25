@@ -23,7 +23,10 @@ Agent Platform preflight, private GPX summary, and optional Google Maps paths.
 - the corresponding UI controls are disabled;
 - deterministic synthetic decision, Story Plan, candidate-plan, and client-only
   video-inventory views remain available;
-- `/health` reports only mode and boolean capability flags. `/healthz` remains a
+- a validated public repository URL produces a bilingual, visible AGPL Source
+  link; a missing URL produces a not-public-ready warning;
+- `/health` reports only mode and boolean capability flags, including whether a
+  source repository is configured. `/healthz` remains a
   local compatibility alias but is not used as a Cloud Run endpoint.
 
 Local mode rejects a wildcard bind. This prevents accidentally exposing the
@@ -42,7 +45,13 @@ RIDE_WEB_MODE=public_demo
 RIDE_WEB_HOST=0.0.0.0
 RIDE_WEB_PORT=8080
 RIDE_UI_DEFAULT_LANGUAGE=en
+RIDE_SOURCE_REPOSITORY_URL=https://github.com/OWNER/REPOSITORY
 ```
+
+`RIDE_SOURCE_REPOSITORY_URL` accepts only an HTTPS GitHub, GitLab, or Bitbucket
+repository-root URL with no credentials, query, fragment, or subpage. Leave it
+blank until the reviewed repository exists; the private service can still be
+tested, but unauthenticated public-access arguments then fail closed.
 
 Some providers supply `PORT`; it is used only when `RIDE_WEB_PORT` is absent.
 Invalid modes, hosts, and ports stop startup instead of falling back to a public
@@ -111,7 +120,8 @@ error was recorded. An unauthenticated `/health` request returned 403.
   and optional;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
-- public repository review and deployment authorization.
+- public repository creation, exact Source URL configuration, and public-access
+  authorization.
 
 The effective Cloud Run maximum is one instance: Google applies the lower of
 the service-level limit (1) and revision-level limit (20). A read-only budget

@@ -378,6 +378,28 @@ def test_public_demo_page_disables_controls_and_never_loads_maps(
     assert 'id="gpxRun" disabled' in page
     assert "maps.googleapis.com" not in page
     assert "test-browser-key" not in page
+    assert 'id="source-link-missing"' in page
+    assert "Public access must remain disabled" in page
+
+
+def test_public_demo_renders_bilingual_validated_source_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    repository_url = "https://github.com/owner/ride-storyteller"
+    monkeypatch.setenv("RIDE_SOURCE_REPOSITORY_URL", repository_url)
+
+    _, _, english_body = _request("/", "lang=en")
+    _, _, japanese_body = _request("/", "lang=ja")
+    english = english_body.decode()
+    japanese = japanese_body.decode()
+
+    assert f'id="source-link" href="{repository_url}"' in english
+    assert 'rel="noopener noreferrer"' in english
+    assert "Source code (AGPL-3.0)" in english
+    assert "ソースコード（AGPL-3.0）" in japanese
+    assert "source-link-missing" not in english
 
 
 def test_public_demo_keeps_deterministic_views_and_health_check_available(
@@ -395,7 +417,8 @@ def test_public_demo_keeps_deterministic_views_and_health_check_available(
     assert health_status == "200 OK"
     assert health_body.decode() == (
         '{"status": "ok", "mode": "public_demo", '
-        '"external_actions_enabled": false, "private_gpx_enabled": false}'
+        '"external_actions_enabled": false, "private_gpx_enabled": false, '
+        '"source_repository_configured": false}'
     )
     assert health_headers["Cache-Control"] == "no-store"
     assert health_headers["Permissions-Policy"] == "camera=(), microphone=(), geolocation=()"

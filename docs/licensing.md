@@ -48,6 +48,11 @@ Before making the application publicly reachable:
    hosting service detects it as AGPL-3.0.
 4. Re-run the private-file, secret, license, dependency, and submission checks.
 
+The application now implements this as `RIDE_SOURCE_REPOSITORY_URL`. It accepts
+only a repository-root HTTPS URL on GitHub, GitLab, or Bitbucket. The Cloud Run
+plan fails closed if unauthenticated public access is requested before this URL
+is configured. The exact URL remains unset until the repository is published.
+
 The current hosted demo remains private, so the public source-link gate is not
 yet complete.
 

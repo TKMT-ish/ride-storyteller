@@ -289,11 +289,20 @@ The default `local` mode is loopback-only. A separate `public_demo` mode can bin
 to a hosted port, but disables private GPX input, Google Maps, local ADK/Gemini
 execution, hosted Runtime calls, and runtime-configuration endpoints. It leaves
 only deterministic synthetic views and the client-only video inventory enabled.
+The hosted page renders a bilingual AGPL Source link only when
+`RIDE_SOURCE_REPOSITORY_URL` is a validated HTTPS GitHub, GitLab, or Bitbucket
+repository-root URL. With no URL, the page shows a not-public-ready warning and
+the Cloud Run plan refuses to generate unauthenticated-public-access arguments.
 
 ```bash
 RIDE_WEB_MODE=public_demo RIDE_WEB_HOST=0.0.0.0 RIDE_WEB_PORT=8080 \
-  RIDE_UI_DEFAULT_LANGUAGE=en python -m app.web.server
+  RIDE_UI_DEFAULT_LANGUAGE=en \
+  RIDE_SOURCE_REPOSITORY_URL=https://github.com/OWNER/REPOSITORY \
+  python -m app.web.server
 ```
+
+Do not copy the placeholder URL. Keep the variable blank until the reviewed
+public repository exists, then use its exact root URL.
 
 For a production-style local container check:
 

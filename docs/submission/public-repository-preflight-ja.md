@@ -31,11 +31,22 @@ git check-ignore -v .env .devpost-hackathon-state.json .devpost-submission-answe
 git diff --check
 ```
 
+## 2026-08-25｜Sourceリンク公開ゲートの実装
+
+- `RIDE_SOURCE_REPOSITORY_URL`をWeb配備設定へ追加した。
+- HTTPSのGitHub／GitLab／Bitbucketのリポジトリroot URLだけを許可し、認証情報、
+  query、fragment、subpage、末尾slashを拒否する。
+- 設定時は公開UIに日英の`Source code (AGPL-3.0)`リンクを表示する。
+- 未設定の`public_demo`は公開準備未完了の警告を表示する。
+- Cloud Run計画は、Source URL未設定では`--allow-unauthenticated`を生成しない。
+  private配備・認証付き確認は引き続き可能。
+- URL検証、日英表示、欠落時停止、Cloud Run公開ゲートの集中テスト63件が成功。
+
 ## 未完了の外部ゲート
 
 - リポジトリはまだ公開していない。
 - 公開URLはまだDevpostへ登録していない。
-- 公開UIから対応する公開ソースへの明示的な`Source`リンクは、公開URL確定後に
-  設定・検証する。
+- 公開UIの`Source`リンク機能は実装済み。実URLは公開リポジトリ作成後に設定し、
+  link先とGitHub等のlicense検出を実環境で検証する。
 - IBM Bobのプロジェクト固有・製品識別可能な安全な画面は取得・原寸確認済み。
 - 実GPX・実動画の公開またはクラウド送信は引き続き未承認。

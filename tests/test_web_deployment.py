@@ -9,7 +9,13 @@ def test_web_deployment_defaults_to_loopback_local_mode(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.chdir(tmp_path)
-    for name in ("PORT", "RIDE_WEB_HOST", "RIDE_WEB_MODE", "RIDE_WEB_PORT"):
+    for name in (
+        "PORT",
+        "RIDE_SOURCE_REPOSITORY_URL",
+        "RIDE_WEB_HOST",
+        "RIDE_WEB_MODE",
+        "RIDE_WEB_PORT",
+    ):
         monkeypatch.delenv(name, raising=False)
 
     settings = WebDeploymentSettings.from_environment()
@@ -36,6 +42,7 @@ def test_public_demo_defaults_to_wildcard_and_disables_sensitive_actions(
         "mode": "public_demo",
         "external_actions_enabled": False,
         "private_gpx_enabled": False,
+        "source_repository_configured": False,
     }
 
 
@@ -67,3 +74,55 @@ def test_invalid_environment_mode_fails_closed(
 
     with pytest.raises(ValueError, match="local or public_demo"):
         WebDeploymentSettings.from_environment()
+
+
+def test_source_repository_url_is_validated_from_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "RIDE_SOURCE_REPOSITORY_URL",
+        "https://github.com/ride-storyteller/ride-storyteller",
+    )
+
+    settings = WebDeploymentSettings.from_environment()
+
+    assert settings.source_repository_url == (
+        "https://github.com/ride-storyteller/ride-storyteller"
+    )
+    assert settings.to_dict()["source_repository_configured"] is True
+
+
+@pytest.mark.parametrize(
+    "url",
+    (
+        "http://github.com/owner/repository",
+        "https://example.com/owner/repository",
+        "https://user@github.com/owner/repository",
+        "https://github.com/owner/repository?tab=readme",
+        "https://github.com/owner/repository#readme",
+        "https://github.com/owner/repository?",
+        "https://github.com/owner/repository#",
+        "https://github.com/owner/repository/issues",
+        "https://github.com/owner/repository/",
+        "https://github.com/./repository",
+    ),
+)
+def test_source_repository_url_rejects_non_repository_roots(
+    url: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_SOURCE_REPOSITORY_URL", url)
+
+    with pytest.raises(ValueError, match="repository-root URL"):
+        WebDeploymentSettings.from_environment()
+
+
+def test_direct_source_repository_url_rejects_surrounding_whitespace() -> None:
+    with pytest.raises(ValueError, match="repository-root URL"):
+        WebDeploymentSettings(
+            WebDeploymentMode.LOCAL,
+            "127.0.0.1",
+            8765,
+            " https://github.com/owner/repository",
+        )

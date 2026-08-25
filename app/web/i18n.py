@@ -38,6 +38,10 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
             "公開安全デモモード：私用GPX入力、Google Maps、ローカル／クラウドADK実行、"
             "Runtime設定確認は無効です。合成モック表示だけを利用できます。"
         ),
+        "source.link": "ソースコード（AGPL-3.0）",
+        "source.pending": (
+            "Sourceリンクが未設定です。公開リポジトリを設定するまで一般公開を有効にできません。"
+        ),
         "main.intro": "GPSの出来事を起点に、映像証拠が必要かをAgentが判断する流れを確認できます。",
         "demo.scenario": "デモシナリオ",
         "scenario.accepted": "映像証拠により採用",
@@ -198,6 +202,11 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "deployment.public_notice": (
             "Public safe-demo mode: private GPX input, Google Maps, local/cloud ADK execution, "
             "and Runtime configuration checks are disabled. Only synthetic mock views are enabled."
+        ),
+        "source.link": "Source code (AGPL-3.0)",
+        "source.pending": (
+            "The Source link is not configured. Public access must remain disabled until the "
+            "public repository is set."
         ),
         "main.intro": (
             "See how the agent starts from a GPS event and decides whether "

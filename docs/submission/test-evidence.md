@@ -14,7 +14,7 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-24: **229 pytest tests passed**, Ruff was clean, `pip check` found no
+2026-08-25: **243 pytest tests passed**, Ruff was clean, `pip check` found no
 broken requirements, and the dependency-free Day 1 checks passed. The submission
 preflight now passes the document, required Devpost-draft headings,
 AGPL-3.0-license, private-ignore, private-file, and secret checks and reports
@@ -29,6 +29,17 @@ project. The installed direct dependencies were inspected separately and no
 blocking conflict was identified among their Apache-2.0 and MIT-family licenses.
 Seven third-party SDK deprecation warnings remain non-fatal and unchanged in
 character.
+
+The Source-link publication gate adds focused coverage for accepted HTTPS
+GitHub/GitLab/Bitbucket repository-root URLs; rejected HTTP, unsupported-host,
+credential-bearing, query, fragment, subpage, trailing-slash, and traversal
+forms; bilingual link rendering; the missing-link public warning; and the
+Cloud Run refusal to generate unauthenticated-access arguments without a
+validated repository URL. The related Web, deployment, i18n, and Cloud Run
+subset passed **63 tests**. A local public-demo browser check with a synthetic
+placeholder URL confirmed the English AGPL Source link was visible at the page
+footer and the layout remained intact. The temporary server and tab were then
+closed; the placeholder was not recorded as a real repository.
 
 The sanitized IBM Bob image was inspected at full resolution and matched against
 the current render-gate source and focused test. A new regression test removes

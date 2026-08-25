@@ -35,6 +35,7 @@ deployment or IAM mutation.
 | Request timeout | 30 seconds |
 | Port | Cloud Run supplied `PORT` / container default 8080 |
 | UI language | English |
+| Source repository | Required, validated public repository root before public IAM |
 
 Cloud Run currently reports a service-level maximum of 1 and a revision-level
 maximum of 20. Google documents that the effective maximum is the lower of the
@@ -145,9 +146,13 @@ into one unattended command.
    all five 403 boundaries, security headers, startup probe, revision digest,
    and unauthenticated 403 were verified. `/healthz` is no longer the hosted
    contract.
-6. Separately approve unauthenticated public access. The command plan uses
-   `--no-allow-unauthenticated` until that approval is explicit.
-7. Verify the public URL, response headers, abuse/cost controls, and budget
+6. Create and verify the reviewed public repository, then set its exact root URL
+   as `RIDE_SOURCE_REPOSITORY_URL`. The plan rejects non-HTTPS, unsupported-host,
+   credential-bearing, query, fragment, and subpage URLs.
+7. Separately approve unauthenticated public access. The command plan refuses to
+   produce `--allow-unauthenticated` unless both approval and a validated Source
+   URL are present; private deployment remains possible without the URL.
+8. Verify the public URL, bilingual Source link, response headers, abuse/cost controls, and budget
    alerts before treating hosting as complete.
 
 ## Budget-monitoring gate

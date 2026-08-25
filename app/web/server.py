@@ -550,6 +550,20 @@ def _page(
         if deployment.public_demo
         else ""
     )
+    if deployment.source_repository_url is not None:
+        source_footer = (
+            '<footer id="source"><hr><p>'
+            f'<a id="source-link" href="{escape(deployment.source_repository_url, quote=True)}" '
+            f'target="_blank" rel="noopener noreferrer">{text("source.link")}</a>'
+            "</p></footer>"
+        )
+    elif deployment.public_demo:
+        source_footer = (
+            '<footer id="source"><hr><p id="source-link-missing" class="warning">'
+            f'{text("source.pending")}</p></footer>'
+        )
+    else:
+        source_footer = ""
     return f"""<!doctype html>
 <html lang="{language.value}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ride Storyteller — Demo</title>
@@ -580,7 +594,7 @@ platformRunButton.addEventListener('click',async()=>{{platformRunButton.disabled
 platformPreflightButton.addEventListener('click',async()=>{{platformPreflightButton.disabled=true;try{{const r=await fetch('/api/agent-platform-preflight');const d=await r.json();if(!r.ok)throw Error();const p=d.agent_platform_preflight;show(`<h2>${{uiCopy['platform.preflight_heading']}}</h2><dl><dt>${{uiCopy['candidate.status']}}</dt><dd><code>${{p.status}}</code></dd><dt>${{uiCopy['platform.deployment']}}</dt><dd>${{p.deployment_executed?uiCopy['platform.executed']:uiCopy['platform.not_executed']}}</dd><dt>${{uiCopy['platform.framework']}}</dt><dd><code>${{p.agent_framework}}</code></dd></dl><h3>${{uiCopy['platform.missing']}}</h3><ul>${{p.missing_configuration.length?p.missing_configuration.map(value=>`<li>${{value}}</li>`).join(''):'<li>'+uiCopy['platform.none']+'</li>'}}</ul><h3>${{uiCopy['platform.external_checks']}}</h3><ul>${{p.external_verification_required.map(value=>`<li>${{value}}</li>`).join('')}}</ul>`)}}catch(e){{show(uiCopy['error.preflight'])}}finally{{platformPreflightButton.disabled=false}}}});
 gpxButton.addEventListener('click',async()=>{{const file=gpxInput.files[0];if(!file){{show(uiCopy['gpx.select']);return}}gpxButton.disabled=true;try{{const contents=await file.text();drawRoute(routePoints(contents));const r=await fetch('/api/private-gpx-summary?lang='+uiLanguage,{{method:'POST',headers:{{'Content-Type':'application/gpx+xml'}},body:contents}});const d=await r.json();if(!r.ok)throw Error();const s=d.route_summary,c=d.candidate_edit_plan;show(`<h2>${{uiCopy['gpx.result']}}</h2><p>${{d.notice}}</p><dl><dt>${{uiCopy['gpx.distance_duration']}}</dt><dd>${{s.distance_km}}km / ${{s.duration_minutes}}min</dd><dt>${{uiCopy['gpx.elevation']}}</dt><dd>${{s.elevation_gain_m}}m / ${{s.elevation_loss_m}}m</dd><dt>${{uiCopy['gpx.events']}}</dt><dd>${{d.raw_event_count}} / ${{d.consolidated_event_count}}</dd><dt>Story Plan</dt><dd>${{d.story_plan.chapter_roles.join(' → ')}}</dd><dt>${{uiCopy['gpx.candidate']}}</dt><dd>${{c.candidate_duration_s}}s / ${{c.is_ready_for_edit?uiCopy['common.yes']:uiCopy['common.no']}}</dd></dl><h3>${{uiCopy['candidate.review_reasons']}}</h3><ul>${{c.reasons.map(reason=>`<li>${{reason}}</li>`).join('')}}</ul>`)}}catch(e){{show(uiCopy['error.gpx'])}}finally{{gpxButton.disabled=false}}}});
 downloadButton.addEventListener('click',()=>{{const blob=new Blob([JSON.stringify(latestRecord,null,2)],{{type:'application/json'}}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ride-storyteller-demo-record.json';a.click();URL.revokeObjectURL(a.href)}});
-</script>{maps_script}</main></body></html>"""
+</script>{maps_script}{source_footer}</main></body></html>"""
 
 
 def main() -> None:

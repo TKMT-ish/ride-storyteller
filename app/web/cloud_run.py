@@ -11,6 +11,8 @@ import json
 import re
 from dataclasses import dataclass
 
+from app.web.deployment import validate_source_repository_url
+
 _PROJECT_ID = re.compile(r"^[a-z][a-z0-9-]{4,28}[a-z0-9]$")
 _SERVICE_NAME = re.compile(r"^[a-z]([a-z0-9-]{0,61}[a-z0-9])?$")
 
@@ -33,6 +35,7 @@ class CloudRunPublicDemoPlan:
     concurrency: int = 4
     timeout_s: int = 30
     health_path: str = "/health"
+    source_repository_url: str | None = None
 
     def __post_init__(self) -> None:
         if not _PROJECT_ID.fullmatch(self.project_id):
@@ -59,6 +62,8 @@ class CloudRunPublicDemoPlan:
             raise ValueError("timeout_s must stay between one and 30 seconds")
         if self.health_path != "/health":
             raise ValueError("the Cloud Run health path must be /health")
+        if self.source_repository_url is not None:
+            validate_source_repository_url(self.source_repository_url)
 
     @property
     def image_uri(self) -> str:
@@ -73,13 +78,16 @@ class CloudRunPublicDemoPlan:
 
     @property
     def environment(self) -> tuple[tuple[str, str], ...]:
-        return (
+        values = (
             ("RIDE_WEB_MODE", "public_demo"),
             ("RIDE_WEB_HOST", "0.0.0.0"),
             ("RIDE_UI_DEFAULT_LANGUAGE", "en"),
             ("WEB_CONCURRENCY", "2"),
             ("WEB_THREADS", "2"),
         )
+        if self.source_repository_url is None:
+            return values
+        return (*values, ("RIDE_SOURCE_REPOSITORY_URL", self.source_repository_url))
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -96,6 +104,7 @@ class CloudRunPublicDemoPlan:
             "concurrency": self.concurrency,
             "timeout_s": self.timeout_s,
             "health_path": self.health_path,
+            "source_repository_configured": self.source_repository_url is not None,
             "ingress": "all",
             "environment": dict(self.environment),
             "deployment_approved": False,
@@ -117,6 +126,10 @@ class CloudRunPublicDemoPlan:
 
         if not deployment_approved:
             raise PermissionError("Cloud Run resource creation is not approved")
+        if public_access_approved and self.source_repository_url is None:
+            raise PermissionError(
+                "public access requires a validated public source repository URL"
+            )
         public_flag = (
             "--allow-unauthenticated"
             if public_access_approved

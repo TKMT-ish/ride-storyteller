@@ -66,13 +66,27 @@ def test_private_first_arguments_do_not_allow_unauthenticated_access() -> None:
 
 
 def test_public_access_is_a_separate_explicit_argument() -> None:
-    arguments = CloudRunPublicDemoPlan().gcloud_deploy_arguments(
+    arguments = CloudRunPublicDemoPlan(
+        source_repository_url="https://github.com/owner/ride-storyteller"
+    ).gcloud_deploy_arguments(
         deployment_approved=True,
         public_access_approved=True,
     )
 
     assert "--allow-unauthenticated" in arguments
     assert "--no-allow-unauthenticated" not in arguments
+    assert any(
+        "RIDE_SOURCE_REPOSITORY_URL=https://github.com/owner/ride-storyteller" in value
+        for value in arguments
+    )
+
+
+def test_public_access_requires_validated_source_repository_url() -> None:
+    with pytest.raises(PermissionError, match="public source repository URL"):
+        CloudRunPublicDemoPlan().gcloud_deploy_arguments(
+            deployment_approved=True,
+            public_access_approved=True,
+        )
 
 
 @pytest.mark.parametrize(
