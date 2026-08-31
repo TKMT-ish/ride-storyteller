@@ -16,11 +16,16 @@
 - A private Cloud Run revision whose safe health/demo routes pass and whose five
   private or Google-execution routes fail closed.
 - IBM Bob development findings mapped to implemented changes and tests.
+- A local real-media E2E that grouped 14 MP4 files into 10 logical recordings,
+  analyzed 2,385 windows with GPS／FFmpeg／GPMF／Apple Vision, and produced four
+  eight-clip review sets without external transfer or automatic confirmation.
+- A public AGPL source repository whose exact link is rendered by the
+  authenticated private hosted UI.
 
 **Still required**
 
 - Real source-to-analysis-to-confirmed-edit evidence.
-- Public hosted URL and public repository verification.
+- Public unauthenticated hosted URL verification.
 - Precise Google Cloud Agent Builder wording in the final submission.
 
 ## Design
@@ -33,6 +38,8 @@
 - Public mode visibly disables private inputs and billable cloud actions.
 - No voice narration is required; the planned film uses visual sequence, map,
   edit rhythm, and existing copyright-free music.
+- Real-media storyboard review is recorded separately from technical E2E
+  success; the current selector is explicitly marked partial rather than final.
 
 **Still required**
 
@@ -46,6 +53,8 @@
 
 - The target workload is close to one terabyte of motorcycle footage, making
   manual review a concrete bottleneck.
+- The current 26.7 GiB development set was reduced from 2,385 analyzed windows
+  to 21 evidence-gated windows and 15 distinct extracted review clips.
 - The workflow narrows review to explainable GPS-linked intervals and preserves
   human control over visual suitability.
 - The same pattern can apply to other location-rich unscripted footage without
@@ -53,8 +62,8 @@
 
 **Still required**
 
-- Measure actual inventory size, candidate reduction, review time, and false
-  positive or replacement rate after footage access.
+- Measure review time and the false-positive/replacement rate from user labels;
+  do not infer time savings from candidate counts alone.
 - Avoid publishing a time-saved percentage until measured.
 
 ## Quality of the Idea
@@ -72,3 +81,5 @@
 
 - Show the full loop with one real approved clip in the final three-minute demo.
 - Keep the film output distinct from the product demonstration.
+- Integrate highlight discovery, Story Plan, evidence review, and rendering into
+  one product workflow instead of the current manual handoff.

@@ -28,6 +28,11 @@ from app.edit import (
     review_candidate_edit_plan,
 )
 from app.mcp import MockMediaSearchTool
+from app.scout import (
+    UniversalEvent,
+    UniversalEventEvidence,
+    UniversalEventLocationContext,
+)
 from app.video import GeminiVideoAnalyzer, MockVideoAnalyzer
 
 
@@ -155,6 +160,89 @@ def build_demo_story_inputs() -> tuple[RouteSummary, tuple[GpsEvent, ...]]:
         elevation_loss_m=790,
     )
     return summary, (departure, event, arrival)
+
+
+def build_synthetic_director_events() -> tuple[UniversalEvent, ...]:
+    """Return fixed, non-private events for the Gemini Director web check.
+
+    These records are deliberately independent from ``build_demo_event``:
+    they contain no coordinates, GPX-derived timestamps, real asset IDs, or
+    filesystem references.  They represent only a synthetic journey arc and
+    are safe to send to the explicit synthetic-only Director endpoint.
+    """
+    evidence = UniversalEventEvidence(gps=True, video=True)
+
+    def event(
+        event_id: str,
+        event_type: str,
+        start_s: float,
+        end_s: float,
+        intensity: float,
+        *,
+        road_context: str,
+        visual_score: float | None = None,
+        scenic_score: float | None = None,
+        ranking_score: float | None = None,
+    ) -> UniversalEvent:
+        return UniversalEvent(
+            event_id=event_id,
+            event_type=event_type,
+            sub_category=None,
+            source_asset_id=f"synthetic-director-{event_id}",
+            source_start_sec=0.0,
+            source_end_sec=12.0,
+            requested_start_sec=start_s,
+            requested_end_sec=end_s,
+            intensity=intensity,
+            visual_score=visual_score,
+            scenic_score=scenic_score,
+            ranking_score=ranking_score,
+            location_context=UniversalEventLocationContext(
+                road_context=road_context,
+            ),
+            evidence=evidence,
+            evidence_confirmed=True,
+        )
+
+    return (
+        event(
+            "synthetic_departure",
+            "departure",
+            0.0,
+            12.0,
+            0.45,
+            road_context="urban departure",
+        ),
+        event(
+            "synthetic_transition",
+            "direction_change",
+            120.0,
+            132.0,
+            0.7,
+            road_context="winding road",
+            visual_score=0.68,
+            ranking_score=0.7,
+        ),
+        event(
+            "synthetic_climax",
+            "scenery_change",
+            360.0,
+            372.0,
+            0.9,
+            road_context="scenic ridge",
+            visual_score=0.88,
+            scenic_score=0.92,
+            ranking_score=0.94,
+        ),
+        event(
+            "synthetic_arrival",
+            "arrival_candidate",
+            600.0,
+            612.0,
+            0.5,
+            road_context="destination approach",
+        ),
+    )
 
 
 def build_demo_candidate_edit_plan(

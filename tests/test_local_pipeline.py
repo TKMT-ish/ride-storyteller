@@ -1,0 +1,257 @@
+import json
+import subprocess
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from app.local_pipeline import prepare_local_review_package
+from app.video import LocalVideoMetadata
+
+
+def _metadata(path: Path) -> LocalVideoMetadata:
+    return LocalVideoMetadata(
+        file_name=path.name,
+        duration_s=3_600.0,
+        recorded_start_time=datetime(2026, 8, 10, 1, 42, tzinfo=UTC),
+        video_codec="hevc",
+        width=3840,
+        height=2160,
+        frames_per_second=60.0,
+        has_audio=True,
+    )
+
+
+def _runner(command: tuple[str, ...], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+    Path(command[-1]).write_bytes(b"review")
+    return subprocess.CompletedProcess(command, 0, "", "")
+
+
+def test_local_pipeline_connects_gpx_catalog_matching_and_review_clips(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "private-output"
+
+    result = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=True,
+        probe=_metadata,
+        clip_runner=_runner,
+    )
+    payload = result.to_dict()
+
+    assert result.catalog_entry_count == 1
+    assert result.matched_clip_count >= 1
+    assert result.unmatched_clip_count == 0
+    assert result.review_clip_count == result.matched_clip_count
+    assert payload["privacy"] == {
+        "private_data_used": True,
+        "external_data_sent": False,
+        "coordinates_in_summary": False,
+        "absolute_paths_in_summary": False,
+        "visual_evidence_auto_confirmed": False,
+    }
+    assert payload["next_gate"] == "human_visual_evidence_review"
+    assert (output / "local-video-catalog.json").exists()
+    assert (output / "ride-storyteller-candidates.json").exists()
+    assert (output / "ride-storyteller-candidates.csv").exists()
+    assert (output / "local-pipeline-summary.json").exists()
+    assert (output / "evidence-review.json").exists()
+    assert (output / "review-clip-manifest.json").exists()
+    assert len(tuple((output / "review-clips").glob("review-*.mp4"))) == result.review_clip_count
+
+
+def test_local_pipeline_stops_before_probing_without_clock_confirmation(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="explicitly confirmed"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            tmp_path / "output",
+            video_to_gps_offset_s=0.0,
+            clock_offset_confirmed=False,
+            probe=probe,
+        )
+
+    assert calls == []
+
+
+def test_local_pipeline_summary_contains_no_coordinates_or_absolute_paths(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+    )
+    summary = (output / "local-pipeline-summary.json").read_text()
+
+    assert str(tmp_path) not in summary
+    assert "latitude" not in summary
+    assert "longitude" not in summary
+    assert json.loads(summary)["next_gate"] == "human_visual_evidence_review"
+
+
+def test_local_pipeline_requires_explicit_overwrite(tmp_path: Path) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    output.mkdir()
+    (output / "local-pipeline-summary.json").write_text("existing")
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            output,
+            video_to_gps_offset_s=5.0,
+            clock_offset_confirmed=True,
+            probe=_metadata,
+        )
+
+
+def test_local_pipeline_rejects_unignored_repository_output() -> None:
+    repository_root = Path(__file__).resolve().parents[1]
+
+    with pytest.raises(ValueError, match="ignored private-media"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            repository_root / "tests" / "fixtures",
+            repository_root / "unsafe-local-output",
+            video_to_gps_offset_s=0.0,
+            clock_offset_confirmed=True,
+            probe=_metadata,
+        )
+
+
+def test_local_pipeline_fails_closed_without_video_backed_events(tmp_path: Path) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+
+    def distant_metadata(path: Path) -> LocalVideoMetadata:
+        return LocalVideoMetadata(
+            file_name=path.name,
+            duration_s=60.0,
+            recorded_start_time=datetime(2030, 1, 1, tzinfo=UTC),
+            video_codec="h264",
+            width=1920,
+            height=1080,
+            frames_per_second=30.0,
+            has_audio=True,
+        )
+
+    with pytest.raises(ValueError, match="timestamp-matched video coverage"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            tmp_path / "output",
+            video_to_gps_offset_s=0.0,
+            clock_offset_confirmed=True,
+            probe=distant_metadata,
+        )
+
+
+def test_cli_director_mode_is_explicit_and_offline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CLI must opt into only the local RuleBased Director path."""
+    from app import local_pipeline
+
+    captured: dict[str, object] = {}
+
+    def fake_prepare(*args: object, **kwargs: object) -> object:
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(to_dict=lambda: {"ok": True})
+
+    monkeypatch.setattr(local_pipeline, "prepare_local_review_package", fake_prepare)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "local_pipeline",
+            "private-route.gpx",
+            "private-videos",
+            "--output",
+            "private-media/work/cli-test",
+            "--clock-offset-s",
+            "0",
+            "--clock-offset-confirmed",
+            "--director-mode",
+        ],
+    )
+
+    local_pipeline.main()
+
+    assert captured["kwargs"] == {
+        "video_to_gps_offset_s": 0.0,
+        "clock_offset_confirmed": True,
+        "target_duration_s": 300.0,
+        "output_language": local_pipeline.StoryOutputLanguage.JAPANESE,
+        "extract_reviews": True,
+        "overwrite": False,
+        "director_mode": True,
+    }
+
+
+def test_next_gate_distinguishes_evidence_replacement_and_story_render() -> None:
+    from app.director_pipeline import DirectorPipelineResult
+    from app.edit import CandidateEditReview
+    from app.local_pipeline import _next_local_pipeline_gate
+
+    rejected = CandidateEditReview(
+        is_ready_for_edit=False,
+        missing_duration_s=0.0,
+        reasons=("rejected",),
+        event_ids_requiring_evidence=(),
+        rejected_event_ids=("event_001",),
+    )
+    ready = CandidateEditReview(
+        is_ready_for_edit=True,
+        missing_duration_s=0.0,
+        reasons=(),
+        event_ids_requiring_evidence=(),
+        rejected_event_ids=(),
+    )
+    director_result = DirectorPipelineResult(
+        universal_event_count=2,
+        confirmed_event_count=2,
+        composer="rule_based",
+        fallback_used=False,
+        scene_count=2,
+        used_event_count=2,
+        render_plan_status="ready_for_ffmpeg",
+        render_plan_ready=True,
+    )
+
+    assert _next_local_pipeline_gate(rejected, None) == "replace_rejected_candidate_clips"
+    assert _next_local_pipeline_gate(ready, None) == "run_offline_director"
+    assert _next_local_pipeline_gate(ready, director_result) == "render_director_script"

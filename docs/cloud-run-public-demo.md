@@ -3,8 +3,8 @@
 ## Current status
 
 The deterministic public-demo image is deployed as a **private** Cloud Run
-service in Tokyo. The current ready revision,
-`ride-storyteller-public-demo-00004-2cr`, receives 100% of traffic and has no
+service in Tokyo. The current verified ready revision,
+`ride-storyteller-public-demo-00005-zvs`, receives 100% of traffic and has no
 `allUsers` IAM binding. Unauthenticated public access has not been approved or
 enabled. Its authenticated English UI exposes the validated AGPL Source link
 to the public repository. No project IAM role was granted to the dedicated runtime identity and
@@ -28,7 +28,7 @@ deployment or IAM mutation.
 | Region | `asia-northeast1` (Tokyo) |
 | Service | `ride-storyteller-public-demo` |
 | Artifact Registry repository | `ride-storyteller` |
-| Image | immutable deployed tag `public-demo:64adfed` |
+| Image | verified immutable deployed tag `public-demo:6998221` |
 | Runtime service account | `ride-storyteller-public` in the project, with no application roles |
 | CPU / memory | 1 CPU / 512 MiB |
 | Instances | minimum 0 / maximum 1 |
@@ -48,14 +48,15 @@ The application environment contains only non-secret mode and worker settings.
 The public image contains no Google SDK and has no route that can make a Google,
 Agent Platform, Box, GPX, or video request.
 
-The next source candidate also rejects request bodies and non-GET methods in
-`public_demo` mode and applies a dependency-free fixed-window limit of 60
+The source at public commit `6998221` also rejects request bodies and non-GET
+methods in `public_demo` mode and applies a dependency-free fixed-window limit of 60
 non-health requests per minute per worker. Gunicorn now accepts at most two
 workers and two threads, so one Cloud Run instance admits at most approximately
 120 non-health requests per minute before 429 responses. Health is exempt so
 the platform probe cannot be blocked. This is a process-local baseline guard,
-not a distributed DDoS control; it is not hosted until a newly reviewed image is
-separately pushed and deployed.
+not a distributed DDoS control. The `public-demo:6998221` image and private
+revision were verified by remote/local digest, hosted response shape, 429
+behavior, and retained private IAM.
 
 The local `linux/amd64` verification image is 44,271,065 bytes, runs healthy as
 user `ride`, preserves the exact AGPL Source link and five private/Google 403
@@ -153,6 +154,18 @@ Source link, preserved the five-step accepted demo and security headers, and
 kept all five private/Google routes at 403. The unauthenticated service URL also
 returned 403, and the verification proxy was stopped.
 
+Public commit `6998221` was then pushed to GitHub and built as
+`public-demo:6998221`. The remote OCI index digest was
+`sha256:4805ef95c8161a55f3191a879a59c7d626b87acf85d69617cccc089be105b6d5`;
+the Cloud Run executable manifest was
+`sha256:cf50d9c849b3df7280c2f6a7eb3f207eab2719a8c30b1fa5cd81f0e506799fd2`.
+Revision `ride-storyteller-public-demo-00005-zvs` became Ready, Active, and
+ContainerHealthy with 100% traffic and the same limits. Authenticated hosted
+checks verified `/health`, the English UI and Source link, the accepted
+synthetic demo, five private/Google 403 routes, 405/413 request-shape guards,
+429 plus `Retry-After`, and all security headers. IAM still had no public
+binding and unauthenticated `/health` remained 403.
+
 ## Staged approval gates
 
 Each stage requires a separate exact-target review. Do not combine the stages
@@ -174,33 +187,34 @@ into one unattended command.
 6. **Complete:** create and verify the reviewed public repository, then set its exact root URL
    as `RIDE_SOURCE_REPOSITORY_URL`. The plan rejects non-HTTPS, unsupported-host,
    credential-bearing, query, fragment, and subpage URLs.
-7. Implement and locally verify the public request-shape and process-local rate
-   guard, then push and deploy the reviewed immutable image under a separate
-   external-change approval.
+7. **Complete for private hosting:** the public request-shape and process-local
+   rate guard are in public commit `6998221`; image/revision digests and hosted
+   behavior were verified. This does not provide distributed DDoS protection.
 8. Separately approve unauthenticated public access. Following Google's current
    recommended method, the command plan refuses to produce
    `--no-invoker-iam-check` unless both approval and a validated Source URL are
    present; private deployment explicitly uses `--invoker-iam-check`.
-9. Verify the public URL, bilingual Source link, response headers, abuse/cost controls, and budget
-   alerts before treating hosting as complete.
+9. Budget alerts are verified. Verify the unauthenticated public URL, bilingual
+   Source link, response headers, and abuse/cost controls before treating public
+   hosting as complete.
 
 ## Budget-monitoring gate
 
-A repeated read-only check on 2026-08-25 found that project billing is enabled
-but the Cloud Billing Budget API is still not enabled for this project. The CLI
-offered to enable it during the earlier check; that prompt was declined and no
-change was made. No budget value should be invented because it is a
-financial operating limit chosen by the owner.
+A read-only check on 2026-08-25 found that project billing was enabled but the
+Cloud Billing Budget API was not enabled. On 2026-08-27, billing currency was
+verified as JPY, the API was enabled, and exactly one project-only monthly JPY
+1,000 budget was created and re-read successfully. It has 50%, 80%, and 100%
+actual-spend thresholds, a 100% forecast threshold, default IAM email recipients
+and Project Owners enabled, and no Pub/Sub or Monitoring notification channel.
+This is an alert, not a hard spending cap.
 
 Before public IAM is enabled:
 
-1. choose a monthly budget amount and notification destination;
-2. separately approve enabling `billingbudgets.googleapis.com`;
-3. create alert thresholds only after reviewing the exact amount, currency,
-   billing account scope, recipients, forecast behavior, and notification
-   limitations;
-4. verify the budget exists, but do not describe it as a hard spending cap;
-5. retain service-level maximum one and minimum zero even after alerts exist.
+1. re-read that the verified budget still exists and remains project-scoped;
+2. if it is absent or changed, obtain a fresh explicit approval before any
+   create/update operation;
+3. never describe the budget as a hard spending cap;
+4. retain service-level maximum one and minimum zero even after alerts exist.
 
 Real GPX, route coordinates, GoPro media, Box content, credentials, and model
 requests remain outside this service at every stage.

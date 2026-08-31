@@ -14,12 +14,16 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-25: **253 pytest tests passed**, Ruff was clean, `pip check` found no
-broken requirements, and the dependency-free Day 1 checks passed. The submission
-preflight now passes the document, required Devpost-draft headings,
-AGPL-3.0-license, private-ignore, private-file, and secret checks and reports
-`offline_preparation_complete=true`. External publication, hosted-app, video,
-and real-media gates remain separate and are not claimed by the offline result.
+2026-08-30: **325 pytest tests passed**, Ruff was clean, and
+`git diff --check` passed. Seven warnings came from external Google／Vertex／Agent
+Platform SDK deprecations and were not project-code failures. The run did not
+upload media or GPX and did not create or modify a cloud resource.
+
+The earlier 2026-08-25 submission-preflight run passed the document, required
+Devpost-draft headings, AGPL-3.0-license, private-ignore, private-file, and secret
+checks and reported `offline_preparation_complete=true`. That historical offline
+result does not prove the current hosted app, video, Devpost form, or real-media
+quality gates.
 
 The canonical repository `LICENSE` SHA-256 exactly matched the file fetched from
 GNU at `https://www.gnu.org/licenses/agpl-3.0.txt`. The readiness recognizer now
@@ -167,8 +171,11 @@ results, and no application startup error.
 A later read-only management audit reconfirmed Ready status and no anonymous
 project IAM grant. Cloud Run reports service-level maximum one and revision-level
 maximum 20; Google's current rule uses the lower value, so the effective maximum
-is one. Minimum instances remains zero. The Cloud Billing Budget API is disabled;
-the automatic enable prompt was declined, so no budget or API change was made.
+is one. Minimum instances remains zero. On 2026-08-27, billing currency JPY, the
+enabled Budget API, and exactly one project-only monthly JPY 1,000 budget were
+re-read successfully. The verified thresholds are actual 50/80/100% and
+forecast 100%, with default IAM recipients and Project Owners enabled, and no
+Pub/Sub or Monitoring notification channel. It is not a hard spending cap.
 
 The run reported seven non-fatal Python 3.14 deprecation warnings from external
 Google SDK dependencies. They are not test failures or project-code warnings.
@@ -176,3 +183,96 @@ Google SDK dependencies. They are not test failures or project-code warnings.
 Expected external SDK deprecation warnings are recorded separately from test
 failures. The tests do not create, modify, or delete a cloud Runtime and do not
 upload media or GPX data.
+
+On 2026-08-28, Homebrew FFmpeg 9.0.1 was installed for local-only media work.
+An actual FFmpeg integration check generated a temporary synthetic 1280x720
+source with audio, read its container metadata, built a one-entry clock-confirmed
+catalog, timestamp-matched a synthetic GPX event, and created one 720p review
+clip. The unified `app.local_pipeline` stopped at
+`human_visual_evidence_review`, reported no external transfer and no coordinates
+in its summary, and did not invoke Gemini, Google, Box, Maps, or Cloud Run. A
+second synthetic integration run matched two candidates, generated two review
+clips, recorded explicit synthetic-only evidence confirmations, and rendered a
+60-second silent local draft film. Awaiting, rejected, unmatched, or incomplete
+review states remain fail-closed before FFmpeg rendering.
+
+After the user confirmed a local camera-to-GPS correction of -46,800 seconds,
+the private real-media run cataloged 35/35 MP4 sources with no metadata issues.
+The first run exposed a planning limitation: only 2 of 6 type-representative
+events had timestamp coverage. The local pipeline was then changed to select
+only timestamp-covered events, preserve one strong event per available type,
+and fill the requested duration with additional covered events without making
+visual claims. The second run matched 10/10 candidates, produced ten 1280x720
+review clips totaling about 300 seconds, left all ten evidence decisions in
+`awaiting_video_evidence`, and sent no data externally. Private file names,
+timestamps, coordinates, paths, and video contents are not recorded here.
+
+The first real-media highlights experiment analyzed 626 twelve-second windows
+from 35 local LRV/MP4 pairs. A stricter second pass replaced cumulative GPS
+bearing jitter with a first-half/second-half heading delta and added a visual
+motion floor. It reduced eligible windows from 91 to 41 and extracted 30 local
+comparison clips: three candidates for each of ten independent ranking methods.
+All 30 clips passed `ffprobe`, were 1280x720, totaled about 361 seconds, and were
+kept outside Git. The contact sheet still showed that several single-metric
+methods retain visually mild road segments; these are experiments, not evidence
+confirmations, and the result motivates human-label calibration or a separately
+approved semantic-vision stage.
+
+The full repository suite then passed **295 tests**. Ruff passed for `app` and
+`tests`, and `pip check` reported no broken requirements. Seven warnings came
+from external Google SDK deprecations and were not project-code failures.
+
+On 2026-08-28, the local highlight selector was rebuilt after human review found
+the v2 candidates too straight or stationary-looking. The v3h pass analyzed
+1,858 local windows, retained 93 at the GPS/FFmpeg gate, obtained complete local
+GPMF and Apple Vision evidence for all 93, and retained 15 at the centered-turn
+and road-context gate. It produced four eight-clip review sets. Every set was
+8/8 unique, had zero hard-gate violations and zero Apple utility frames. The
+recommended balanced set had zero Feature Print duplicate pairs and a minimum
+pair distance of 0.371. A same-scale check of the v2 30-frame set found 21
+duplicate pairs and only 17 unique source intervals. Generic Apple aesthetic
+mean decreased from 0.478 to 0.417, which is recorded as a real tradeoff: the
+new hard gates optimize the user's turn/non-stop requirement rather than generic
+blue-sky-road aesthetics. Human viewing of the eight source clips is still
+required before evidence confirmation.
+
+After these changes, the full repository suite passed **322 tests** with the
+same seven external Google SDK deprecation warnings. Ruff passed for `app` and
+`tests`, `pip check` found no broken requirements, `git diff --check` passed,
+and Git confirmed that the real GPX, v3h contact sheet, and extracted clips are
+ignored. No private-media file is tracked.
+
+On 2026-08-30, the complete new source set was processed as 14 physical MP4
+files and 10 logical recordings. Four later GoPro chapters received cumulative
+duration start-time correction; no catalog issue remained. The confirmed
+camera-to-GPS correction was -46,800 seconds. The source covered about 85 minutes
+inside an approximately 224-minute time span, so the system recorded roughly
+38% coverage and did not invent media for the gaps.
+
+The v4a real-media run analyzed 2,385 twelve-second windows, retained 202 at the
+strict GPS／FFmpeg gate, obtained complete GPMF and on-device Apple Vision
+evidence for all 202, retained 21 at the final evidence gate, and extracted four
+sets of eight 720p review clips. All 32 outputs existed; hashes showed 15 unique
+clip contents. The run reported `external_data_sent=false` and did not confirm
+visual evidence.
+
+The first Apple Vision attempt failed only inside the restricted tool sandbox
+with a local pixel-buffer creation error. `ffprobe` verified the 606 JPEG inputs.
+The same three inputs succeeded with native macOS Vision access, followed by a
+606-input run that calculated 183,315 Feature Print distances in about 4.48
+seconds. Re-running the whole pipeline with the same native local access then
+completed. This is local platform evidence, not a cloud call.
+
+The four methods all selected eight unique windows with zero hard-gate
+violations. `balanced-diverse` had the highest mean pair distance (0.554) and
+covered two route buckets, but three-timepoint storyboard review still found
+several gentle straight-looking roads. The result is therefore recorded as
+technical E2E **PASS**, automatic candidate quality **PARTIAL**, user approval
+**NOT YET**, and confirmed visual evidence **0**.
+
+The 15 distinct outputs were reviewed at 2, 6, and 10 seconds. Eight examples
+with a visible turn, merge, intersection, or nearby-vehicle change were copied
+to a separate private manual-review set. They are candidate labels for the next
+design iteration, not a claim that the automatic selector produced a final edit.
+Real file names, paths, timestamps, coordinates, GPX contents, and frames are not
+recorded here and remain outside Git.

@@ -77,6 +77,19 @@ class ResolvedCandidateClip:
     end_offset_s: float | None
     reason: str
 
+    def __post_init__(self) -> None:
+        if not self.chapter_id or not self.event_id or not self.reason:
+            raise ValueError("resolved clip identifiers and reason are required")
+        values = (self.asset_id, self.file_name, self.start_offset_s, self.end_offset_s)
+        if self.status is VideoMatchStatus.MATCHED:
+            if any(value is None for value in values):
+                raise ValueError("matched clip must include asset, file name, and offsets")
+            assert self.start_offset_s is not None and self.end_offset_s is not None
+            if self.start_offset_s < 0 or self.end_offset_s <= self.start_offset_s:
+                raise ValueError("matched clip offsets must define a positive interval")
+        elif any(value is not None for value in values):
+            raise ValueError("unmatched clip must not include asset or offset values")
+
     def to_dict(self) -> dict[str, object]:
         return {
             "chapter_id": self.chapter_id,
@@ -127,12 +140,93 @@ def resolve_candidate_clips(
     return tuple(result)
 
 
+def select_video_backed_events(
+    events: tuple[GpsEvent, ...],
+    catalog: VideoCatalog,
+    *,
+    target_duration_s: float,
+) -> tuple[GpsEvent, ...]:
+    """Select GPS events with local timestamp coverage, without judging visuals.
+
+    One strongest event per available event type is selected first. Additional
+    covered events are then added by importance until their requested clip
+    durations reach the target. The returned events are chronological so the
+    story planner can preserve the route sequence.
+    """
+    if target_duration_s <= 0:
+        raise ValueError("target_duration_s must be positive")
+    event_ids = [event.event_id for event in events]
+    if len(event_ids) != len(set(event_ids)):
+        raise ValueError("GPS event IDs must be unique")
+
+    covered = tuple(
+        event
+        for event in events
+        if _requested_clip_duration_s(event) > 0 and _event_has_catalog_coverage(event, catalog)
+    )
+    if not covered:
+        return ()
+
+    ranked = sorted(
+        covered,
+        key=lambda event: (-event.importance_hint, event.start_time, event.event_id),
+    )
+    representatives: dict[str, GpsEvent] = {}
+    for event in ranked:
+        representatives.setdefault(event.event_type, event)
+
+    selected = list(representatives.values())
+    selected_ids = {event.event_id for event in selected}
+    requested_duration_s = sum(_requested_clip_duration_s(event) for event in selected)
+    for event in ranked:
+        if requested_duration_s >= target_duration_s:
+            break
+        if event.event_id in selected_ids:
+            continue
+        selected.append(event)
+        selected_ids.add(event.event_id)
+        requested_duration_s += _requested_clip_duration_s(event)
+
+    return tuple(sorted(selected, key=lambda event: (event.start_time, event.event_id)))
+
+
 def export_candidate_json(clips: tuple[ResolvedCandidateClip, ...]) -> str:
     return json.dumps(
         {"schema_version": "candidate-export-v1", "clips": [clip.to_dict() for clip in clips]},
         ensure_ascii=False,
         indent=2,
     )
+
+
+def load_resolved_candidate_export(path: Path) -> tuple[ResolvedCandidateClip, ...]:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != "candidate-export-v1":
+        raise ValueError("unsupported candidate export schema")
+    clips = tuple(
+        ResolvedCandidateClip(
+            chapter_id=item["chapter_id"],
+            event_id=item["event_id"],
+            status=VideoMatchStatus(item["status"]),
+            asset_id=item.get("asset_id"),
+            file_name=item.get("file_name"),
+            start_offset_s=(
+                float(item["start_offset_s"])
+                if item.get("start_offset_s") is not None
+                else None
+            ),
+            end_offset_s=(
+                float(item["end_offset_s"])
+                if item.get("end_offset_s") is not None
+                else None
+            ),
+            reason=item["reason"],
+        )
+        for item in payload.get("clips", [])
+    )
+    event_ids = [clip.event_id for clip in clips]
+    if len(event_ids) != len(set(event_ids)):
+        raise ValueError("candidate export event IDs must be unique")
+    return clips
 
 
 def export_candidate_csv(clips: tuple[ResolvedCandidateClip, ...]) -> str:
@@ -204,3 +298,17 @@ def _resolve_event(
         end_offset_s=None,
         reason="補正後のGPS時刻を含む素材カタログ項目がありません。",
     )
+
+
+def _event_has_catalog_coverage(event: GpsEvent, catalog: VideoCatalog) -> bool:
+    return any(
+        catalog.gps_start_time(entry)
+        <= event.start_time
+        < catalog.gps_start_time(entry) + timedelta(seconds=entry.duration_s)
+        for entry in catalog.entries
+    )
+
+
+def _requested_clip_duration_s(event: GpsEvent) -> float:
+    query = event.video_query
+    return query.clip_end_offset_s - query.clip_start_offset_s

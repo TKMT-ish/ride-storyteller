@@ -124,6 +124,20 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "platform.missing": "ローカル設定で不足している項目",
         "platform.none": "なし（ただし外部確認と承認が必要です）",
         "platform.external_checks": "デプロイ前の外部確認",
+        "director.heading": "Gemini Director 合成デモ",
+        "director.description": (
+            "固定の合成Universal EventだけをGemini Directorへ送り、旅の場面構成を確認します。"
+            "GPX・映像・座標・素材識別子・入力文章は送信しません。この操作は外部通信を行い、"
+            "Google Cloudの利用料金が発生する可能性があります。"
+        ),
+        "director.run": "Gemini Director合成デモを実行",
+        "director.composer": "脚本の作成者",
+        "director.fallback": "RuleBased fallback",
+        "director.scene_count": "場面数",
+        "director.external_notice": (
+            "この操作は固定合成入力だけを使うGoogle Cloudへの外部呼び出しです。"
+        ),
+        "director.preview.open": "ローカルの物語構成を確認",
         "inventory.heading": "ローカル動画棚卸し",
         "inventory.main_description": (
             "動画を開かず、ファイル名・相対パス・サイズ・更新時刻だけで非公開JSONを作成します。"
@@ -182,6 +196,7 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "error.candidate": "候補クリップ計画の取得に失敗しました。",
         "error.adk": "Google ADK合成デモを実行できませんでした。",
         "error.platform": "クラウドRuntime合成テストを実行できませんでした。",
+        "error.director": "Gemini Director合成デモを実行できませんでした。",
         "error.preflight": "デプロイ前提を確認できませんでした。",
         "error.gpx": "GPXを解析できませんでした。",
     },
@@ -301,6 +316,21 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "platform.missing": "Missing local configuration",
         "platform.none": "None (external verification and approval are still required)",
         "platform.external_checks": "External checks before deployment",
+        "director.heading": "Gemini Director synthetic demo",
+        "director.description": (
+            "Sends only fixed synthetic Universal Events to Gemini Director to check the journey "
+            "scene structure. It does not send GPX, video, coordinates, source identifiers, "
+            "or user text. "
+            "This is an external Google Cloud call and may incur charges."
+        ),
+        "director.run": "Run Gemini Director synthetic demo",
+        "director.composer": "Script composer",
+        "director.fallback": "Rule-based fallback",
+        "director.scene_count": "Scene count",
+        "director.external_notice": (
+            "This is an external Google Cloud call using fixed synthetic input only."
+        ),
+        "director.preview.open": "View local story structure",
         "inventory.heading": "Local video inventory",
         "inventory.main_description": (
             "Create a private JSON inventory from file names, relative paths, sizes, and modified "
@@ -357,6 +387,7 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "error.candidate": "Could not load the candidate clip plan.",
         "error.adk": "Could not run the Google ADK synthetic demo.",
         "error.platform": "Could not run the cloud Runtime synthetic test.",
+        "error.director": "Could not run the Gemini Director synthetic demo.",
         "error.preflight": "Could not check deployment readiness.",
         "error.gpx": "Could not parse the GPX file.",
     },

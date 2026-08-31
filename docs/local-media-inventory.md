@@ -47,8 +47,8 @@ python -m app.video.inventory "/実動画の親フォルダ" \
 棚卸しとは異なり対象の動画ファイルを開く。ただし映像をデコード・アップロード・
 共有せず、外部ネットワークにも接続しない。
 
-この処理にはMacに`ffprobe`（FFmpeg付属）が必要である。2026-08-16の開発Macには
-未導入のため、インストール前には実行できない。インストールは別の明示承認後に行う。
+この処理にはMacに`ffprobe`（FFmpeg付属）が必要である。2026-08-28に明示承認後、
+Homebrew版FFmpeg 9.0.1を導入し、合成動画でメタデータ読取とクリップ抽出を確認した。
 
 ```bash
 python -m app.video.probe "/実動画の親フォルダ/GX010001.MP4" \
@@ -58,3 +58,39 @@ python -m app.video.probe "/実動画の親フォルダ/GX010001.MP4" \
 `creation_time`が取得できても、GPSとの一致を保証するものではない。カメラ時計の
 タイムゾーンとGPS時計との差をローカルで確認するまで、結果を時刻対応カタログへ
 自動登録してはならない。
+
+## 確認済み時計補正からのカタログ作成
+
+時計補正を確認した後だけ、MP4／MOVを時刻対応カタログへ登録できる。LRVは
+棚卸しには残すが、同一撮影のプロキシを別素材として扱わないため除外する。
+GoProの`G[XH]CCRRRR`形式はchapter番号とrecording番号として解釈する。同じ
+directory、camera family、recording番号で、chapterが1から欠番なく連続し、
+container開始時刻が同一と確認できる場合だけ、chapter 2以降の開始時刻を先行
+durationの累積で補正する。欠番・重複・時刻不一致は推測せず、group全体を
+`INVALID_GOPRO_CHAPTER_SEQUENCE`としてfail closedにする。
+
+```bash
+python -m app.video.local_catalog "/実動画の親フォルダ" \
+  --output "/非公開領域/local-video-catalog.json" \
+  --clock-offset-s 0 --clock-offset-confirmed
+```
+
+GPX解析、候補照合、720pレビュークリップ生成までをまとめて行う場合は
+[`local-e2e-pipeline.md`](local-e2e-pipeline.md)を参照する。
+このパイプラインは、時計補正後に動画区間を持つGPSイベントだけをStory Planへ
+渡す。同一種類のイベントも目標尺を満たすために複数選択できるが、映像内容の
+採否は必ず後続の人手確認で決める。
+
+## 2026-08-30 確定インベントリの安全な集計
+
+- MP4 14本、合計約26.7 GiB。
+- GoPro chapter補正後は10論理録画、補正した後続chapterは4本。
+- 実映像durationは約85分、対象時間幅は約224分、coverageは約38%。
+- 60秒を超える映像空白は7件、最大空白は約35分30秒。
+- camera-to-GPS補正はユーザー確認済みの−13時間。
+- 全14本にGoPro GPMFのGYRO／ACCLがある。GoPro GPSキーの時刻値は無効なため、
+  位置・速度には外部GPXだけを使用する。
+
+この集計は素材構成の記録であり、実ファイル名、絶対path、撮影時刻、座標、
+映像内容を公開文書へ残さない。今回用意された14本が全量であり、coverage外の
+区間を存在すると仮定しない。

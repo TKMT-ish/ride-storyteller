@@ -81,6 +81,8 @@ def test_web_page_and_unknown_route_have_expected_statuses(
     assert "候補クリップ計画を見る" in body.decode()
     assert "ADK合成デモを実行" in body.decode()
     assert "クラウドRuntime合成テストを実行" in body.decode()
+    assert "Gemini Director合成デモを実行" in body.decode()
+    assert 'href="/private-director-preview?lang=ja"' in body.decode()
     assert "Google Cloudの利用料金が発生する可能性があります" in body.decode()
     assert "設定状態を確認" in body.decode()
     assert "動画フォルダ棚卸しを開く" in body.decode()
@@ -336,6 +338,147 @@ def test_agent_platform_synthetic_endpoint_returns_safe_metadata(
     assert "longitude" not in decoded
 
 
+def test_gemini_director_synthetic_endpoint_refuses_data_and_uses_only_post() -> None:
+    get_status, _, _ = _request("/api/gemini-director-synthetic-demo")
+    data_status, _, _ = _request(
+        "/api/gemini-director-synthetic-demo",
+        body=b"not allowed",
+        method="POST",
+    )
+
+    assert get_status == "405 Method Not Allowed"
+    assert data_status == "400 Bad Request"
+
+
+def test_gemini_director_synthetic_endpoint_exposes_only_safe_script_view(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        web_server,
+        "_gemini_director_synthetic_payload",
+        lambda: {
+            "demo_mode": True,
+            "private_data_used": False,
+            "external_service_called": True,
+            "billing_may_apply": True,
+            "notice": "synthetic only",
+            "director_script": {
+                "composer": "gemini",
+                "fallback_used": False,
+                "event_count_in": 4,
+                "event_count_used": 4,
+                "scenes": [
+                    {
+                        "role": "hook",
+                        "event_count": 1,
+                        "transition_type": "cut",
+                        "overlay_text": "A synthetic opening",
+                    }
+                ],
+            },
+        },
+    )
+
+    status, _, body = _request("/api/gemini-director-synthetic-demo", method="POST")
+    decoded = body.decode()
+
+    assert status == "200 OK"
+    assert '"private_data_used": false' in decoded
+    assert '"composer": "gemini"' in decoded
+    assert "latitude" not in decoded
+    assert "longitude" not in decoded
+    assert "source_asset_id" not in decoded
+
+
+class _FailingSyntheticDirectorTransport:
+    """A network-free stand-in for an unavailable Gemini service."""
+
+    def compose_script(self, *, prompt: str, story_payload: object) -> object:
+        raise RuntimeError("simulated local transport failure")
+
+
+def test_synthetic_director_transport_failure_uses_safe_rule_based_fallback() -> None:
+    payload = web_server._synthetic_director_payload_from_transport(
+        _FailingSyntheticDirectorTransport()
+    )
+    script = payload["director_script"]
+    serialized = json.dumps(payload)
+
+    assert payload["demo_mode"] is True
+    assert payload["private_data_used"] is False
+    assert script["composer"] == "rule_based"
+    assert script["fallback_used"] is True
+    assert [scene["role"] for scene in script["scenes"]] == [
+        "hook", "build_up", "climax", "resolution"
+    ]
+    for forbidden in (
+        "event_id", "source_asset_id", "source_start_sec", "source_end_sec",
+        "file_name", "latitude", "longitude", "path",
+    ):
+        assert forbidden not in serialized
+
+
+def test_private_director_preview_endpoint_returns_only_safe_story_view(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    artifact = tmp_path / "local-director-script.json"
+    artifact.write_text(
+        json.dumps(
+            {
+                "schema_version": "director-script-v1",
+                "metadata": {
+                    "composer": "rule_based",
+                    "event_count_in": 1,
+                    "event_count_used": 1,
+                    "arc_names": ["hook"],
+                },
+                "scenes": [
+                    {
+                        "scene_id": "scene_hook",
+                        "scene_type": "hook",
+                        "transition_type": "cut",
+                        "overlay_text": "Safe local story",
+                        "clips": [
+                            {
+                                "event_id": "private-event",
+                                "source_asset_id": "private-asset",
+                                "source_start_sec": 10.0,
+                                "source_end_sec": 20.0,
+                                "file_name": "PRIVATE.MP4",
+                            }
+                        ],
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("RIDE_PRIVATE_DIRECTOR_SCRIPT_PATH", str(artifact))
+
+    status, _, body = _request("/api/private-director-preview")
+    page_status, _, page = _request("/private-director-preview")
+    decoded = body.decode()
+
+    assert status == "200 OK"
+    assert page_status == "200 OK"
+    assert '"local_only": true' in decoded
+    assert '"role": "hook"' in decoded
+    assert "private-event" not in decoded
+    assert "private-asset" not in decoded
+    assert "PRIVATE.MP4" not in decoded
+    assert "ローカルの物語構成" in page.decode()
+
+
+def test_private_director_preview_is_unavailable_without_explicit_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RIDE_PRIVATE_DIRECTOR_SCRIPT_PATH", raising=False)
+
+    status, _, _ = _request("/api/private-director-preview")
+    assert status == "503 Service Unavailable"
+
+
 def test_page_loads_maps_only_when_the_local_key_is_configured(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -359,8 +502,11 @@ def test_public_demo_disables_private_and_billable_endpoints(
         "/api/adk-synthetic-demo",
         "/api/agent-platform-preflight",
         "/api/agent-platform-synthetic-demo",
+        "/api/gemini-director-synthetic-demo",
         "/api/google-runtime",
         "/api/private-gpx-summary",
+        "/private-director-preview",
+        "/api/private-director-preview",
     ):
         status, _, body = _request(path, method="POST")
         assert status == "403 Forbidden"
@@ -385,6 +531,8 @@ def test_public_demo_page_disables_controls_and_never_loads_maps(
     assert 'id="adkRun" disabled' in page
     assert 'id="platformRun" disabled' in page
     assert 'id="platformPreflight" disabled' in page
+    assert 'id="directorRun" disabled' in page
+    assert "/private-director-preview" not in page
     assert 'id="gpx" type="file" accept=".gpx,application/gpx+xml" disabled' in page
     assert 'id="gpxRun" disabled' in page
     assert "maps.googleapis.com" not in page

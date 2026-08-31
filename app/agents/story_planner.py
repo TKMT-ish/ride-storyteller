@@ -87,13 +87,54 @@ class RuleBasedStoryPlanner:
         target_duration_s: float,
         output_language: StoryOutputLanguage = StoryOutputLanguage.JAPANESE,
     ) -> StoryPlan:
-        output_language = StoryOutputLanguage(output_language)
-        if not events:
-            raise ValueError("at least one GPS event is required")
-        if not 300 <= target_duration_s <= 600:
-            raise ValueError("target_duration_s must be between 300 and 600 seconds")
-
+        self._validate_plan_inputs(events, target_duration_s)
         chosen = self._select_events(consolidate_events(events))
+        return self._build_plan(
+            route_summary,
+            chosen,
+            target_duration_s=target_duration_s,
+            output_language=StoryOutputLanguage(output_language),
+            planning_provider="rule_based_mock",
+        )
+
+    def plan_selected_events(
+        self,
+        route_summary: RouteSummary,
+        selected_events: tuple[GpsEvent, ...],
+        *,
+        target_duration_s: float,
+        output_language: StoryOutputLanguage = StoryOutputLanguage.JAPANESE,
+    ) -> StoryPlan:
+        """Build a plan from preselected events while preserving repeated types.
+
+        The caller owns the non-visual eligibility decision, such as confirmed
+        local timestamp coverage. This method does not infer visual quality or
+        evidence status.
+        """
+        self._validate_plan_inputs(selected_events, target_duration_s)
+        event_ids = [event.event_id for event in selected_events]
+        if len(event_ids) != len(set(event_ids)):
+            raise ValueError("selected GPS event IDs must be unique")
+        chosen = tuple(
+            sorted(selected_events, key=lambda event: (event.start_time, event.event_id))
+        )
+        return self._build_plan(
+            route_summary,
+            chosen,
+            target_duration_s=target_duration_s,
+            output_language=StoryOutputLanguage(output_language),
+            planning_provider="rule_based_video_coverage",
+        )
+
+    def _build_plan(
+        self,
+        route_summary: RouteSummary,
+        chosen: tuple[GpsEvent, ...],
+        *,
+        target_duration_s: float,
+        output_language: StoryOutputLanguage,
+        planning_provider: str,
+    ) -> StoryPlan:
         duration_per_chapter = target_duration_s / len(chosen)
         chapters = tuple(
             self._chapter(index, event, duration_per_chapter, output_language)
@@ -110,8 +151,15 @@ class RuleBasedStoryPlanner:
             target_duration_s=target_duration_s,
             chapters=chapters,
             selected_event_ids=tuple(event.event_id for event in chosen),
-            planning_provider="rule_based_mock",
+            planning_provider=planning_provider,
         )
+
+    @staticmethod
+    def _validate_plan_inputs(events: tuple[GpsEvent, ...], target_duration_s: float) -> None:
+        if not events:
+            raise ValueError("at least one GPS event is required")
+        if not 300 <= target_duration_s <= 600:
+            raise ValueError("target_duration_s must be between 300 and 600 seconds")
 
     def _select_events(self, events: tuple[GpsEvent, ...]) -> tuple[GpsEvent, ...]:
         by_type: dict[str, GpsEvent] = {}

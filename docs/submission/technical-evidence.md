@@ -23,6 +23,34 @@
   event IDs/coordinates/media references, and safe provider errors.
 - Local-only GPX aggregate validation, source inventory, and `ffprobe` metadata
   extraction boundaries.
+- A local-only GPX-to-review-clip preparation pipeline. It requires explicit
+  camera/GPS clock confirmation, excludes LRV duplicate proxies from the source
+  catalog, selects timestamp-covered GPS events with type diversity before
+  filling the requested duration, preserves repeated event types in route order,
+  and transcodes matched intervals to 720p review clips before stopping at human
+  visual-evidence review.
+- A fail-closed local evidence-review contract and FFmpeg draft renderer. The
+  renderer starts only when every candidate is timestamp-matched and explicitly
+  confirmed, rejects incomplete manifests, and produces a silent local film
+  without sending files externally.
+- A local ten-method highlight comparison stage that analyzes LRV proxies when
+  present and otherwise analyzes MP4/MOV after an early reduced-resolution
+  downscale. It combines GPS movement with FFmpeg motion, scene, blur, exposure,
+  saturation, and entropy metrics, applies moving/non-straight gates, and
+  extracts only ranked source intervals for human review.
+- A local catalog v2 that recognizes GoPro chapter/recording identifiers,
+  applies cumulative duration correction only to complete same-start chapter
+  sequences, and rejects missing, duplicate, or inconsistent sequences without
+  guessing.
+- A second-generation local highlight research stage that fails closed on
+  insufficient continuous speed, centered GPS turning, centered GoPro GPMF
+  gyro motion, three-frame Apple Vision road context, utility frames, temporal
+  overlap, or Feature Print duplicates. The real-media v4a experiment processed
+  all 14 physical MP4 files as 10 logical recordings, analyzed 2,385 windows,
+  retained 202 strict and complete-evidence windows, retained 21 after the final
+  quality gate, and produced four eight-clip comparison sets with zero hard-gate
+  violations. Content hashes reduced the 32 outputs to 15 distinct clips. This
+  is local ranking evidence, not automatic visual confirmation.
 - Vertex AI video request construction for an already-approved `gs://` object,
   including interval metadata and JSON Schema response constraints. Tests use a
   fake client and send no video.
@@ -52,8 +80,10 @@
   verified. `/healthz` remains only a local compatibility alias.
 - A read-only scaling audit confirmed that the service-level maximum is one.
   Although the revision reports 20, Google applies the lower value, so the
-  effective limit is one. Minimum instances remains zero. The Cloud Billing
-  Budget API is disabled and was not auto-enabled.
+  effective limit is one. Minimum instances remains zero. Billing currency JPY,
+  the enabled Budget API, and one project-only monthly JPY 1,000 budget with
+  actual 50/80/100%, forecast 100%, role-based email, and no Pub/Sub were
+  created and re-read on 2026-08-27. The budget is not a hard cap.
 
 ## Proven with synthetic Google calls
 
@@ -82,14 +112,15 @@ and model response text are intentionally excluded.
 - Google Cloud Agent Builder compatibility if the current rules distinguish it
   from the deployed Agent Platform Runtime.
 - Real GoPro video transfer, Gemini analysis, and story update.
-- Actual camera-to-GPS clock correction across source files.
-- Final public repository, hosted application, English recording, and complete
-  five-to-ten-minute film.
-- Public-repository publication under the selected root AGPL-3.0-only license,
-  including a visible source link from the public network interface.
-- deployment of the locally verified process-local request guard, separate
-  public IAM approval, public URL verification, distributed abuse controls, and
-  budget alert verification. The private revision and hosted health endpoint are
-  verified but are not public evidence.
+- A public unauthenticated hosted application, English recording, and complete
+  five-to-ten-minute film. The AGPL public source repository exists and its exact
+  root link has been verified through the authenticated private hosted UI.
+- separate public IAM approval, public URL verification, and distributed abuse
+  controls. The process-local request guard, private revision, hosted health
+  endpoint, and budget alerts are verified but are not public evidence.
 - Real route/media-derived LLM story prose, final English wording, and human
   language review.
+- User accept/reject review of the eight manually curated v4a examples and a
+  v4b rerun that separates strong-turn and visual-event interest. Generic Apple
+  aesthetic score is deliberately not treated as the final objective because
+  it conflicts with the user's preference against straight road clips.

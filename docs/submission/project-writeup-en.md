@@ -55,8 +55,12 @@ the same stable internal contracts.
 - An optional Gemini Story copy adapter rewrites only a fixed synthetic plan.
   JSON Schema and local checks preserve chapter IDs, count, and order, while the
   outbound payload excludes event IDs, coordinates, and media references.
-- The FFmpeg layer produces an inspectable command plan but never executes it
-  automatically.
+- The edit-plan layer produces an inspectable FFmpeg plan and blocks unresolved
+  evidence. Separately invoked private local commands use FFmpeg to create
+  review proxies and a silent draft; public and cloud demos cannot invoke them.
+- The local highlight research path combines external GPX motion, reduced-rate
+  FFmpeg metrics, GoPro GPMF gyro/acceleration, and on-device Apple Vision. It
+  never uploads media and stops at human review.
 
 ## Safety and privacy
 
@@ -93,15 +97,18 @@ for a successful hosted deployment.
   private and Google execution endpoints and exposes no cloud-call controls.
 - IBM Bob was used to review the codebase and identify gaps that were then
   implemented and covered by focused tests.
+- A real local-media E2E grouped 14 MP4 files into 10 logical recordings,
+  analyzed 2,385 candidate windows, retained 21 after complete evidence gates,
+  and produced four eight-clip review sets without external transfer. Human
+  storyboard review still marked automatic candidate quality as partial.
 
 ## What remains before submission
 
-- Include the validated sanitized IBM Bob screenshot in the public repository
-  and three-minute demo.
-- Create and validate the local inventory when the real footage is accessible.
+- Show the validated sanitized IBM Bob screenshot from the public repository in
+  the three-minute demo.
 - Obtain explicit approval before any real-video cloud transfer.
-- Run real-video analysis, complete human visual review, and record the final
-  English demo.
+- Complete user visual review, connect approved local highlights to Story Plan
+  and edit rendering, and record the final English demo.
 - Align and human-review the English subtitle draft against the final recording.
-- Publish a reviewed public repository and hosted application without private
-  data or secrets.
+- Publish the currently private hosted application without private data or
+  secrets only after a separate public-access approval.

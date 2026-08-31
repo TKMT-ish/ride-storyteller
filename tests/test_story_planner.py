@@ -111,3 +111,25 @@ def test_story_plan_language_does_not_change_structural_identifiers() -> None:
     assert [chapter.narrative_role for chapter in english.chapters] == [
         chapter.narrative_role for chapter in japanese.chapters
     ]
+
+
+def test_story_plan_selected_events_preserves_repeated_types_and_chronology() -> None:
+    events = (
+        _event("speed_late", "speed_change", 0.9, 90),
+        _event("direction", "direction_change", 0.7, 40),
+        _event("speed_early", "speed_change", 0.5, 20),
+    )
+
+    plan = RuleBasedStoryPlanner().plan_selected_events(
+        _summary(),
+        events,
+        target_duration_s=300,
+    )
+
+    assert plan.selected_event_ids == ("speed_early", "direction", "speed_late")
+    assert [chapter.narrative_role for chapter in plan.chapters] == [
+        "speed_change",
+        "direction_change",
+        "speed_change",
+    ]
+    assert plan.planning_provider == "rule_based_video_coverage"

@@ -1,24 +1,57 @@
 # Ride Storyteller
 
-Ride Storyteller turns motorcycle-touring footage and GPS context into a travel story. This repository currently contains local, deterministic building blocks for the agent loop and edit handoff.
+Ride Storyteller turns motorcycle-touring footage and GPS context into an
+evidence-based travel story. The repository contains a tested synthetic Agent
+loop, a private local GPX/video workflow, fail-closed edit gates, a bilingual
+demo UI, and synthetic-only Google ADK / Agent Platform integration.
 
 ```
 GPS event -> Story Agent decides video evidence is needed
           -> media search tool -> video analyser -> Story Agent updates decision
 ```
 
-## Day 1 boundaries
+The current implementation baseline and the open system-design questions are
+summarized in
+[`docs/current-system-handoff-ja.md`](docs/current-system-handoff-ja.md).
 
-- The core GPS/video pipeline uses synthetic JSON in `tests/fixtures/`.
-- The project never calls Box, Garmin Connect, or FFmpeg automatically.
+## Current boundaries
+
+- The public and cloud demos use fixed synthetic data. They cannot read private
+  GPX, route coordinates, video, Box content, or arbitrary user input.
+- Private local commands can parse real GPX, inspect video metadata, decode
+  video with FFmpeg, read GoPro GPMF, run on-device Apple Vision, and write
+  ignored review artifacts. They make no external media call.
 - A separately invoked Google Cloud probe and ADK demo make real Gemini calls only
   with fixed synthetic text and a fixed synthetic event. They cannot read or send
   GPX, route coordinates, video, or Box content.
-- `MockMediaSearchTool` and `MockVideoAnalyzer` are explicit replacement points for Box MCP and Gemini in later days.
+- `MockMediaSearchTool` and `MockVideoAnalyzer` remain explicit test and demo
+  boundaries. A Vertex video transport exists only for an already-approved
+  `gs://` object and does not upload local files.
 - Real GoPro media, Garmin logs, OAuth tokens, and API keys must never be committed. `.env` and private media/GPS formats are ignored.
 - A hosted synthetic-only Agent Platform Runtime has been validated separately.
   This does not authorize real GPX, route coordinates, or video transfer and
   does not establish Google Cloud Agent Builder compatibility by itself.
+- Visual evidence remains `awaiting_video_evidence` until a human explicitly
+  confirms or rejects it. Local candidate generation never auto-confirms a clip.
+
+## Current real-media status
+
+On 2026-08-30, the local v4a research run processed 14 physical MP4 files as
+10 logical recordings. It analyzed 2,385 twelve-second windows, retained 202 at
+the strict movement/interest gate, retained 21 at the final evidence gate, and
+generated four eight-clip review sets. Content hashes reduced the 32 outputs to
+15 distinct clips. No media, GPX, coordinate, file name, timestamp, or credential
+was sent externally.
+
+The technical E2E passed, but candidate quality is still partial: storyboard
+review found several gentle, straight-looking road segments. Eight clearer
+turn/merge/intersection/traffic-event examples were prepared for private human
+review, but no visual evidence has been confirmed. Highlight discovery now separates
+an intentionally strict strong-turn lane from a non-semantic temporal visual-event
+lane; this is a candidate gate, not proof that an intersection, vehicle, or scenic
+subject is present. The next design must connect that output to Story Plan and
+evidence review. A reusable private metric cache avoids re-scanning unchanged source
+footage while the two lanes are evaluated on real material.
 
 ## Run
 
@@ -195,9 +228,139 @@ codec, resolution, frame rate, and audio presence). It requires a separately ins
 `ffprobe`; it never uploads or decodes the source file and does not create a catalog
 automatically.
 
+After the camera-to-GPS clock offset has been checked locally, the private catalog builder
+can probe all MP4/MOV sources while retaining LRV files as inventory-only proxies.
+GoPro chapter names are grouped by recording identity; a complete chapter sequence
+with the same container start time receives cumulative start-time correction. Missing
+or inconsistent chapter sequences fail closed instead of being guessed:
+
+```bash
+python -m app.video.local_catalog "/path/to/private-videos" \
+  --output "/path/to/private-output/local-video-catalog.json" \
+  --clock-offset-s 0 --clock-offset-confirmed
+```
+
+The local E2E preparation command connects private GPX parsing, local catalog coverage,
+GPS-event selection, timestamp matching, and FFmpeg-generated 720p review clips. It first
+keeps one strong timestamp-covered event per available type, then adds other covered
+events by importance until the requested duration is reached. It makes no visual claim,
+makes no external call, and stops before visual-evidence confirmation or final rendering:
+
+```bash
+python -m app.local_pipeline "/path/to/private.gpx" "/path/to/private-videos" \
+  --output "/path/to/private-output" \
+  --clock-offset-s 0 --clock-offset-confirmed
+```
+
+After reviewing every generated clip, update the private `evidence-review.json`
+records to `confirmed` or `rejected` with a non-empty `evidence_source`. Rendering
+remains blocked until every candidate is timestamp-matched and confirmed:
+
+To generate a local-only DirectorScript from the confirmed events, rerun the same
+private output folder with `--overwrite --director-mode`. This uses the offline
+RuleBased Director and does not call Gemini or upload private media:
+
+```bash
+python -m app.local_pipeline "/path/to/private.gpx" "/path/to/private-videos" \
+  --output "/path/to/private-output" \
+  --clock-offset-s 0 --clock-offset-confirmed \
+  --overwrite --director-mode
+```
+
+```bash
+python -m app.local_render "/path/to/private-output"
+```
+
+When a private `local-director-script.json` has been created, its story order can
+be applied to the silent local render. The script is revalidated against the
+matched clips and confirmed-evidence allow-list before FFmpeg starts:
+
+```bash
+python -m app.local_render "/path/to/private-output" \
+  --director-script "/path/to/private-output/local-director-script.json"
+```
+
+The current local render is a silent review film. Copyright-free music selection,
+attribution, and final audio mixing remain a separate step.
+
+See [`docs/local-e2e-pipeline.md`](docs/local-e2e-pipeline.md).
+
+## Local highlight-method comparison
+
+Timestamp coverage alone does not make a clip interesting. The local comparison pass
+uses an LRV proxy when available and otherwise analyzes MP4/MOV directly at one
+frame per second after an early 320-pixel downscale. It combines those metrics
+with GPX motion, ranks 12-second moving/non-straight windows by ten methods, and
+extracts only selected source intervals as 720p review clips. It does not upload
+media and does not auto-confirm visual evidence:
+
+```bash
+python -m app.video.highlight_discovery \
+  "/path/to/private.gpx" \
+  "/path/to/private-videos" \
+  "/path/to/private/local-video-catalog.json" \
+  --output "/path/to/private-highlight-output" \
+  --top-k 3
+```
+
+The methods cover GPS curvature, moving speed variation, elevation change, visual
+motion, scene variation, sharpness, exposure, color richness, visual complexity, and a
+combined cinematic score. All outputs remain comparison candidates for human review.
+See [`docs/highlight-selection-experiments.md`](docs/highlight-selection-experiments.md).
+
+The current local research pass adds fail-closed continuous-speed, centered GPS
+turn, GoPro GPMF gyro, three-frame Apple Vision road-context/aesthetic, Feature
+Print deduplication, and MMR diversity gates. Quality observations cover every
+strict candidate in bounded Vision batches; the expensive Feature Print matrix
+is calculated only for the union of the top 96 candidates per strategy (at most
+384 candidates). GoPro chapter files that share one recording identity are placed
+on a cumulative logical timeline before GPS matching. The command defaults to a
+six-second survey stride and eight non-overlapping review candidates per strategy
+because the stricter experiments could not safely produce ten without weakening
+the quality criteria:
+
+```bash
+python -m app.video.highlight_research \
+  "/path/to/private.gpx" \
+  "/path/to/private-videos" \
+  "/path/to/private/local-video-catalog.json" \
+  --output "/path/to/private-highlight-research"
+```
+
+This command is macOS-only because Apple Vision is local platform infrastructure.
+It must run with native access to macOS Vision; a restricted process sandbox can
+fail to create the required pixel buffers even when the frames are valid. It
+makes no network call, keeps all frames and clips in an ignored private directory,
+and never confirms evidence automatically. Its `metric-cache/` subdirectory keeps
+only derived FFmpeg and GPMF numeric samples. Cache JSON never stores source paths,
+file names, recorded timestamps, coordinates, or frames; changed sources receive a
+new bounded local-content fingerprint and are analyzed again. Apple Vision and clip
+extraction remain local work on each research run. The final accept/reject decision
+remains human review.
+
 The local UI also has a **私用GPXのローカル検証** section. It parses a selected GPX in
 memory, returns aggregate values only, and neither saves the GPX nor contacts an external
 service.
+
+## Private highlight review
+
+After a local highlight-research pass has produced its private review package, set
+`RIDE_PRIVATE_HIGHLIGHT_REVIEW_DIRECTORY` in the ignored local `.env` to that package
+directory. Then open `/private-highlight-review` on the loopback-only local server. The
+page streams only the selected local thumbnails and clips through opaque candidate IDs,
+and writes fixed-vocabulary `approved`, `rejected`, or `awaiting` decisions back to the
+package's `highlight-review.json`. It exposes no source paths, filenames, timestamps,
+coordinates, frames, or free-form notes, and is unavailable in public-demo mode.
+
+## Private DirectorScript preview
+
+Once the local Director pipeline has written a private `local-director-script.json`, set
+`RIDE_PRIVATE_DIRECTOR_SCRIPT_PATH` in the ignored local `.env` to that file and open
+`/private-director-preview` on the loopback-only local server. The page is read-only and
+returns only the story roles, clip counts, transitions, and optional overlay text. Event IDs,
+asset IDs, source intervals, file names, paths, and coordinates remain in the private Editor
+artifact and are never returned by this browser endpoint. The page and its API are disabled in
+public-demo mode.
 
 ## Local Google Maps route display
 
@@ -279,8 +442,9 @@ python -m app.submission
 
 This checks offline artifacts, a recognizable root OSI license, and private-file
 protections only. It never treats local state as live Devpost proof, so current
-registration/form status must be re-verified at final submission. Publication,
-hosting, final video, and real-media proof remain separate external gates. The
+registration/form status must be re-verified at final submission. The public
+source repository now exists, but the public application, final video, and
+human-approved real-media proof remain separate external gates. The
 repository-root AGPL-3.0 license is checked as part of this preflight.
 
 ## Safe public demo mode
@@ -297,12 +461,13 @@ the Cloud Run plan refuses to generate unauthenticated-public-access arguments.
 ```bash
 RIDE_WEB_MODE=public_demo RIDE_WEB_HOST=0.0.0.0 RIDE_WEB_PORT=8080 \
   RIDE_UI_DEFAULT_LANGUAGE=en \
-  RIDE_SOURCE_REPOSITORY_URL=https://github.com/OWNER/REPOSITORY \
+  RIDE_SOURCE_REPOSITORY_URL=https://github.com/TKMT-ish/ride-storyteller \
   python -m app.web.server
 ```
 
-Do not copy the placeholder URL. Keep the variable blank until the reviewed
-public repository exists, then use its exact root URL.
+The reviewed source repository is the exact root URL shown above. The hosted
+Cloud Run service remains private even though its authenticated UI exposes the
+validated source link.
 
 For a production-style local container check:
 

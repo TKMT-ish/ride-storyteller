@@ -3,10 +3,15 @@
 ## Status
 
 The safe public demo is deployed to one **private** Cloud Run service in Tokyo.
-Its fourth revision is Ready, ContainerHealthy, and receives all traffic, but
+Its fifth revision, `ride-storyteller-public-demo-00005-zvs`, is verified Ready,
+Active, and ContainerHealthy with 100% traffic, but
 unauthenticated access has not been approved or enabled. There is no public
 deployment evidence yet. Authenticated hosted verification confirms the exact
 GitHub AGPL Source link and the private/Google route blocks.
+
+Public commit `6998221` contains the abuse safeguards. Its image and active
+private revision were verified by digest and hosted behavior; IAM still has no
+public binding.
 
 ## Modes
 
@@ -45,9 +50,9 @@ worker, then returns HTTP 429 and `Retry-After`. Health is exempt for platform
 probes. Gunicorn allows no more than two workers and two threads, while Cloud
 Run remains at one instance and concurrency four. The limiter is intentionally
 process-local: it is a low-dependency abuse baseline, not a distributed rate
-limiter or DDoS service. The current private revision predates this limiter; a
-new immutable image must be separately approved and deployed before claiming
-hosted coverage.
+limiter or DDoS service. The current private revision contains this limiter;
+authenticated hosted checks observed 429 and `Retry-After` during a rapid
+request sequence.
 
 ## Example hosted environment
 
@@ -56,13 +61,14 @@ RIDE_WEB_MODE=public_demo
 RIDE_WEB_HOST=0.0.0.0
 RIDE_WEB_PORT=8080
 RIDE_UI_DEFAULT_LANGUAGE=en
-RIDE_SOURCE_REPOSITORY_URL=https://github.com/OWNER/REPOSITORY
+RIDE_SOURCE_REPOSITORY_URL=https://github.com/TKMT-ish/ride-storyteller
 ```
 
 `RIDE_SOURCE_REPOSITORY_URL` accepts only an HTTPS GitHub, GitLab, or Bitbucket
 repository-root URL with no credentials, query, fragment, or subpage. Leave it
-blank until the reviewed repository exists; the private service can still be
-tested, but unauthenticated public-access arguments then fail closed.
+blank only when no reviewed repository exists. The reviewed public repository
+now exists at the exact URL above; the private service can still be tested with
+the value blank, but unauthenticated public-access arguments then fail closed.
 
 Some providers supply `PORT`; it is used only when `RIDE_WEB_PORT` is absent.
 Invalid modes, hosts, and ports stop startup instead of falling back to a public
@@ -125,23 +131,23 @@ error was recorded. An unauthenticated `/health` request returned 403.
 
 ## Deliberately unresolved
 
-- domain, abuse controls, and budget alerts;
-- unauthenticated public-access authorization. One private service with four
-  revisions (only the fourth receives traffic), immutable `linux/amd64`
+- domain and distributed abuse controls;
+- unauthenticated public-access authorization. One private service with five
+  revisions (only the fifth receives traffic), immutable `linux/amd64`
   images, the Tokyo repository, and
   the dedicated no-role service account now exist; Cloud Build remains disabled
   and optional;
 - exact current hackathon requirement for a hosted application;
 - whether judges need a real cloud call from the public page;
-- deployment and hosted verification of the new process-local request limiter;
 - public-access authorization and unauthenticated verification.
 
-The effective Cloud Run maximum is one instance. The Cloud Billing Budget API
-was rechecked on 2026-08-25 and remains disabled, while project billing is
-enabled. Google applies the lower of the service-level limit (1) and
-revision-level limit (20). A read-only budget listing cannot proceed until that
-API is enabled. It was not auto-enabled. The owner must choose the exact monthly amount and recipients
-before that API and any alert are separately approved.
+The effective Cloud Run maximum is one instance. Google applies the lower of
+the service-level limit (1) and revision-level limit (20). On 2026-08-27, JPY
+billing currency, the enabled Budget API, and exactly one project-only monthly
+JPY 1,000 budget were verified. It has actual-spend alerts at 50%, 80%, and
+100%, a forecast alert at 100%, default IAM recipients and Project Owners
+enabled, and no Pub/Sub or Monitoring notification channel. It is an alert, not
+a hard spending cap.
 
 The public safe mode intentionally does **not** make billable calls. Existing
 Gemini, local ADK, and hosted Agent Platform evidence must be shown separately

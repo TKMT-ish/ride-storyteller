@@ -8,7 +8,7 @@ import json
 from collections.abc import Callable, Iterable
 from html import escape
 from io import BytesIO
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlsplit
 from wsgiref.simple_server import make_server
 from xml.etree import ElementTree
 
@@ -17,13 +17,23 @@ from app.demo import (
     build_demo_candidate_edit_plan,
     build_demo_event,
     build_demo_story_plan,
+    build_synthetic_director_events,
     run_demo,
 )
 from app.edit import CandidateEditReview, build_candidate_edit_plan, review_candidate_edit_plan
 from app.gps import consolidate_events, extract_events, parse_gpx_bytes
+from app.video.highlight_review import HighlightReviewReason, HighlightReviewStatus
 from app.web.deployment import WebDeploymentSettings
 from app.web.i18n import UiLanguage, copy_for, resolve_language
 from app.web.maps_config import GoogleMapsSettings
+from app.web.private_director_preview import (
+    PrivateDirectorPreview,
+    PrivateDirectorPreviewError,
+)
+from app.web.private_highlight_review import (
+    PrivateHighlightReviewError,
+    PrivateHighlightReviewSession,
+)
 from app.web.rate_limit import FixedWindowRateLimiter
 
 StartResponse = Callable[[str, list[tuple[str, str]]], Callable[[bytes], object]]
@@ -31,8 +41,14 @@ _PUBLIC_DEMO_DISABLED_PATHS = {
     "/api/adk-synthetic-demo",
     "/api/agent-platform-preflight",
     "/api/agent-platform-synthetic-demo",
+    "/api/gemini-director-synthetic-demo",
     "/api/google-runtime",
     "/api/private-gpx-summary",
+    "/private-highlight-review",
+    "/api/private-highlight-review",
+    "/api/private-highlight-review/asset",
+    "/private-director-preview",
+    "/api/private-director-preview",
 }
 _HEALTH_PATHS = {"/health", "/healthz"}
 _PUBLIC_DEMO_RATE_LIMITER = FixedWindowRateLimiter(
@@ -101,6 +117,127 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
             "200 OK",
             "text/html; charset=utf-8",
             _media_inventory_page(language).encode(),
+        )
+    if path == "/private-highlight-review":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        try:
+            PrivateHighlightReviewSession.from_environment()
+        except PrivateHighlightReviewError:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                b'{"error":"private highlight review is unavailable"}',
+            )
+        language = resolve_language(query.get("lang", [None])[0])
+        return _respond(
+            start_response,
+            "200 OK",
+            "text/html; charset=utf-8",
+            _private_highlight_review_page(language).encode(),
+        )
+    if path == "/api/private-highlight-review":
+        method = str(environ.get("REQUEST_METHOD", "GET")).upper()
+        try:
+            session = PrivateHighlightReviewSession.from_environment()
+            if method == "GET":
+                payload = session.payload()
+            elif method == "POST":
+                payload = _update_private_highlight_review(session, environ)
+            else:
+                return _respond(
+                    start_response,
+                    "405 Method Not Allowed",
+                    "application/json; charset=utf-8",
+                    '{"error":"GETまたはPOSTを使用してください。"}'.encode(),
+                )
+        except (PrivateHighlightReviewError, ValueError, TypeError, json.JSONDecodeError):
+            return _respond(
+                start_response,
+                "400 Bad Request",
+                "application/json; charset=utf-8",
+                b'{"error":"private highlight review request is invalid"}',
+            )
+        return _respond(
+            start_response,
+            "200 OK",
+            "application/json; charset=utf-8",
+            json.dumps(payload, ensure_ascii=False).encode(),
+        )
+    if path == "/api/private-highlight-review/asset":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        candidate_id = query.get("candidate_id", [""])[0]
+        kind = query.get("kind", [""])[0]
+        try:
+            asset = PrivateHighlightReviewSession.from_environment().asset(candidate_id, kind)
+            body = asset.read_bytes()
+        except (OSError, PrivateHighlightReviewError):
+            return _respond(
+                start_response,
+                "404 Not Found",
+                "application/json; charset=utf-8",
+                b'{"error":"private highlight review asset is unavailable"}',
+            )
+        content_type = "image/jpeg" if kind == "thumbnail" else "video/mp4"
+        return _respond(start_response, "200 OK", content_type, body)
+    if path == "/private-director-preview":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        try:
+            PrivateDirectorPreview.from_environment()
+        except PrivateDirectorPreviewError:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                b'{"error":"private DirectorScript preview is unavailable"}',
+            )
+        language = resolve_language(query.get("lang", [None])[0])
+        return _respond(
+            start_response,
+            "200 OK",
+            "text/html; charset=utf-8",
+            _private_director_preview_page(language).encode(),
+        )
+    if path == "/api/private-director-preview":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        try:
+            payload = PrivateDirectorPreview.from_environment().payload()
+        except PrivateDirectorPreviewError:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                b'{"error":"private DirectorScript preview is unavailable"}',
+            )
+        return _respond(
+            start_response,
+            "200 OK",
+            "application/json; charset=utf-8",
+            json.dumps(payload, ensure_ascii=False).encode(),
         )
     if path == "/api/demo":
         language = resolve_language(query.get("lang", [None])[0])
@@ -246,6 +383,36 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
                 "503 Service Unavailable",
                 "application/json; charset=utf-8",
                 '{"error":"クラウドRuntime合成テストを実行できませんでした。"}'.encode(),
+            )
+        return _respond(
+            start_response,
+            "200 OK",
+            "application/json; charset=utf-8",
+            json.dumps(payload, ensure_ascii=False).encode(),
+        )
+    if path == "/api/gemini-director-synthetic-demo":
+        if environ.get("REQUEST_METHOD", "GET") != "POST":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"POSTを使用してください。"}'.encode(),
+            )
+        if int(str(environ.get("CONTENT_LENGTH", "0")) or "0") != 0:
+            return _respond(
+                start_response,
+                "400 Bad Request",
+                "application/json; charset=utf-8",
+                '{"error":"この確認には入力データを送れません。"}'.encode(),
+            )
+        try:
+            payload = _gemini_director_synthetic_payload()
+        except _ExternalRuntimeUnavailable:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                '{"error":"Gemini Director合成デモを実行できませんでした。"}'.encode(),
             )
         return _respond(
             start_response,
@@ -461,6 +628,59 @@ def _agent_platform_synthetic_demo_payload() -> dict[str, object]:
     }
 
 
+def _gemini_director_synthetic_payload() -> dict[str, object]:
+    """Run the Director through Gemini using only fixed synthetic events.
+
+    The request body is forbidden by the HTTP handler, and the event fixture
+    is built locally in ``app.demo``.  This is deliberately separate from the
+    private-media Director pipeline: it proves the cloud Director contract
+    without sending route, video, coordinate, or source-identity data.
+    """
+    try:
+        from app.agents.vertex_director import VertexAIGeminiDirectorTransport
+    except (ImportError, ModuleNotFoundError) as error:
+        raise _ExternalRuntimeUnavailable("Gemini Director support is not installed") from error
+
+    try:
+        transport = VertexAIGeminiDirectorTransport.from_environment()
+    except ValueError as error:
+        raise _ExternalRuntimeUnavailable("Gemini Director is not configured") from error
+
+    return _synthetic_director_payload_from_transport(transport)
+
+
+def _synthetic_director_payload_from_transport(transport: object) -> dict[str, object]:
+    """Compose only the fixed fixture and make fallback observable in tests.
+
+    The helper accepts a transport boundary rather than a Vertex client so unit
+    tests can exercise Gemini failure and the RuleBased fallback without a
+    credential, network, or billable request.
+    """
+    from app.director import (
+        FallbackDirector,
+        GeminiDirector,
+        RuleBasedDirector,
+        browser_safe_script_view,
+    )
+
+    script = FallbackDirector(
+        GeminiDirector(transport),  # type: ignore[arg-type]
+        RuleBasedDirector(),
+    ).compose(build_synthetic_director_events())
+
+    return {
+        "demo_mode": True,
+        "private_data_used": False,
+        "external_service_called": True,
+        "billing_may_apply": True,
+        "notice": "固定の合成イベントだけをGemini Directorへ送信しました。",
+        "director_script": browser_safe_script_view(
+            script,
+            fallback_used=script.metadata.composer == "rule_based",
+        ),
+    }
+
+
 def _private_gpx_payload(
     environ: dict[str, object],
     language: UiLanguage,
@@ -518,6 +738,162 @@ def _private_gpx_payload(
             "rejected_evidence_count": len(review.rejected_event_ids),
         },
     }
+
+
+def _update_private_highlight_review(
+    session: PrivateHighlightReviewSession,
+    environ: dict[str, object],
+) -> dict[str, object]:
+    """Accept one bounded, fixed-vocabulary local review decision."""
+    if not _private_review_origin_is_local(environ):
+        raise ValueError("private review update must come from a loopback origin")
+    content_length = int(str(environ.get("CONTENT_LENGTH", "0")) or "0")
+    if not 0 < content_length <= 8 * 1024:
+        raise ValueError("private review request must be between 1 byte and 8 KiB")
+    stream = environ.get("wsgi.input", BytesIO())
+    raw_payload = stream.read(content_length)  # type: ignore[union-attr]
+    payload = json.loads(raw_payload)
+    if not isinstance(payload, dict) or set(payload) != {"candidate_id", "status", "reasons"}:
+        raise ValueError("private review request shape is invalid")
+    candidate_id = payload["candidate_id"]
+    raw_status = payload["status"]
+    raw_reasons = payload["reasons"]
+    if (
+        not isinstance(candidate_id, str)
+        or not isinstance(raw_status, str)
+        or not isinstance(raw_reasons, list)
+        or not all(isinstance(reason, str) for reason in raw_reasons)
+    ):
+        raise ValueError("private review request values are invalid")
+    return session.update(
+        candidate_id=candidate_id,
+        status=HighlightReviewStatus(raw_status),
+        reasons=tuple(HighlightReviewReason(reason) for reason in raw_reasons),
+    )
+
+
+def _private_review_origin_is_local(environ: dict[str, object]) -> bool:
+    """Reject browser-originated writes from another site while allowing local tooling."""
+    raw_origin = str(environ.get("HTTP_ORIGIN", "") or "").strip()
+    if not raw_origin:
+        return True
+    parsed = urlsplit(raw_origin)
+    return (
+        parsed.scheme == "http"
+        and parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+        and not parsed.username
+        and not parsed.password
+        and not parsed.path.rstrip("/")
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def _private_highlight_review_page(language: UiLanguage) -> str:
+    """Render a local-only review page with no source identifiers or external scripts."""
+    english = language is UiLanguage.ENGLISH
+    strings = {
+        "title": "Private highlight review" if english else "私用ハイライト確認",
+        "intro": (
+            "This page reads and writes only the explicitly configured local review package. "
+            "No media or GPS data is uploaded."
+            if english
+            else "この画面は、明示設定したローカル確認パッケージだけを読み書きします。映像・GPSはアップロードしません。"
+        ),
+        "loading": "Loading local candidates…" if english else "ローカル候補を読み込み中…",
+        "approved": "Approve" if english else "採用",
+        "rejected": "Reject" if english else "却下",
+        "awaiting": "Awaiting" if english else "未判断",
+        "save": "Save decision" if english else "判断を保存",
+        "saved": "Saved locally." if english else "ローカルに保存しました。",
+        "failed": "The local review could not be updated." if english else "ローカルreviewを更新できませんでした。",
+        "status": "Decision" if english else "判断",
+        "reason": "Reason" if english else "理由",
+        "summary": "Approved {approved} / Rejected {rejected} / Awaiting {awaiting}"
+        if english
+        else "採用 {approved} / 却下 {rejected} / 未判断 {awaiting}",
+        "back": "Back to demo" if english else "デモへ戻る",
+    }
+    reason_labels = (
+        {
+            "clear_turn": "clear turn",
+            "temporal_event": "temporal event",
+            "scenic_context": "scenic context",
+            "story_useful": "story useful",
+            "too_straight": "too straight",
+            "stopped_or_slow": "stopped or slow",
+            "low_visual_change": "low visual change",
+            "poor_road_context": "poor road context",
+            "duplicate": "duplicate",
+            "other": "other",
+        }
+        if english
+        else {
+            "clear_turn": "明確な旋回",
+            "temporal_event": "時間的な映像変化",
+            "scenic_context": "景観・道路文脈",
+            "story_useful": "物語に有用",
+            "too_straight": "直線走行が多い",
+            "stopped_or_slow": "停止または低速",
+            "low_visual_change": "映像変化が少ない",
+            "poor_road_context": "道路文脈が不十分",
+            "duplicate": "重複",
+            "other": "その他",
+        }
+    )
+    text = {key: escape(value) for key, value in strings.items()}
+    strings_json = json.dumps(strings, ensure_ascii=False).replace("<", "\\u003c")
+    reason_labels_json = json.dumps(reason_labels, ensure_ascii=False).replace("<", "\\u003c")
+    return f"""<!doctype html>
+<html lang="{language.value}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ride Storyteller — {text['title']}</title>
+<style>
+body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;max-width:1100px;margin:32px auto;padding:0 20px;color:#17212b;background:#f7f8fa}}main{{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 10px #0001}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}}article{{border:1px solid #d7dde5;border-radius:12px;padding:14px}}img,video{{display:block;width:100%;border-radius:8px;background:#17212b;margin:8px 0}}select,button{{font:inherit;padding:8px;margin:5px 0}}button{{background:#1264d6;color:#fff;border:0;border-radius:7px;cursor:pointer}}.status{{font-weight:700}}#notice{{padding:12px;background:#f2f7ff;border-radius:8px}}.reason-wrap[hidden]{{display:none}}small{{color:#53606d}}</style>
+</head><body><main><p><a href="/?lang={language.value}">{text['back']}</a></p><h1>{text['title']}</h1><p>{text['intro']}</p><p id="notice" aria-live="polite">{text['loading']}</p><section id="cards" class="grid"></section>
+<script>
+const text={strings_json};
+const reasonLabels={reason_labels_json};
+const reasons={{approved:['clear_turn','temporal_event','scenic_context','story_useful'],rejected:['too_straight','stopped_or_slow','low_visual_change','poor_road_context','duplicate','other']}};
+const notice=document.querySelector('#notice'),cards=document.querySelector('#cards');
+function summary(counts){{return text.summary.replace('{{approved}}',counts.approved).replace('{{rejected}}',counts.rejected).replace('{{awaiting}}',counts.awaiting)}}
+function reasonOptions(status,current){{if(status==='awaiting')return [];return reasons[status].map(value=>[value,reasonLabels[value],current===value])}}
+function setReasonOptions(select,status,current){{select.replaceChildren();for(const [value,label,selected] of reasonOptions(status,current)){{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=selected;select.append(option)}}}}
+function card(candidate){{const article=document.createElement('article'),title=document.createElement('h2'),image=document.createElement('img'),video=document.createElement('video'),statusLabel=document.createElement('label'),status=document.createElement('select'),reasonWrap=document.createElement('label'),reason=document.createElement('select'),save=document.createElement('button');title.textContent=`${{candidate.method}} / #${{candidate.rank}}`;image.src=candidate.thumbnail_url;image.loading='lazy';image.alt='review thumbnail';video.src=candidate.media_url;video.controls=true;video.preload='none';for(const [value,label] of [['approved',text.approved],['rejected',text.rejected],['awaiting',text.awaiting]]){{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=candidate.status===value;status.append(option)}}statusLabel.textContent=text.status+' ';statusLabel.append(status);reasonWrap.textContent=text.reason+' ';reasonWrap.className='reason-wrap';reasonWrap.append(reason);setReasonOptions(reason,candidate.status,candidate.reasons[0]);reasonWrap.hidden=candidate.status==='awaiting';status.addEventListener('change',()=>{{setReasonOptions(reason,status.value,'');reasonWrap.hidden=status.value==='awaiting'}});save.textContent=text.save;save.addEventListener('click',async()=>{{save.disabled=true;try{{const response=await fetch('/api/private-highlight-review',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{candidate_id:candidate.candidate_id,status:status.value,reasons:status.value==='awaiting'?[]:[reason.value]}})}});if(!response.ok)throw Error();const payload=await response.json(),updatedCandidate=payload.review.candidates.find(item=>item.candidate_id===candidate.candidate_id);if(!updatedCandidate)throw Error();candidate.status=updatedCandidate.status;candidate.reasons=updatedCandidate.reasons;notice.textContent=`${{text.saved}} ${{summary(payload.review.status_counts)}}`}}catch(error){{notice.textContent=text.failed}}finally{{save.disabled=false}}}});article.append(title,image,video,statusLabel,reasonWrap,save);return article}}
+function render(payload){{cards.replaceChildren(...payload.review.candidates.map(card));notice.textContent=summary(payload.review.status_counts)}}
+fetch('/api/private-highlight-review').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(render).catch(()=>{{notice.textContent=text.failed}});
+</script></main></body></html>"""
+
+
+def _private_director_preview_page(language: UiLanguage) -> str:
+    """Render a read-only local view with no source identifiers."""
+    english = language is UiLanguage.ENGLISH
+    strings = {
+        "title": "Private story structure" if english else "私用の物語構成",
+        "intro": (
+            "This page reads the explicitly configured local DirectorScript and shows only "
+            "its narrative structure. It does not upload media or route data."
+            if english
+            else "この画面は明示設定したローカルDirectorScriptから、物語構成だけを表示します。映像・経路データはアップロードしません。"
+        ),
+        "loading": "Loading local story structure…" if english else "ローカルの物語構成を読み込み中…",
+        "failed": "The local story structure is unavailable." if english else "ローカルの物語構成を読み込めませんでした。",
+        "composer": "Script composer" if english else "脚本の作成者",
+        "events": "Events used / available" if english else "使用イベント数 / 入力イベント数",
+        "clips": "clips" if english else "クリップ",
+        "back": "Back to demo" if english else "デモへ戻る",
+    }
+    text = {key: escape(value) for key, value in strings.items()}
+    strings_json = json.dumps(strings, ensure_ascii=False).replace("<", "\\u003c")
+    return f"""<!doctype html>
+<html lang="{language.value}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ride Storyteller — {text['title']}</title>
+<style>body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#17212b;background:#f7f8fa}}main{{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 10px #0001}}#notice{{padding:12px;background:#f2f7ff;border-radius:8px}}li{{margin:10px 0}}code{{background:#e9edf2;padding:2px 4px;border-radius:4px}}</style>
+</head><body><main><p><a href="/?lang={language.value}">{text['back']}</a></p><h1>{text['title']}</h1><p>{text['intro']}</p><p id="notice" aria-live="polite">{text['loading']}</p><section id="script" hidden></section>
+<script>
+const text={strings_json},notice=document.querySelector('#notice'),section=document.querySelector('#script');
+function safe(value){{return String(value).replace(/[&<>"']/g,char=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[char]))}}
+fetch('/api/private-director-preview').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(payload=>{{const script=payload.director_script;notice.textContent='';section.hidden=false;section.innerHTML=`<dl><dt>${{text.composer}}</dt><dd><code>${{safe(script.composer)}}</code></dd><dt>${{text.events}}</dt><dd>${{script.event_count_used}} / ${{script.event_count_in}}</dd></dl><ol>${{script.scenes.map(scene=>`<li><strong>${{safe(scene.role)}}</strong>: ${{scene.event_count}} ${{text.clips}} (${{safe(scene.transition_type)}})${{scene.overlay_text?' — '+safe(scene.overlay_text):''}}</li>`).join('')}}</ol>`}}).catch(()=>{{notice.textContent=text.failed}});
+</script></main></body></html>"""
 
 
 def _language_switch(language: UiLanguage, path: str) -> str:
@@ -600,6 +976,14 @@ def _page(
         if deployment.public_demo
         else ""
     )
+    private_director_preview_link = (
+        ""
+        if deployment.public_demo
+        else (
+            f'<p><a href="/private-director-preview?lang={language.value}">'
+            f'{text("director.preview.open")}</a></p>'
+        )
+    )
     if deployment.source_repository_url is not None:
         source_footer = (
             '<footer id="source"><hr><p>'
@@ -623,14 +1007,15 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;ma
 <p id="notice">{text("main.notice")}</p>
 <h1>{text("main.title")}</h1><p>{text("main.intro")}</p>
 <label>{text("demo.scenario")} <select id="scenario"><option value="accepted">{text("scenario.accepted")}</option><option value="rejected">{text("scenario.rejected")}</option><option value="missing_asset">{text("scenario.missing_asset")}</option><option value="gemini_unavailable">{text("scenario.gemini_unavailable")}</option></select></label>
-<p><button id="run">{text("demo.run")}</button> <button id="plan">{text("demo.story_plan")}</button> <button id="candidate">{text("demo.candidate_plan")}</button> <button id="download" disabled>{text("demo.download")}</button></p><hr><section id="ibm-evidence"><h2>{text("ibm.heading")}</h2><p>{text("ibm.description")}</p><ul><li>{text("ibm.finding.1")}</li><li>{text("ibm.finding.2")}</li><li>{text("ibm.finding.3")}</li></ul><p><small>{text("ibm.limit")}</small></p></section><hr><h2>{text("adk.heading")}</h2><p>{text("adk.description")}</p><p><button id="adkRun"{external_disabled}>{text("adk.run")}</button></p><hr><h2>{text("platform.heading")}</h2><p>{text("platform.description")}</p><p><button id="platformRun"{external_disabled}>{text("platform.run")}</button> <button id="platformPreflight"{external_disabled}>{text("platform.preflight")}</button></p><hr><h2>{text("inventory.heading")}</h2><p>{text("inventory.main_description")}</p><p><a href="/local-media-inventory?lang={language.value}">{text("inventory.open")}</a></p><hr><h2>{text("gpx.heading")}</h2><p>{text("gpx.description")}</p><input id="gpx" type="file" accept=".gpx,application/gpx+xml"{private_disabled}><button id="gpxRun"{private_disabled}>{text("gpx.run")}</button><section id="result" aria-live="polite"></section>
+<p><button id="run">{text("demo.run")}</button> <button id="plan">{text("demo.story_plan")}</button> <button id="candidate">{text("demo.candidate_plan")}</button> <button id="download" disabled>{text("demo.download")}</button></p><hr><section id="ibm-evidence"><h2>{text("ibm.heading")}</h2><p>{text("ibm.description")}</p><ul><li>{text("ibm.finding.1")}</li><li>{text("ibm.finding.2")}</li><li>{text("ibm.finding.3")}</li></ul><p><small>{text("ibm.limit")}</small></p></section><hr><h2>{text("adk.heading")}</h2><p>{text("adk.description")}</p><p><button id="adkRun"{external_disabled}>{text("adk.run")}</button></p><hr><h2>{text("platform.heading")}</h2><p>{text("platform.description")}</p><p><button id="platformRun"{external_disabled}>{text("platform.run")}</button> <button id="platformPreflight"{external_disabled}>{text("platform.preflight")}</button></p><hr><h2>{text("director.heading")}</h2><p>{text("director.description")}</p><p><button id="directorRun"{external_disabled}>{text("director.run")}</button></p>{private_director_preview_link}<hr><h2>{text("inventory.heading")}</h2><p>{text("inventory.main_description")}</p><p><a href="/local-media-inventory?lang={language.value}">{text("inventory.open")}</a></p><hr><h2>{text("gpx.heading")}</h2><p>{text("gpx.description")}</p><input id="gpx" type="file" accept=".gpx,application/gpx+xml"{private_disabled}><button id="gpxRun"{private_disabled}>{text("gpx.run")}</button><section id="result" aria-live="polite"></section>
 <h2>{text("map.heading")}</h2><p id="mapStatus">{maps_status}</p><p>{text("map.privacy")}</p><div id="map" aria-label="{text("map.aria")}"></div>
 <script>
 const uiCopy={_copy_json(language)}, uiLanguage='{language.value}';
 function formatCopy(key,values={{}}){{return Object.entries(values).reduce((value,[name,replacement])=>value.replaceAll(`{{${{name}}}}`,String(replacement)),uiCopy[key])}}
+function escapeHtml(value){{return String(value).replace(/[&<>"']/g,character=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[character]))}}
 function reviewReasons(review){{const values=[];if((review.missing_duration_s||0)>0)values.push(uiCopy['candidate.reason.duration']);const awaiting=review.event_ids_requiring_evidence?.length??review.awaiting_evidence_count??0,rejected=review.rejected_event_ids?.length??review.rejected_evidence_count??0;if(awaiting)values.push(uiCopy['candidate.reason.awaiting']);if(rejected)values.push(uiCopy['candidate.reason.rejected']);return values}}
 function storyChapter(chapter){{return chapter.title+': '+chapter.selection_rationale+` (${{chapter.target_duration_s}}s)`}}
-const runButton=document.querySelector('#run'), planButton=document.querySelector('#plan'), candidateButton=document.querySelector('#candidate'), downloadButton=document.querySelector('#download'), adkButton=document.querySelector('#adkRun'), platformRunButton=document.querySelector('#platformRun'), platformPreflightButton=document.querySelector('#platformPreflight'), gpxButton=document.querySelector('#gpxRun'), gpxInput=document.querySelector('#gpx'), scenario=document.querySelector('#scenario'), result=document.querySelector('#result');let latestRecord=null;
+const runButton=document.querySelector('#run'), planButton=document.querySelector('#plan'), candidateButton=document.querySelector('#candidate'), downloadButton=document.querySelector('#download'), adkButton=document.querySelector('#adkRun'), platformRunButton=document.querySelector('#platformRun'), platformPreflightButton=document.querySelector('#platformPreflight'), directorButton=document.querySelector('#directorRun'), gpxButton=document.querySelector('#gpxRun'), gpxInput=document.querySelector('#gpx'), scenario=document.querySelector('#scenario'), result=document.querySelector('#result');let latestRecord=null;
 let map,routeLine;
 function show(html){{result.innerHTML=html;result.style.display='block'}}
 window.initRideMap=()=>{{map=new google.maps.Map(document.querySelector('#map'),{{center:{{lat:-41.2865,lng:174.7762}},zoom:5,mapTypeControl:false,streetViewControl:false}})}};
@@ -642,6 +1027,7 @@ candidateButton.addEventListener('click',async()=>{{try{{const r=await fetch('/a
 adkButton.addEventListener('click',async()=>{{adkButton.disabled=true;try{{const r=await fetch('/api/adk-synthetic-demo',{{method:'POST'}});const d=await r.json();if(!r.ok)throw Error();const a=d.adk_synthetic_demo;show(`<h2>${{uiCopy['adk.heading']}}</h2><p>${{uiCopy['adk.description']}}</p><dl><dt>${{uiCopy['platform.model']}}</dt><dd><code>${{a.model}}</code></dd><dt>${{uiCopy['platform.tool']}}</dt><dd>${{a.tool_called?uiCopy['common.success']:uiCopy['common.failure']}}</dd><dt>${{uiCopy['platform.response']}}</dt><dd>${{a.final_response_received?uiCopy['common.success']:uiCopy['common.failure']}}</dd></dl>`)}}catch(e){{show(uiCopy['error.adk'])}}finally{{adkButton.disabled=false}}}});
 platformRunButton.addEventListener('click',async()=>{{platformRunButton.disabled=true;try{{const r=await fetch('/api/agent-platform-synthetic-demo',{{method:'POST'}});const d=await r.json();if(!r.ok)throw Error();const a=d.agent_platform_synthetic_demo;show(`<h2>${{uiCopy['platform.heading']}}</h2><p>${{uiCopy['platform.description']}}</p><dl><dt>${{uiCopy['platform.runtime']}}</dt><dd><code>${{a.runtime_location}}</code></dd><dt>${{uiCopy['platform.model']}}</dt><dd><code>${{a.model}}</code></dd><dt>${{uiCopy['platform.tool']}}</dt><dd>${{a.tool_called?uiCopy['common.success']:uiCopy['common.failure']}}</dd><dt>${{uiCopy['platform.response']}}</dt><dd>${{a.final_response_received?uiCopy['common.success']:uiCopy['common.failure']}}</dd><dt>${{uiCopy['platform.private_data']}}</dt><dd>${{a.private_data_used?uiCopy['platform.used']:uiCopy['platform.not_used']}}</dd></dl><p>${{uiCopy['platform.external_notice']}}</p>`)}}catch(e){{show(uiCopy['error.platform'])}}finally{{platformRunButton.disabled=false}}}});
 platformPreflightButton.addEventListener('click',async()=>{{platformPreflightButton.disabled=true;try{{const r=await fetch('/api/agent-platform-preflight');const d=await r.json();if(!r.ok)throw Error();const p=d.agent_platform_preflight;show(`<h2>${{uiCopy['platform.preflight_heading']}}</h2><dl><dt>${{uiCopy['candidate.status']}}</dt><dd><code>${{p.status}}</code></dd><dt>${{uiCopy['platform.deployment']}}</dt><dd>${{p.deployment_executed?uiCopy['platform.executed']:uiCopy['platform.not_executed']}}</dd><dt>${{uiCopy['platform.framework']}}</dt><dd><code>${{p.agent_framework}}</code></dd></dl><h3>${{uiCopy['platform.missing']}}</h3><ul>${{p.missing_configuration.length?p.missing_configuration.map(value=>`<li>${{value}}</li>`).join(''):'<li>'+uiCopy['platform.none']+'</li>'}}</ul><h3>${{uiCopy['platform.external_checks']}}</h3><ul>${{p.external_verification_required.map(value=>`<li>${{value}}</li>`).join('')}}</ul>`)}}catch(e){{show(uiCopy['error.preflight'])}}finally{{platformPreflightButton.disabled=false}}}});
+directorButton.addEventListener('click',async()=>{{directorButton.disabled=true;try{{const r=await fetch('/api/gemini-director-synthetic-demo',{{method:'POST'}});const d=await r.json();if(!r.ok)throw Error();const script=d.director_script,scenes=script.scenes.map(scene=>`<li><strong>${{escapeHtml(scene.role)}}</strong>: ${{scene.event_count}} (${{escapeHtml(scene.transition_type)}})${{scene.overlay_text?' — '+escapeHtml(scene.overlay_text):''}}</li>`).join('');show(`<h2>${{uiCopy['director.heading']}}</h2><p>${{d.notice}}</p><dl><dt>${{uiCopy['director.composer']}}</dt><dd><code>${{escapeHtml(script.composer)}}</code></dd><dt>${{uiCopy['director.fallback']}}</dt><dd>${{script.fallback_used?uiCopy['common.yes']:uiCopy['common.no']}}</dd><dt>${{uiCopy['director.scene_count']}}</dt><dd>${{script.scenes.length}}</dd></dl><ol>${{scenes}}</ol><p>${{uiCopy['director.external_notice']}}</p>`)}}catch(e){{show(uiCopy['error.director'])}}finally{{directorButton.disabled=false}}}});
 gpxButton.addEventListener('click',async()=>{{const file=gpxInput.files[0];if(!file){{show(uiCopy['gpx.select']);return}}gpxButton.disabled=true;try{{const contents=await file.text();drawRoute(routePoints(contents));const r=await fetch('/api/private-gpx-summary?lang='+uiLanguage,{{method:'POST',headers:{{'Content-Type':'application/gpx+xml'}},body:contents}});const d=await r.json();if(!r.ok)throw Error();const s=d.route_summary,c=d.candidate_edit_plan;show(`<h2>${{uiCopy['gpx.result']}}</h2><p>${{d.notice}}</p><dl><dt>${{uiCopy['gpx.distance_duration']}}</dt><dd>${{s.distance_km}}km / ${{s.duration_minutes}}min</dd><dt>${{uiCopy['gpx.elevation']}}</dt><dd>${{s.elevation_gain_m}}m / ${{s.elevation_loss_m}}m</dd><dt>${{uiCopy['gpx.events']}}</dt><dd>${{d.raw_event_count}} / ${{d.consolidated_event_count}}</dd><dt>Story Plan</dt><dd>${{d.story_plan.chapter_roles.join(' → ')}}</dd><dt>${{uiCopy['gpx.candidate']}}</dt><dd>${{c.candidate_duration_s}}s / ${{c.is_ready_for_edit?uiCopy['common.yes']:uiCopy['common.no']}}</dd></dl><h3>${{uiCopy['candidate.review_reasons']}}</h3><ul>${{c.reasons.map(reason=>`<li>${{reason}}</li>`).join('')}}</ul>`)}}catch(e){{show(uiCopy['error.gpx'])}}finally{{gpxButton.disabled=false}}}});
 downloadButton.addEventListener('click',()=>{{const blob=new Blob([JSON.stringify(latestRecord,null,2)],{{type:'application/json'}}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ride-storyteller-demo-record.json';a.click();URL.revokeObjectURL(a.href)}});
 </script>{maps_script}{source_footer}</main></body></html>"""

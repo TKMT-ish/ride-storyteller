@@ -6,11 +6,21 @@ flowchart LR
         GPX["Garmin GPX"] --> Parser["Route parser"]
         Parser --> Events["Explainable GPS events"]
         Events --> Story["Story Agent"]
-        Story -->|"requests evidence"| Query["Candidate interval"]
         Media["GoPro source folder"] --> Inventory["Inventory and ffprobe"]
-        Inventory --> Catalog["Clock-corrected local catalog"]
+        Inventory --> Catalog["Clock-corrected logical catalog<br/>with chapter correction"]
+        Story -->|"requests evidence"| Query["Candidate interval"]
         Query --> Catalog
-        Catalog --> Candidate["Resolved candidate clip"]
+        Catalog --> Candidate["Timestamp-resolved candidate"]
+        Candidate --> ReviewClips["720p review clips"]
+
+        GPX --> Highlight["Highlight research"]
+        Media --> Highlight
+        Highlight --> Metrics["FFmpeg + GPMF + Apple Vision"]
+        Metrics --> Ranked["Four ranked review sets"]
+        Ranked -. "manual handoff; not integrated yet" .-> Review["Human evidence review"]
+        ReviewClips --> Review
+        Review --> Gate["Evidence and duration gate"]
+        Gate --> LocalRender["Silent local draft render"]
     end
 
     subgraph ApprovedCloud["Separate explicit approval boundary"]
@@ -21,7 +31,7 @@ flowchart LR
     Candidate -. "no automatic upload" .-> GCS
     Gemini --> Analysis["Validated VideoAnalysis"]
     Analysis --> Decision["Confirm, reject, or human review"]
-    Decision --> Gate["Evidence and duration gate"]
+    Decision --> Gate
     Gate --> Plan["Inspectable FFmpeg plan"]
     Plan --> Human["Human-reviewed final edit"]
 
@@ -37,12 +47,17 @@ flowchart LR
     end
 ```
 
-The solid local path can be prepared without video transfer. The dotted edge is
-not implemented as an uploader: a separate approved process must create the
-short GCS object. The hosted Runtime is a synthetic execution proof and has no
-tool that can read the private workspace. The public-demo container was prepared
-and verified locally as `linux/amd64`, then deployed as a private Tokyo Cloud
-Run revision. Authenticated health and synthetic-demo requests pass, while
-private/Google execution routes and every unauthenticated request remain
-blocked. Public IAM is still a separate approval. The container cannot invoke
-Gemini, the hosted Runtime, Maps, or private GPX processing.
+The solid local path can be prepared without video transfer. The real-media
+v4a run verified catalog correction, 2,385-window analysis, GPMF and local Apple
+Vision evidence, four review sets, and private clip extraction. Highlight output
+is not yet connected to Story Plan or the evidence-review contract; the dashed
+manual handoff is a current architectural gap, not a completed agent edge.
+
+The dotted cloud edge is not implemented as an uploader: a separate approved
+process must create the short GCS object. The hosted Runtime is a synthetic
+execution proof and has no tool that can read the private workspace. The
+public-demo container is deployed as a private Tokyo Cloud Run revision.
+Authenticated health and synthetic-demo requests pass, while private/Google
+execution routes and every unauthenticated request remain blocked. Public IAM
+is still a separate approval. The container cannot invoke Gemini, the hosted
+Runtime, Maps, or private GPX processing.

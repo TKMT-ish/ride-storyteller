@@ -24,8 +24,9 @@ copyleft terms and applies its Corresponding Source offer to modified network
 services.
 
 Before public application access, the interface must link visibly to the exact
-public corresponding-source repository. The current hosted demo remains private
-and no repository has been published.
+public corresponding-source repository. The AGPL source repository now exists
+at `https://github.com/TKMT-ish/ride-storyteller`, and the authenticated private
+hosted UI renders that exact link. The hosted demo itself remains private.
 
 ## Live refresh on 2026-08-20
 
@@ -129,8 +130,8 @@ Registration and the explicit rules/eligibility agreements were completed and
 verified live on 2026-08-24. The participant also confirmed every currently
 available submission-specific answer and selected the IBM track. Exact personal
 values are stored only in an ignored local answer file and are not copied into
-public repository documentation or Notion. Public URLs and the final video remain
-unavailable.
+public repository documentation or Notion. The public source URL exists; the
+public application URL and final video remain unavailable.
 
 The registration form required one of `Working solo`, `Looking
 for teammates`, or `Already have a team`; Company Name; Job Title; self-assessed
