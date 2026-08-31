@@ -870,3 +870,62 @@ def test_director_mode_rejects_a_review_for_a_different_candidate_set(
             director_mode=True,
             overwrite=True,
         )
+
+
+def test_confirmed_local_e2e_reaches_story_order_render(tmp_path: Path) -> None:
+    """Synthetic local package reaches DirectorScript-ordered render offline."""
+    from app.local_pipeline import prepare_local_review_package
+    from app.local_render import render_local_review_film
+
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    out = tmp_path / "output"
+
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        out,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        probe=_metadata,
+        clip_runner=_runner,
+    )
+    candidates = json.loads((out / "ride-storyteller-candidates.json").read_text())
+    confirmed_review = LocalEvidenceReview(
+        tuple(
+            LocalEvidenceDecision(
+                event_id=clip["event_id"],
+                evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                evidence_source="synthetic_human_review",
+            )
+            for clip in candidates["clips"]
+        )
+    )
+    write_local_evidence_review(
+        out / "evidence-review.json",
+        confirmed_review,
+        overwrite=True,
+    )
+
+    result = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        out,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        probe=_metadata,
+        clip_runner=_runner,
+        overwrite=True,
+        director_mode=True,
+    )
+    assert isinstance(result.director_result, DirectorPipelineResult)
+
+    rendered = render_local_review_film(
+        out,
+        director_script_path=out / "local-director-script.json",
+        runner=_runner,
+    )
+    assert rendered.story_order_applied is True
+    assert rendered.clip_count == result.director_result.used_event_count
+    assert (out / rendered.output_file_name).is_file()
