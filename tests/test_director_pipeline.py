@@ -443,6 +443,45 @@ def test_needs_human_review_plan_does_not_advance_to_render() -> None:
     assert plan.command is None
 
 
+@pytest.mark.parametrize(
+    ("collection_name", "gps_events", "resolved_clips", "candidate_clips"),
+    (
+        (
+            "gps_events",
+            (_gps("evt_001"), _gps("evt_001")),
+            (_matched_rc("evt_001"),),
+            (_confirmed_candidate("evt_001"),),
+        ),
+        (
+            "resolved_clips",
+            (_gps("evt_001"),),
+            (_matched_rc("evt_001"), _matched_rc("evt_001", asset_id="asset-other")),
+            (_confirmed_candidate("evt_001"),),
+        ),
+        (
+            "candidate_clips",
+            (_gps("evt_001"),),
+            (_matched_rc("evt_001"),),
+            (_confirmed_candidate("evt_001"), _awaiting_candidate("evt_001")),
+        ),
+    ),
+)
+def test_duplicate_event_ids_are_rejected_before_director_join(
+    collection_name: str,
+    gps_events: tuple[GpsEvent, ...],
+    resolved_clips: tuple[ResolvedCandidateClip, ...],
+    candidate_clips: tuple[CandidateClip, ...],
+) -> None:
+    """A join key may not silently overwrite evidence or source identity."""
+    with pytest.raises(ValueError, match=rf"{collection_name} contains duplicate event_id"):
+        run_director_pipeline(
+            gps_events=gps_events,
+            resolved_clips=resolved_clips,
+            candidate_clips=candidate_clips,
+            review_result=_review_result(confirmed_ids=("evt_001",)),
+        )
+
+
 # ---------------------------------------------------------------------------
 # E. Privacy
 # ---------------------------------------------------------------------------

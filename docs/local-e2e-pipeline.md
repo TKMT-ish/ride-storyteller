@@ -128,6 +128,10 @@ Director pipelineは既定でローカルの`RuleBasedDirector`を使う。Gemin
 渡しただけでは実行せず、`allow_external_director=True`を明示しない限り停止する。
 これは実素材由来のevent情報を外部Geminiへ送らないためのgateであり、明示許可があっても
 座標、source asset ID、ファイル名、path、source intervalはpayloadから除外する。
+
+Director pipelineがGPS event、resolved clip、candidate clipを結合する前に、各入力集合の
+`event_id`一意性を確認する。同じIDが一つの集合に複数ある場合は、後の値でevidenceや
+source identityを上書きせず、Director・artifact作成・FFmpeg計画の前に停止する。
 Director script artifactはsource identityを含むため、repository内へ書く場合はignoredな
 private出力directoryだけを許可する。
 

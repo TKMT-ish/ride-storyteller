@@ -160,6 +160,19 @@ def run_director_pipeline(
     """
     from app.video.catalog import VideoMatchStatus
 
+    # Input collections are joined by event_id below.  Reject duplicates
+    # before building lookup dictionaries so a later item cannot silently
+    # overwrite an earlier evidence decision or source identity.
+    _require_unique_event_ids(
+        "gps_events", tuple(event.event_id for event in gps_events)
+    )
+    _require_unique_event_ids(
+        "resolved_clips", tuple(clip.event_id for clip in resolved_clips)
+    )
+    _require_unique_event_ids(
+        "candidate_clips", tuple(clip.event_id for clip in candidate_clips)
+    )
+
     # ------------------------------------------------------------------
     # 1. Scout: build UniversalEvent for every matched, evidence-decided clip
     # ------------------------------------------------------------------
@@ -255,6 +268,14 @@ def run_director_pipeline(
         render_plan_ready=(plan.status == RenderPlanStatus.READY_FOR_FFMPEG),
     )
     return result, plan, script
+
+
+def _require_unique_event_ids(collection_name: str, event_ids: tuple[str, ...]) -> None:
+    """Reject ambiguous event joins before any Director or artifact work."""
+    if len(event_ids) != len(set(event_ids)):
+        raise ValueError(
+            f"Director pipeline: {collection_name} contains duplicate event_id values"
+        )
 
 
 def _validate_private_artifact_directory(output_directory: Path) -> None:
