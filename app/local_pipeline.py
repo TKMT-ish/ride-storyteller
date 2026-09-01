@@ -39,6 +39,7 @@ if TYPE_CHECKING:
     from app.director import GeminiDirectorTransport
 
 LOCAL_PIPELINE_SUMMARY_SCHEMA_VERSION = "local-pipeline-summary-v1"
+LOCAL_PIPELINE_INPUT_MANIFEST_SCHEMA_VERSION = "local-pipeline-input-manifest-v1"
 _PRIVATE_REPOSITORY_OUTPUT_ROOTS = (
     Path("private-media"),
     Path("data/private"),
@@ -100,6 +101,27 @@ class LocalPipelineResult:
         return payload
 
 
+@dataclass(frozen=True)
+class LocalPipelineInputs:
+    """Private source identity required to rerun a reviewed local package."""
+
+    gpx_path: Path
+    video_root: Path
+    video_to_gps_offset_s: float
+    target_duration_s: float
+    output_language: StoryOutputLanguage
+
+    def to_dict(self) -> dict[str, object]:
+        return {
+            "schema_version": LOCAL_PIPELINE_INPUT_MANIFEST_SCHEMA_VERSION,
+            "gpx_path": str(self.gpx_path),
+            "video_root": str(self.video_root),
+            "video_to_gps_offset_s": self.video_to_gps_offset_s,
+            "target_duration_s": self.target_duration_s,
+            "output_language": self.output_language.value,
+        }
+
+
 def prepare_local_review_package(
     gpx_path: Path,
     video_root: Path,
@@ -138,6 +160,7 @@ def prepare_local_review_package(
     _validate_private_output_directory(output_directory)
     _validate_source_video_directory(video_root)
     expected_outputs = (
+        output_directory / "local-pipeline-inputs.json",
         output_directory / "local-video-catalog.json",
         output_directory / "ride-storyteller-candidates.json",
         output_directory / "ride-storyteller-candidates.csv",
@@ -149,6 +172,16 @@ def prepare_local_review_package(
         raise FileExistsError(
             "local pipeline output already exists; choose a new directory or pass overwrite=True"
         )
+    inputs_path = output_directory / "local-pipeline-inputs.json"
+    inputs = LocalPipelineInputs(
+        gpx_path=gpx_path.resolve(),
+        video_root=video_root.resolve(),
+        video_to_gps_offset_s=video_to_gps_offset_s,
+        target_duration_s=target_duration_s,
+        output_language=StoryOutputLanguage(output_language),
+    )
+    if inputs_path.exists() and load_local_pipeline_inputs(inputs_path) != inputs:
+        raise ValueError("private local pipeline inputs do not match the existing package")
 
     if probe is None:
         catalog_build = build_local_video_catalog(
@@ -184,6 +217,7 @@ def prepare_local_review_package(
     matched_clips = tuple(clip for clip in resolved_clips if clip.status.value == "matched")
 
     output_directory.mkdir(parents=True, exist_ok=True)
+    _write_or_validate_local_pipeline_inputs(inputs_path, inputs)
     write_local_video_catalog(
         output_directory / "local-video-catalog.json",
         catalog_build,
@@ -266,6 +300,98 @@ def prepare_local_review_package(
         encoding="utf-8",
     )
     return result
+
+
+def rerun_local_director_from_package(
+    output_directory: Path,
+    *,
+    probe: Callable[[Path], LocalVideoMetadata] | None = None,
+    clip_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
+) -> LocalPipelineResult:
+    """Rerun the offline Director from the exact private inputs of one package.
+
+    The private input manifest prevents an automation from guessing source
+    folders or silently pairing human evidence decisions with a different ride.
+    """
+    inputs = load_local_pipeline_inputs(output_directory / "local-pipeline-inputs.json")
+    return prepare_local_review_package(
+        inputs.gpx_path,
+        inputs.video_root,
+        output_directory,
+        video_to_gps_offset_s=inputs.video_to_gps_offset_s,
+        clock_offset_confirmed=True,
+        target_duration_s=inputs.target_duration_s,
+        output_language=inputs.output_language,
+        overwrite=True,
+        probe=probe,
+        clip_runner=clip_runner,
+        director_mode=True,
+    )
+
+
+def load_local_pipeline_inputs(path: Path) -> LocalPipelineInputs:
+    """Load exact private source inputs, failing closed on malformed or moved files."""
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("private local pipeline inputs are unavailable")
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        raise ValueError("private local pipeline inputs are unreadable") from error
+    expected_keys = {
+        "schema_version",
+        "gpx_path",
+        "video_root",
+        "video_to_gps_offset_s",
+        "target_duration_s",
+        "output_language",
+    }
+    if not isinstance(payload, dict) or set(payload) != expected_keys:
+        raise ValueError("private local pipeline inputs have an invalid schema")
+    if payload["schema_version"] != LOCAL_PIPELINE_INPUT_MANIFEST_SCHEMA_VERSION:
+        raise ValueError("private local pipeline inputs have an invalid schema")
+    gpx_path = _private_input_path(payload["gpx_path"], "GPX", expect_directory=False)
+    video_root = _private_input_path(
+        payload["video_root"], "video directory", expect_directory=True
+    )
+    offset = _private_input_number(payload["video_to_gps_offset_s"], "clock offset")
+    target_duration = _private_input_number(payload["target_duration_s"], "target duration")
+    try:
+        output_language = StoryOutputLanguage(payload["output_language"])
+    except (TypeError, ValueError) as error:
+        raise ValueError("private local pipeline inputs have an invalid language") from error
+    return LocalPipelineInputs(
+        gpx_path=gpx_path,
+        video_root=video_root,
+        video_to_gps_offset_s=offset,
+        target_duration_s=target_duration,
+        output_language=output_language,
+    )
+
+
+def _write_or_validate_local_pipeline_inputs(
+    path: Path, inputs: LocalPipelineInputs
+) -> None:
+    if path.exists():
+        if load_local_pipeline_inputs(path) != inputs:
+            raise ValueError("private local pipeline inputs do not match the existing package")
+        return
+    payload = json.dumps(inputs.to_dict(), ensure_ascii=False, indent=2) + "\n"
+    path.write_text(payload, encoding="utf-8")
+
+
+def _private_input_path(value: object, label: str, *, expect_directory: bool) -> Path:
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"private local pipeline inputs have an invalid {label}")
+    path = Path(value)
+    if path.is_symlink() or (not path.is_dir() if expect_directory else not path.is_file()):
+        raise ValueError(f"private local pipeline {label} is unavailable")
+    return path.resolve()
+
+
+def _private_input_number(value: object, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"private local pipeline inputs have an invalid {label}")
+    return float(value)
 
 
 def _apply_evidence_review_to_candidate_clips(
@@ -365,10 +491,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Prepare a local-only GPX-to-review-clip package without external calls."
     )
-    parser.add_argument("gpx", type=Path, help="private Garmin GPX file")
-    parser.add_argument("video_root", type=Path, help="private local video directory")
-    parser.add_argument("--output", type=Path, required=True, help="private output directory")
-    parser.add_argument("--clock-offset-s", type=float, required=True)
+    parser.add_argument("gpx", type=Path, nargs="?", help="private Garmin GPX file")
+    parser.add_argument("video_root", type=Path, nargs="?", help="private local video directory")
+    parser.add_argument("--output", type=Path, help="private output directory")
+    parser.add_argument(
+        "--resume-output",
+        type=Path,
+        help="rerun the offline Director from one private output package's saved inputs",
+    )
+    parser.add_argument("--clock-offset-s", type=float)
     parser.add_argument("--clock-offset-confirmed", action="store_true")
     parser.add_argument("--target-duration-s", type=float, default=300.0)
     parser.add_argument(
@@ -387,6 +518,16 @@ def main() -> None:
         ),
     )
     args = parser.parse_args()
+    if args.resume_output is not None:
+        if args.gpx is not None or args.video_root is not None or args.output is not None:
+            parser.error("--resume-output cannot be combined with GPX, video_root, or --output")
+        result = rerun_local_director_from_package(args.resume_output)
+        print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
+        return
+    if args.gpx is None or args.video_root is None or args.output is None:
+        parser.error("GPX, video_root, and --output are required unless --resume-output is used")
+    if args.clock_offset_s is None:
+        parser.error("--clock-offset-s is required unless --resume-output is used")
     result = prepare_local_review_package(
         args.gpx,
         args.video_root,

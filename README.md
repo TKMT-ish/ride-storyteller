@@ -265,15 +265,14 @@ an atomic local replacement, so an interrupted save keeps the previous review fi
 The page also shows the next local evidence gate; even after all clips are confirmed,
 it requires an explicit local-pipeline revalidation before the Director may run.
 
-To generate a local-only DirectorScript from the confirmed events, rerun the same
-private output folder with `--overwrite --director-mode`. This uses the offline
-RuleBased Director and does not call Gemini or upload private media:
+To generate a local-only DirectorScript from the confirmed events, resume the same
+private output package. Its private input manifest reuses the exact GPX, source-video
+directory, clock offset, target duration, and language recorded during preparation;
+it rejects a missing, malformed, or substituted input rather than guessing. This uses
+the offline RuleBased Director and does not call Gemini or upload private media:
 
 ```bash
-python -m app.local_pipeline "/path/to/private.gpx" "/path/to/private-videos" \
-  --output "/path/to/private-output" \
-  --clock-offset-s 0 --clock-offset-confirmed \
-  --overwrite --director-mode
+python -m app.local_pipeline --resume-output "/path/to/private-output"
 ```
 
 ```bash

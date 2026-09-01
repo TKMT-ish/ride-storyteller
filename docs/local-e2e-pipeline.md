@@ -91,6 +91,9 @@ python -m app.local_pipeline \
 - `review-clips/review-NNN.mp4`：FFmpegで作る720p確認用プロキシ。
 - `review-clip-manifest.json`：event ID、asset ID、確認用ファイル名の対応。
 - `evidence-review.json`：各候補の人手確認状態。初期値はすべて証拠待ち。
+- `local-pipeline-inputs.json`：同じ私用packageを再検証するための、GPX・元動画directory・時計補正・
+  目標尺・言語の入力記録。絶対pathを含むためprivate出力だけに置き、ブラウザ応答、summary、
+  Notion、公開物には含めない。既存packageを別入力で`--overwrite`しようとすると停止する。
 - `local-pipeline-summary.json`：座標・絶対パスを含まない集計と次のgate。`--director-mode`
   でDirectorが実行された場合も、ここにはcomposer、fallback有無、scene role、clip件数、
   transition、overlayだけの安全な`director.director_script`要約を含める。event ID、asset ID、
@@ -120,6 +123,17 @@ chapterは同一directory／camera family／recording IDで論理録画化し、
 再生成後の候補event集合とreviewの集合が一致しない場合は、古いdecisionを黙って流用・
 破棄せず`ValueError`で停止する。reviewのdecisionはfresh `CandidateClip`へ明示的に
 反映され、`confirmed`だけが任意のDirector pipeline入力になれる。
+
+初回の準備が成功すると、同一package内に`local-pipeline-inputs.json`を作る。全候補を
+confirmedにした後は、元のGPXや動画directoryを再指定・推測せず、次だけで同じ入力から
+offline Directorを再実行できる。
+
+```bash
+python -m app.local_pipeline --resume-output "/path/to/private-output"
+```
+
+記録済み入力が欠損・破損・symlink・別入力への差し替えなら停止する。この再開経路は
+RuleBased Directorだけを使い、Geminiその他の外部サービスへ素材を送らない。
 
 `RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY`へprivate output directoryを明示設定すると、
 loopback serverの`/private-evidence-review`で確認用クリップを見ながら、1件ずつ

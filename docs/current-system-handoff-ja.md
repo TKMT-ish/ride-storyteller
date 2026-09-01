@@ -370,3 +370,14 @@ Cloudの外部通信・費用を伴い得るため、今回の実装では実行
 - Web UI用には、役割、clip数、transition、overlay textだけを返す専用summaryを使用する。
   event ID、asset ID、ファイル名、source interval、座標、pathはprivateなEditor artifactに
   留め、browser responseには含めない。
+
+## 18. 2026-09-01｜私用Story E2E再開入力を固定
+
+- `app.local_pipeline`は初回準備時に`local-pipeline-inputs.json`をprivate outputだけへ保存する。
+  記録するのはGPX、元動画directory、時計補正、目標尺、言語であり、絶対pathを含むためsummary、
+  browser、Notion、公開artifactには出さない。
+- 既存packageを別のGPXや動画directoryで`--overwrite`しようとすると、動画probe前に停止する。
+  人手の`evidence-review.json`を別の旅や派生proxyへ黙って結び付けないためである。
+- `python -m app.local_pipeline --resume-output <private package>`は、その入力記録だけを読んで
+  offline RuleBased Directorを再実行する。manifestが欠損、破損、symlink、参照先消失ならfail
+  closedで停止する。Gemini、Google、Boxその他の外部通信は行わない。

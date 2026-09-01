@@ -7,8 +7,18 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.local_pipeline import prepare_local_review_package
-from app.video import LocalVideoMetadata
+from app.edit import CandidateEvidenceStatus
+from app.local_pipeline import (
+    load_local_pipeline_inputs,
+    prepare_local_review_package,
+    rerun_local_director_from_package,
+)
+from app.video import (
+    LocalEvidenceDecision,
+    LocalEvidenceReview,
+    LocalVideoMetadata,
+    write_local_evidence_review,
+)
 
 
 def _metadata(path: Path) -> LocalVideoMetadata:
@@ -68,6 +78,10 @@ def test_local_pipeline_connects_gpx_catalog_matching_and_review_clips(
     assert (output / "evidence-review.json").exists()
     assert (output / "review-clip-manifest.json").exists()
     assert len(tuple((output / "review-clips").glob("review-*.mp4"))) == result.review_clip_count
+    inputs = load_local_pipeline_inputs(output / "local-pipeline-inputs.json")
+    assert inputs.gpx_path == Path("tests/fixtures/sample_route.xml").resolve()
+    assert inputs.video_root == video_root.resolve()
+    assert inputs.video_to_gps_offset_s == 5.0
 
 
 def test_local_pipeline_stops_before_probing_without_clock_confirmation(
@@ -139,6 +153,43 @@ def test_local_pipeline_requires_explicit_overwrite(tmp_path: Path) -> None:
         )
 
 
+def test_local_pipeline_rejects_a_different_input_before_probing(tmp_path: Path) -> None:
+    first_video_root = tmp_path / "first-videos"
+    first_video_root.mkdir()
+    (first_video_root / "GX010001.MP4").write_bytes(b"source")
+    second_video_root = tmp_path / "second-videos"
+    second_video_root.mkdir()
+    (second_video_root / "GX010002.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        first_video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        probe=_metadata,
+        clip_runner=_runner,
+    )
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="do not match"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            second_video_root,
+            output,
+            video_to_gps_offset_s=5.0,
+            clock_offset_confirmed=True,
+            overwrite=True,
+            probe=probe,
+        )
+
+    assert calls == []
+
+
 def test_local_pipeline_rejects_unignored_repository_output() -> None:
     repository_root = Path(__file__).resolve().parents[1]
 
@@ -160,6 +211,46 @@ def test_local_pipeline_rejects_repository_derived_media_as_source() -> None:
 
     with pytest.raises(ValueError, match="must not be inside private-media/work"):
         _validate_source_video_directory(repository_root / "private-media/work/review-proxies")
+
+
+def test_rerun_local_director_reuses_the_exact_private_input_manifest(tmp_path: Path) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        probe=_metadata,
+        clip_runner=_runner,
+    )
+    candidates = json.loads((output / "ride-storyteller-candidates.json").read_text())
+    write_local_evidence_review(
+        output / "evidence-review.json",
+        LocalEvidenceReview(
+            tuple(
+                LocalEvidenceDecision(
+                    event_id=clip["event_id"],
+                    evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                    evidence_source="synthetic_human_review",
+                )
+                for clip in candidates["clips"]
+            )
+        ),
+        overwrite=True,
+    )
+
+    result = rerun_local_director_from_package(
+        output,
+        probe=_metadata,
+        clip_runner=_runner,
+    )
+
+    assert result.director_result is not None
+    assert (output / "local-director-script.json").exists()
 
 
 def test_local_pipeline_fails_closed_without_video_backed_events(tmp_path: Path) -> None:
@@ -229,6 +320,24 @@ def test_cli_director_mode_is_explicit_and_offline(monkeypatch: pytest.MonkeyPat
         "overwrite": False,
         "director_mode": True,
     }
+
+
+def test_cli_resume_output_reuses_the_private_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resume mode must not accept replacement source arguments."""
+    from app import local_pipeline
+
+    captured: dict[str, object] = {}
+
+    def fake_rerun(output: Path) -> object:
+        captured["output"] = output
+        return SimpleNamespace(to_dict=lambda: {"ok": True})
+
+    monkeypatch.setattr(local_pipeline, "rerun_local_director_from_package", fake_rerun)
+    monkeypatch.setattr(sys, "argv", ["local_pipeline", "--resume-output", "private-output"])
+
+    local_pipeline.main()
+
+    assert captured == {"output": Path("private-output")}
 
 
 def test_next_gate_distinguishes_evidence_replacement_and_story_render() -> None:
