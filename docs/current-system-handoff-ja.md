@@ -381,3 +381,13 @@ Cloudの外部通信・費用を伴い得るため、今回の実装では実行
 - `python -m app.local_pipeline --resume-output <private package>`は、その入力記録だけを読んで
   offline RuleBased Directorを再実行する。manifestが欠損、破損、symlink、参照先消失ならfail
   closedで停止する。Gemini、Google、Boxその他の外部通信は行わない。
+
+## 19. 2026-09-01｜confirmed packageの一続きStory E2E
+
+- `app.private_story_e2e`を追加した。引数はprivate packageだけであり、manifest検証、全人手
+  evidenceのconfirmed確認、offline Director再検証、DirectorScript順のsilent FFmpeg renderを
+  一続きに実行する。
+- 入力GPXや動画directoryを別引数で受け取らないため、レビュー済み旅を別素材へ置換できない。
+  DirectorScript生成後も既存Editorがsource identityとconfirmed allow-listを再確認する。
+- 合成contractで、confirmed packageがDirector順にrenderされること、awaiting packageが動画probe前に
+  停止することを確認した。Gemini、Google、Box、外部通信は行わない。

@@ -137,6 +137,18 @@ RuleBased Directorだけを使い、Geminiその他の外部サービスへ素�
 `awaiting`または`rejected`が1件でも残る場合も、動画probe前に停止する。したがって
 未確認・却下済みの候補からDirectorScriptを作る経路はない。
 
+全候補がconfirmedで、Director再検証とsilent renderを一続きで行う場合は、次のlocal-only
+commandを使う。入力GPXや動画directoryを受け取らず、packageのmanifestだけを使うため、
+review済みの旅を別素材へ差し替えられない。
+
+```bash
+python -m app.private_story_e2e "/path/to/private-output"
+```
+
+この経路はDirectorScriptのsource identityとconfirmed allow-listを、既存deterministic
+rendererで再確認してからFFmpegを起動する。音声は含めず、Gemini、Google、Box、その他の
+ネットワークサービスは呼ばない。
+
 `RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY`へprivate output directoryを明示設定すると、
 loopback serverの`/private-evidence-review`で確認用クリップを見ながら、1件ずつ
 `confirmed`、`rejected`、`awaiting_video_evidence`を保存できる。ブラウザにはopaque review IDと

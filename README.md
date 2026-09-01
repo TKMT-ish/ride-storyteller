@@ -275,6 +275,14 @@ the offline RuleBased Director and does not call Gemini or upload private media:
 python -m app.local_pipeline --resume-output "/path/to/private-output"
 ```
 
+After every evidence decision is confirmed, the fully local Director-and-render
+path is also available as one command. It accepts only the private package and
+reuses its manifest; it does not accept replacement GPX or source-video inputs:
+
+```bash
+python -m app.private_story_e2e "/path/to/private-output"
+```
+
 ```bash
 python -m app.local_render "/path/to/private-output"
 ```
