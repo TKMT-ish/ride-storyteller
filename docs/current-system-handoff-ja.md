@@ -227,8 +227,11 @@ external GPX motion
 
 ### 優先度中
 
-- Apple VisionはmacOSネイティブ権限が必要。ツールのサンドボックス内では
-  `CVPixelBufferPool`を作れない。
+- Apple VisionはmacOSネイティブ権限が必要。過去のtool sandbox内では
+  `CVPixelBufferPool`を作れず失敗していたが、2026-09-02に別環境（Claude Code
+  bash実行）から`tools/apple_vision_probe.m`をコンパイル・実行したところ、実際の
+  GoProフレームに対して正常に分類結果が得られた。サンドボックスの権限構成に依存する
+  問題であり、恒久的に解消したとは断定しない。
 - strict候補すべてのFeature Printを総当たりにしない。全候補は距離なしのbounded Vision batchで
   品質評価し、各方式の上位96候補の和集合（最大384件）だけを距離・MMR選定の母集団とする。
 - 実映像coverageは約38%で、GPS全旅程を映像化できない。欠落区間の表現方法が未設計。
