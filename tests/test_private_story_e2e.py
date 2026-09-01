@@ -105,6 +105,23 @@ def test_private_story_e2e_rejects_awaiting_evidence_before_probing(tmp_path: Pa
     assert calls == []
 
 
+def test_private_story_e2e_rejects_a_missing_input_manifest_before_probing(
+    tmp_path: Path,
+) -> None:
+    package = _prepared_package(tmp_path)
+    (package / "local-pipeline-inputs.json").unlink()
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="inputs are unavailable"):
+        run_private_story_e2e(package, probe=probe)
+
+    assert calls == []
+
+
 def test_private_story_e2e_cli_accepts_only_a_package(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
