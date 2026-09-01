@@ -44,6 +44,7 @@ _PRIVATE_REPOSITORY_OUTPUT_ROOTS = (
     Path("data/private"),
     Path("media/private"),
 )
+_DERIVED_PRIVATE_MEDIA_ROOT = Path("private-media/work")
 
 
 @dataclass(frozen=True)
@@ -135,6 +136,7 @@ def prepare_local_review_package(
     candidate event set raises ``ValueError`` rather than being silently reset.
     """
     _validate_private_output_directory(output_directory)
+    _validate_source_video_directory(video_root)
     expected_outputs = (
         output_directory / "local-video-catalog.json",
         output_directory / "ride-storyteller-candidates.json",
@@ -343,6 +345,19 @@ def _validate_private_output_directory(output_directory: Path) -> None:
     if not is_private_output:
         raise ValueError(
             "output inside the repository must be under an ignored private-media directory"
+        )
+
+
+def _validate_source_video_directory(video_root: Path) -> None:
+    """Reject private derived media as source footage for the final story path."""
+    repository_root = Path(__file__).resolve().parents[1]
+    try:
+        relative = video_root.resolve().relative_to(repository_root)
+    except ValueError:
+        return
+    if relative == _DERIVED_PRIVATE_MEDIA_ROOT or _DERIVED_PRIVATE_MEDIA_ROOT in relative.parents:
+        raise ValueError(
+            "source video directory must not be inside private-media/work derived output"
         )
 
 

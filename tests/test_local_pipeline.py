@@ -153,6 +153,15 @@ def test_local_pipeline_rejects_unignored_repository_output() -> None:
         )
 
 
+def test_local_pipeline_rejects_repository_derived_media_as_source() -> None:
+    from app.local_pipeline import _validate_source_video_directory
+
+    repository_root = Path(__file__).resolve().parents[1]
+
+    with pytest.raises(ValueError, match="must not be inside private-media/work"):
+        _validate_source_video_directory(repository_root / "private-media/work/review-proxies")
+
+
 def test_local_pipeline_fails_closed_without_video_backed_events(tmp_path: Path) -> None:
     video_root = tmp_path / "videos"
     video_root.mkdir()

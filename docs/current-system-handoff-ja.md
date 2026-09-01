@@ -160,6 +160,8 @@ external GPX motion
 ### 優先度高
 
 - ハイライト研究とStory Plan／candidate edit／evidence reviewが別系統。
+- 最終E2Eのsource video directoryは`private-media/work/`配下を拒否する。研究用proxyを
+  元映像として再利用し、候補品質や物語の根拠を取り違えないためである。
 - 緩い道路曲率が「非直線」を通り、普通の道路映像が候補へ残る。
 - strong-turnとtemporal visual-eventの候補laneは分離済みだが、visual-eventは
   scene／motionの非意味的proxyであり、合流・交差点・車両などを認識したとは扱わない。

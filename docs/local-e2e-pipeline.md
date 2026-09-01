@@ -59,6 +59,8 @@ Story Plan、candidate edit、`evidence-review.json`へ接続することは、�
 - カメラ時刻に加えるとGPS時刻になる補正秒数を、ローカルで確認済みであること。
 - 出力先は公開リポジトリ外、またはリポジトリ内の`private-media/`、
   `data/private/`、`media/private/`配下であること。
+- 最終E2Eのvideo sourceには、派生したreview proxyや研究出力を置く`private-media/work/`を
+  指定しない。sourceとして渡した場合は、素材を二重利用して物語の根拠を取り違えないよう停止する。
 
 ## 実行
 
