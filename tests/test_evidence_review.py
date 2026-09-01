@@ -1,7 +1,9 @@
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
+import app.video.review as review_module
 from app.edit import CandidateEvidenceStatus
 from app.video import ResolvedCandidateClip, VideoMatchStatus
 from app.video.review import (
@@ -140,6 +142,31 @@ def test_evidence_review_round_trip_and_overwrite_guard(tmp_path) -> None:  # ty
     with pytest.raises(FileExistsError, match="already exists"):
         write_local_evidence_review(path, review)
     assert write_local_evidence_review(path, review, overwrite=True) == path
+
+
+def test_evidence_review_atomic_write_preserves_existing_decision_on_replace_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "evidence-review.json"
+    original = build_local_evidence_review_template((_clip(),))
+    replacement = LocalEvidenceReview(
+        (
+            LocalEvidenceDecision(
+                "event_001", CandidateEvidenceStatus.CONFIRMED, "human_review"
+            ),
+        )
+    )
+    write_local_evidence_review(path, original)
+
+    def fail_replace(_source: Path, _destination: Path) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(review_module.os, "replace", fail_replace)
+    with pytest.raises(OSError, match="simulated replace failure"):
+        write_local_evidence_review(path, replacement, overwrite=True)
+
+    assert load_local_evidence_review(path) == original
+    assert not tuple(tmp_path.glob(".evidence-review.json.*.tmp"))
 
 
 def test_evidence_decision_invariants() -> None:

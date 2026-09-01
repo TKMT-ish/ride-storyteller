@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import mkstemp
 
 from app.edit import CandidateEvidenceStatus
 
@@ -165,8 +167,18 @@ def write_local_evidence_review(
             "evidence review already exists; choose a new path or pass overwrite=True"
         )
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(review.to_dict(), ensure_ascii=False, indent=2) + "\n",
-        encoding="utf-8",
+    file_descriptor, temporary_name = mkstemp(
+        dir=output_path.parent,
+        prefix=f".{output_path.name}.",
+        suffix=".tmp",
+        text=True,
     )
+    temporary_path = Path(temporary_name)
+    try:
+        with os.fdopen(file_descriptor, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(review.to_dict(), ensure_ascii=False, indent=2) + "\n")
+        os.replace(temporary_path, output_path)
+    except BaseException:
+        temporary_path.unlink(missing_ok=True)
+        raise
     return output_path

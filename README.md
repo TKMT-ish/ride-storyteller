@@ -260,7 +260,8 @@ private output directory and open `/private-evidence-review` on the loopback-onl
 server. The page streams only server-owned review clips through opaque review IDs,
 writes a single human `confirmed`, `rejected`, or `awaiting_video_evidence` decision,
 and never exposes or uploads event IDs, source asset IDs, file names, paths, offsets,
-or coordinates. It is disabled in public-demo mode.
+or coordinates. It is disabled in public-demo mode. Evidence decisions are written by
+an atomic local replacement, so an interrupted save keeps the previous review file.
 
 To generate a local-only DirectorScript from the confirmed events, rerun the same
 private output folder with `--overwrite --director-mode`. This uses the offline

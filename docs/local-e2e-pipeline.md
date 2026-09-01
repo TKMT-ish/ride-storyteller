@@ -125,6 +125,8 @@ loopback serverの`/private-evidence-review`で確認用クリップを見なが
 server-owned media URLだけを返し、event ID、asset ID、ファイル名、区間、座標、pathは返さない。
 決定元は固定の`human_local_review`であり、ハイライト品質reviewのapproved/rejectedとは別の
 映像証拠判断として保持する。public demo modeでは画面・API・media配信をすべて拒否する。
+`evidence-review.json`の保存は同一directory内の一時ファイルから置換する。保存途中の失敗では
+既存の人手判断を残し、一時ファイルを除去する。
 
 `local-pipeline-summary.json`の`next_gate`は、常にrender可能とは示さない。未確認なら
 `human_visual_evidence_review`、却下済みなら`replace_rejected_candidate_clips`、候補尺不足なら
