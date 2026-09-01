@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -102,3 +103,45 @@ def test_private_story_e2e_rejects_awaiting_evidence_before_probing(tmp_path: Pa
         run_private_story_e2e(package, probe=probe)
 
     assert calls == []
+
+
+def test_private_story_e2e_cli_accepts_only_a_package(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app import private_story_e2e
+
+    captured: dict[str, object] = {}
+
+    def fake_run(
+        package: Path,
+        *,
+        output_file_name: str,
+        overwrite: bool,
+    ) -> object:
+        captured.update(
+            package=package,
+            output_file_name=output_file_name,
+            overwrite=overwrite,
+        )
+        return type("Result", (), {"to_dict": lambda self: {"ok": True}})()
+
+    monkeypatch.setattr(private_story_e2e, "run_private_story_e2e", fake_run)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "private_story_e2e",
+            "private-package",
+            "--output-file-name",
+            "story.mp4",
+            "--overwrite",
+        ],
+    )
+
+    private_story_e2e.main()
+
+    assert captured == {
+        "package": Path("private-package"),
+        "output_file_name": "story.mp4",
+        "overwrite": True,
+    }
