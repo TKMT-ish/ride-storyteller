@@ -134,6 +134,7 @@ external GPX motion
 | `app/edit` | candidate edit、証拠状態、render plan gate |
 | `app/local_pipeline.py` | private GPXからreview packageまでの統合 |
 | `app/local_render.py` | 全候補confirmed後の無音ローカルrender |
+| `app/web/private_evidence_review.py` | opaque IDだけで確認用clipを提示するloopback-only映像証拠確認UI |
 | `app/web` | bilingual UI、local／public_demo境界、Cloud Run計画 |
 | `app/agent_runtime` | Gemini probe、Google ADK、Agent Platform Runtime |
 | `app/submission` | オフライン提出準備の安全検査 |
@@ -166,6 +167,8 @@ external GPX motion
 - private highlight-review UIはloopback-only local serverに実装済み。明示設定した研究出力だけを
   読み、opaque IDと固定理由codeだけを表示・保存する。1候補の保存は他カードを再描画しないため、
   未保存の選択と再生位置をリセットしない。review labelをStory Planへ接続する処理は未実装。
+- private evidence-review UIはlocal pipelineの確認用clipだけを読み、human visual evidenceを
+  `confirmed`、`rejected`、`awaiting`として保存する。品質reviewの採用／却下とは自動接続しない。
 - private metric cacheは実装済みだが、26.7 GiBのv4aでcache hit時の実測短縮時間は未計測。
 - ハイライト候補の採用／却下＋固定理由codeのprivate contractは実装済みだが、review UI、
   理由を使う閾値評価、Story Planへの接続は未実装。

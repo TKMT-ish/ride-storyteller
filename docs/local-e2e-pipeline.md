@@ -119,6 +119,13 @@ chapterは同一directory／camera family／recording IDで論理録画化し、
 破棄せず`ValueError`で停止する。reviewのdecisionはfresh `CandidateClip`へ明示的に
 反映され、`confirmed`だけが任意のDirector pipeline入力になれる。
 
+`RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY`へprivate output directoryを明示設定すると、
+loopback serverの`/private-evidence-review`で確認用クリップを見ながら、1件ずつ
+`confirmed`、`rejected`、`awaiting_video_evidence`を保存できる。ブラウザにはopaque review IDと
+server-owned media URLだけを返し、event ID、asset ID、ファイル名、区間、座標、pathは返さない。
+決定元は固定の`human_local_review`であり、ハイライト品質reviewのapproved/rejectedとは別の
+映像証拠判断として保持する。public demo modeでは画面・API・media配信をすべて拒否する。
+
 `local-pipeline-summary.json`の`next_gate`は、常にrender可能とは示さない。未確認なら
 `human_visual_evidence_review`、却下済みなら`replace_rejected_candidate_clips`、候補尺不足なら
 `add_timestamp_matched_candidates`、全候補確認後でDirector未実行なら`run_offline_director`、

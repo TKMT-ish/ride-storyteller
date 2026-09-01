@@ -83,6 +83,7 @@ def test_web_page_and_unknown_route_have_expected_statuses(
     assert "クラウドRuntime合成テストを実行" in body.decode()
     assert "Gemini Director合成デモを実行" in body.decode()
     assert 'href="/private-director-preview?lang=ja"' in body.decode()
+    assert 'href="/private-evidence-review?lang=ja"' in body.decode()
     assert "Google Cloudの利用料金が発生する可能性があります" in body.decode()
     assert "設定状態を確認" in body.decode()
     assert "動画フォルダ棚卸しを開く" in body.decode()
@@ -533,6 +534,7 @@ def test_public_demo_page_disables_controls_and_never_loads_maps(
     assert 'id="platformPreflight" disabled' in page
     assert 'id="directorRun" disabled' in page
     assert "/private-director-preview" not in page
+    assert "/private-evidence-review" not in page
     assert 'id="gpx" type="file" accept=".gpx,application/gpx+xml" disabled' in page
     assert 'id="gpxRun" disabled' in page
     assert "maps.googleapis.com" not in page

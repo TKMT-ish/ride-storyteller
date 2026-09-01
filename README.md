@@ -254,7 +254,13 @@ python -m app.local_pipeline "/path/to/private.gpx" "/path/to/private-videos" \
 
 After reviewing every generated clip, update the private `evidence-review.json`
 records to `confirmed` or `rejected` with a non-empty `evidence_source`. Rendering
-remains blocked until every candidate is timestamp-matched and confirmed:
+remains blocked until every candidate is timestamp-matched and confirmed. You can
+also set `RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY` in the ignored local `.env` to the
+private output directory and open `/private-evidence-review` on the loopback-only
+server. The page streams only server-owned review clips through opaque review IDs,
+writes a single human `confirmed`, `rejected`, or `awaiting_video_evidence` decision,
+and never exposes or uploads event IDs, source asset IDs, file names, paths, offsets,
+or coordinates. It is disabled in public-demo mode.
 
 To generate a local-only DirectorScript from the confirmed events, rerun the same
 private output folder with `--overwrite --director-mode`. This uses the offline

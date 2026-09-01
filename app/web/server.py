@@ -20,7 +20,12 @@ from app.demo import (
     build_synthetic_director_events,
     run_demo,
 )
-from app.edit import CandidateEditReview, build_candidate_edit_plan, review_candidate_edit_plan
+from app.edit import (
+    CandidateEditReview,
+    CandidateEvidenceStatus,
+    build_candidate_edit_plan,
+    review_candidate_edit_plan,
+)
 from app.gps import consolidate_events, extract_events, parse_gpx_bytes
 from app.video.highlight_review import HighlightReviewReason, HighlightReviewStatus
 from app.web.deployment import WebDeploymentSettings
@@ -29,6 +34,10 @@ from app.web.maps_config import GoogleMapsSettings
 from app.web.private_director_preview import (
     PrivateDirectorPreview,
     PrivateDirectorPreviewError,
+)
+from app.web.private_evidence_review import (
+    PrivateEvidenceReviewError,
+    PrivateEvidenceReviewSession,
 )
 from app.web.private_highlight_review import (
     PrivateHighlightReviewError,
@@ -47,6 +56,9 @@ _PUBLIC_DEMO_DISABLED_PATHS = {
     "/private-highlight-review",
     "/api/private-highlight-review",
     "/api/private-highlight-review/asset",
+    "/private-evidence-review",
+    "/api/private-evidence-review",
+    "/api/private-evidence-review/asset",
     "/private-director-preview",
     "/api/private-director-preview",
 }
@@ -192,6 +204,78 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
             )
         content_type = "image/jpeg" if kind == "thumbnail" else "video/mp4"
         return _respond(start_response, "200 OK", content_type, body)
+    if path == "/private-evidence-review":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        try:
+            PrivateEvidenceReviewSession.from_environment()
+        except PrivateEvidenceReviewError:
+            return _respond(
+                start_response,
+                "503 Service Unavailable",
+                "application/json; charset=utf-8",
+                b'{"error":"private evidence review is unavailable"}',
+            )
+        language = resolve_language(query.get("lang", [None])[0])
+        return _respond(
+            start_response,
+            "200 OK",
+            "text/html; charset=utf-8",
+            _private_evidence_review_page(language).encode(),
+        )
+    if path == "/api/private-evidence-review":
+        method = str(environ.get("REQUEST_METHOD", "GET")).upper()
+        try:
+            session = PrivateEvidenceReviewSession.from_environment()
+            if method == "GET":
+                payload = session.payload()
+            elif method == "POST":
+                payload = _update_private_evidence_review(session, environ)
+            else:
+                return _respond(
+                    start_response,
+                    "405 Method Not Allowed",
+                    "application/json; charset=utf-8",
+                    '{"error":"GETまたはPOSTを使用してください。"}'.encode(),
+                )
+        except (PrivateEvidenceReviewError, ValueError, TypeError, json.JSONDecodeError):
+            return _respond(
+                start_response,
+                "400 Bad Request",
+                "application/json; charset=utf-8",
+                b'{"error":"private evidence review request is invalid"}',
+            )
+        return _respond(
+            start_response,
+            "200 OK",
+            "application/json; charset=utf-8",
+            json.dumps(payload, ensure_ascii=False).encode(),
+        )
+    if path == "/api/private-evidence-review/asset":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        review_id = query.get("review_id", [""])[0]
+        try:
+            asset = PrivateEvidenceReviewSession.from_environment().asset(review_id)
+            body = asset.read_bytes()
+        except (OSError, PrivateEvidenceReviewError):
+            return _respond(
+                start_response,
+                "404 Not Found",
+                "application/json; charset=utf-8",
+                b'{"error":"private evidence review asset is unavailable"}',
+            )
+        return _respond(start_response, "200 OK", "video/mp4", body)
     if path == "/private-director-preview":
         if environ.get("REQUEST_METHOD", "GET") != "GET":
             return _respond(
@@ -772,6 +856,31 @@ def _update_private_highlight_review(
     )
 
 
+def _update_private_evidence_review(
+    session: PrivateEvidenceReviewSession,
+    environ: dict[str, object],
+) -> dict[str, object]:
+    """Accept one bounded local visual-evidence decision."""
+    if not _private_review_origin_is_local(environ):
+        raise ValueError("private review update must come from a loopback origin")
+    content_length = int(str(environ.get("CONTENT_LENGTH", "0")) or "0")
+    if not 0 < content_length <= 2 * 1024:
+        raise ValueError("private review request must be between 1 byte and 2 KiB")
+    stream = environ.get("wsgi.input", BytesIO())
+    raw_payload = stream.read(content_length)  # type: ignore[union-attr]
+    payload = json.loads(raw_payload)
+    if not isinstance(payload, dict) or set(payload) != {"review_id", "status"}:
+        raise ValueError("private review request shape is invalid")
+    review_id = payload["review_id"]
+    raw_status = payload["status"]
+    if not isinstance(review_id, str) or not isinstance(raw_status, str):
+        raise ValueError("private review request values are invalid")
+    return session.update(
+        review_id=review_id,
+        status=CandidateEvidenceStatus(raw_status),
+    )
+
+
 def _private_review_origin_is_local(environ: dict[str, object]) -> bool:
     """Reject browser-originated writes from another site while allowing local tooling."""
     raw_origin = str(environ.get("HTTP_ORIGIN", "") or "").strip()
@@ -861,6 +970,48 @@ function setReasonOptions(select,status,current){{select.replaceChildren();for(c
 function card(candidate){{const article=document.createElement('article'),title=document.createElement('h2'),image=document.createElement('img'),video=document.createElement('video'),statusLabel=document.createElement('label'),status=document.createElement('select'),reasonWrap=document.createElement('label'),reason=document.createElement('select'),save=document.createElement('button');title.textContent=`${{candidate.method}} / #${{candidate.rank}}`;image.src=candidate.thumbnail_url;image.loading='lazy';image.alt='review thumbnail';video.src=candidate.media_url;video.controls=true;video.preload='none';for(const [value,label] of [['approved',text.approved],['rejected',text.rejected],['awaiting',text.awaiting]]){{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=candidate.status===value;status.append(option)}}statusLabel.textContent=text.status+' ';statusLabel.append(status);reasonWrap.textContent=text.reason+' ';reasonWrap.className='reason-wrap';reasonWrap.append(reason);setReasonOptions(reason,candidate.status,candidate.reasons[0]);reasonWrap.hidden=candidate.status==='awaiting';status.addEventListener('change',()=>{{setReasonOptions(reason,status.value,'');reasonWrap.hidden=status.value==='awaiting'}});save.textContent=text.save;save.addEventListener('click',async()=>{{save.disabled=true;try{{const response=await fetch('/api/private-highlight-review',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{candidate_id:candidate.candidate_id,status:status.value,reasons:status.value==='awaiting'?[]:[reason.value]}})}});if(!response.ok)throw Error();const payload=await response.json(),updatedCandidate=payload.review.candidates.find(item=>item.candidate_id===candidate.candidate_id);if(!updatedCandidate)throw Error();candidate.status=updatedCandidate.status;candidate.reasons=updatedCandidate.reasons;notice.textContent=`${{text.saved}} ${{summary(payload.review.status_counts)}}`}}catch(error){{notice.textContent=text.failed}}finally{{save.disabled=false}}}});article.append(title,image,video,statusLabel,reasonWrap,save);return article}}
 function render(payload){{cards.replaceChildren(...payload.review.candidates.map(card));notice.textContent=summary(payload.review.status_counts)}}
 fetch('/api/private-highlight-review').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(render).catch(()=>{{notice.textContent=text.failed}});
+</script></main></body></html>"""
+
+
+def _private_evidence_review_page(language: UiLanguage) -> str:
+    """Render a local-only human visual-evidence review page."""
+    english = language is UiLanguage.ENGLISH
+    strings = {
+        "title": "Private visual-evidence review" if english else "私用の映像証拠確認",
+        "intro": (
+            "Confirm only whether each private review clip is valid visual evidence. "
+            "This is separate from highlight quality labels, and no media or GPS data is uploaded."
+            if english
+            else "各確認用クリップが映像証拠として使えるかだけを判断します。ハイライト品質の採用とは別で、映像・GPSはアップロードしません。"
+        ),
+        "loading": "Loading local review clips…" if english else "ローカル確認用クリップを読み込み中…",
+        "confirmed": "Confirm evidence" if english else "証拠として確認",
+        "rejected": "Reject evidence" if english else "証拠として却下",
+        "awaiting": "Undecided" if english else "未判断へ戻す",
+        "save": "Save decision" if english else "判断を保存",
+        "saved": "Saved locally." if english else "ローカルに保存しました。",
+        "failed": "The local evidence review could not be updated." if english else "ローカル証拠確認を更新できませんでした。",
+        "status": "Visual evidence" if english else "映像証拠",
+        "summary": "Confirmed {confirmed} / Rejected {rejected} / Awaiting {awaiting}"
+        if english
+        else "確認 {confirmed} / 却下 {rejected} / 未判断 {awaiting}",
+        "back": "Back to demo" if english else "デモへ戻る",
+    }
+    text = {key: escape(value) for key, value in strings.items()}
+    strings_json = json.dumps(strings, ensure_ascii=False).replace("<", "\\u003c")
+    return f"""<!doctype html>
+<html lang="{language.value}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ride Storyteller — {text['title']}</title>
+<style>
+body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;max-width:1100px;margin:32px auto;padding:0 20px;color:#17212b;background:#f7f8fa}}main{{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 10px #0001}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}}article{{border:1px solid #d7dde5;border-radius:12px;padding:14px}}video{{display:block;width:100%;border-radius:8px;background:#17212b;margin:8px 0}}select,button{{font:inherit;padding:8px;margin:5px 0}}button{{background:#1264d6;color:#fff;border:0;border-radius:7px;cursor:pointer}}#notice{{padding:12px;background:#f2f7ff;border-radius:8px}}</style>
+</head><body><main><p><a href="/?lang={language.value}">{text['back']}</a></p><h1>{text['title']}</h1><p>{text['intro']}</p><p id="notice" aria-live="polite">{text['loading']}</p><section id="cards" class="grid"></section>
+<script>
+const text={strings_json};
+const notice=document.querySelector('#notice'),cards=document.querySelector('#cards');
+function summary(counts){{return text.summary.replace('{{confirmed}}',counts.confirmed).replace('{{rejected}}',counts.rejected).replace('{{awaiting}}',counts.awaiting_video_evidence)}}
+function card(candidate){{const article=document.createElement('article'),title=document.createElement('h2'),video=document.createElement('video'),statusLabel=document.createElement('label'),status=document.createElement('select'),save=document.createElement('button');title.textContent=candidate.review_id;video.src=candidate.media_url;video.controls=true;video.preload='metadata';for(const [value,label] of [['confirmed',text.confirmed],['rejected',text.rejected],['awaiting_video_evidence',text.awaiting]]){{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=candidate.status===value;status.append(option)}}statusLabel.textContent=text.status+' ';statusLabel.append(status);save.textContent=text.save;save.addEventListener('click',async()=>{{save.disabled=true;try{{const response=await fetch('/api/private-evidence-review',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{review_id:candidate.review_id,status:status.value}})}});if(!response.ok)throw Error();const payload=await response.json(),updatedCandidate=payload.review.candidates.find(item=>item.review_id===candidate.review_id);if(!updatedCandidate)throw Error();candidate.status=updatedCandidate.status;notice.textContent=`${{text.saved}} ${{summary(payload.review.status_counts)}}`}}catch(error){{notice.textContent=text.failed}}finally{{save.disabled=false}}}});article.append(title,video,statusLabel,save);return article}}
+function render(payload){{cards.replaceChildren(...payload.review.candidates.map(card));notice.textContent=summary(payload.review.status_counts)}}
+fetch('/api/private-evidence-review').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(render).catch(()=>{{notice.textContent=text.failed}});
 </script></main></body></html>"""
 
 
@@ -984,6 +1135,14 @@ def _page(
             f'{text("director.preview.open")}</a></p>'
         )
     )
+    private_evidence_review_link = (
+        ""
+        if deployment.public_demo
+        else (
+            f'<p><a href="/private-evidence-review?lang={language.value}">'
+            f'{"映像証拠を確認" if language is UiLanguage.JAPANESE else "Review visual evidence"}</a></p>'
+        )
+    )
     if deployment.source_repository_url is not None:
         source_footer = (
             '<footer id="source"><hr><p>'
@@ -1007,7 +1166,7 @@ body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;ma
 <p id="notice">{text("main.notice")}</p>
 <h1>{text("main.title")}</h1><p>{text("main.intro")}</p>
 <label>{text("demo.scenario")} <select id="scenario"><option value="accepted">{text("scenario.accepted")}</option><option value="rejected">{text("scenario.rejected")}</option><option value="missing_asset">{text("scenario.missing_asset")}</option><option value="gemini_unavailable">{text("scenario.gemini_unavailable")}</option></select></label>
-<p><button id="run">{text("demo.run")}</button> <button id="plan">{text("demo.story_plan")}</button> <button id="candidate">{text("demo.candidate_plan")}</button> <button id="download" disabled>{text("demo.download")}</button></p><hr><section id="ibm-evidence"><h2>{text("ibm.heading")}</h2><p>{text("ibm.description")}</p><ul><li>{text("ibm.finding.1")}</li><li>{text("ibm.finding.2")}</li><li>{text("ibm.finding.3")}</li></ul><p><small>{text("ibm.limit")}</small></p></section><hr><h2>{text("adk.heading")}</h2><p>{text("adk.description")}</p><p><button id="adkRun"{external_disabled}>{text("adk.run")}</button></p><hr><h2>{text("platform.heading")}</h2><p>{text("platform.description")}</p><p><button id="platformRun"{external_disabled}>{text("platform.run")}</button> <button id="platformPreflight"{external_disabled}>{text("platform.preflight")}</button></p><hr><h2>{text("director.heading")}</h2><p>{text("director.description")}</p><p><button id="directorRun"{external_disabled}>{text("director.run")}</button></p>{private_director_preview_link}<hr><h2>{text("inventory.heading")}</h2><p>{text("inventory.main_description")}</p><p><a href="/local-media-inventory?lang={language.value}">{text("inventory.open")}</a></p><hr><h2>{text("gpx.heading")}</h2><p>{text("gpx.description")}</p><input id="gpx" type="file" accept=".gpx,application/gpx+xml"{private_disabled}><button id="gpxRun"{private_disabled}>{text("gpx.run")}</button><section id="result" aria-live="polite"></section>
+<p><button id="run">{text("demo.run")}</button> <button id="plan">{text("demo.story_plan")}</button> <button id="candidate">{text("demo.candidate_plan")}</button> <button id="download" disabled>{text("demo.download")}</button></p><hr><section id="ibm-evidence"><h2>{text("ibm.heading")}</h2><p>{text("ibm.description")}</p><ul><li>{text("ibm.finding.1")}</li><li>{text("ibm.finding.2")}</li><li>{text("ibm.finding.3")}</li></ul><p><small>{text("ibm.limit")}</small></p></section><hr><h2>{text("adk.heading")}</h2><p>{text("adk.description")}</p><p><button id="adkRun"{external_disabled}>{text("adk.run")}</button></p><hr><h2>{text("platform.heading")}</h2><p>{text("platform.description")}</p><p><button id="platformRun"{external_disabled}>{text("platform.run")}</button> <button id="platformPreflight"{external_disabled}>{text("platform.preflight")}</button></p><hr><h2>{text("director.heading")}</h2><p>{text("director.description")}</p><p><button id="directorRun"{external_disabled}>{text("director.run")}</button></p>{private_director_preview_link}{private_evidence_review_link}<hr><h2>{text("inventory.heading")}</h2><p>{text("inventory.main_description")}</p><p><a href="/local-media-inventory?lang={language.value}">{text("inventory.open")}</a></p><hr><h2>{text("gpx.heading")}</h2><p>{text("gpx.description")}</p><input id="gpx" type="file" accept=".gpx,application/gpx+xml"{private_disabled}><button id="gpxRun"{private_disabled}>{text("gpx.run")}</button><section id="result" aria-live="polite"></section>
 <h2>{text("map.heading")}</h2><p id="mapStatus">{maps_status}</p><p>{text("map.privacy")}</p><div id="map" aria-label="{text("map.aria")}"></div>
 <script>
 const uiCopy={_copy_json(language)}, uiLanguage='{language.value}';
