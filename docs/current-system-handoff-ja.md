@@ -218,9 +218,15 @@ external GPX motion
   永続化（`highlight-bridge-candidates.json`）を実装し、`QualitySelection`本体を
   保存しない設計でVision分類ラベル・asset_id非公開方針を維持したまま解決した
   （同設計書§7-3）。同日、`app.local_pipeline.prepare_local_review_package`に
-  `highlight_bridge_candidates_path`引数を追加して配線した（同設計書§7-4）。
-  合成fixtureでcatalog一致→matched→evidence-review自動confirmedまでの
-  一気通貫を確認済み。CLI引数化・`--resume-output`との統合・実素材適用は未実施。
+  `highlight_bridge_candidates_path`引数を追加して配線し、CLI引数
+  `--highlight-bridge-candidates`も追加した（同設計書§7-4）。実データ
+  （GoPro 49ファイル・68 GiB）で末端まで実行し、`highlight_research`は
+  32件自動承認・awaiting/rejected 0件で完走したが、`app.local_pipeline`との
+  合流では**新規追加eventが0件**だった（32候補全てが既存GPS由来eventと時間的に
+  重複）。橋渡しが実際に価値を持つのは未実装の「既存eventの区間補強」側だと
+  実データで判明した（同設計書§7-5）。`--resume-output`との統合は未実施。
+  なお実データ検証の過程でGoPro LRVプロキシの時間長不一致バグ（`_recording_key`
+  の紐付け誤り）を発見・修正済み（`app/video/highlight_discovery.py`）。
 - 2026-09-02、`app/submission/readiness.py`の`media_gates`定型文をv4a以前の
   「実ファイル入手後にinventory作成」等からv4a実績に合わせて更新した。ただし
   提出準備statusと実素材開発statusを同一の正本として扱わない方針は変わらない。
