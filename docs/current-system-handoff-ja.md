@@ -221,9 +221,9 @@ external GPX motion
   `highlight_bridge_candidates_path`引数を追加して配線した（同設計書§7-4）。
   合成fixtureでcatalog一致→matched→evidence-review自動confirmedまでの
   一気通貫を確認済み。CLI引数化・`--resume-output`との統合・実素材適用は未実施。
-- `python -m app.submission`の安全検査自体は成功するが、表示される`media_gates`の
-  一部に「実ファイル入手後にinventory作成」等のv4a以前の定型文が残る。提出準備
-  statusと実素材開発statusを同一の正本として扱わない。
+- 2026-09-02、`app/submission/readiness.py`の`media_gates`定型文をv4a以前の
+  「実ファイル入手後にinventory作成」等からv4a実績に合わせて更新した。ただし
+  提出準備statusと実素材開発statusを同一の正本として扱わない方針は変わらない。
 
 ### 優先度中
 

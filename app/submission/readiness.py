@@ -255,9 +255,17 @@ def build_offline_submission_readiness(
             "Record and publish the final public three-minute English demo video.",
         ),
         media_gates=(
-            "Build the local source-video inventory after the private files become accessible.",
-            "Validate camera timestamps, GPS clock correction, and proxy strategy locally.",
-            "Run the approved real-video Gemini analysis and complete visual-evidence review.",
+            "Local source-video inventory, GPS clock correction, and timestamp matching are "
+            "validated on real v4a footage (14 physical / 10 logical recordings); re-verify "
+            "against the exact files used for the submitted demo, not this repository's "
+            "development history.",
+            "Highlight candidate quality on real footage remains PARTIAL: some straight, "
+            "unremarkable road segments still pass the strict interest gate. Confirm the "
+            "actual clips used in the demo were reviewed, not merely gate-eligible.",
+            "Real-video Gemini analysis remains unapproved and unrun; do not claim it as "
+            "evidence. Per-clip evidence confirmation is now automatic from timestamp "
+            "matching alone (2026-09-01 decision) -- verify this is the intended standard "
+            "before citing it as human review.",
             "Record the final English demo with real end-to-end evidence.",
         ),
     )
