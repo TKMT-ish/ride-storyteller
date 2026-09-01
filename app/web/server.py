@@ -1049,20 +1049,44 @@ def _private_director_preview_page(language: UiLanguage) -> str:
         "failed": "The local story structure is unavailable." if english else "ローカルの物語構成を読み込めませんでした。",
         "composer": "Script composer" if english else "脚本の作成者",
         "events": "Events used / available" if english else "使用イベント数 / 入力イベント数",
+        "coverage": "Journey coverage" if english else "旅の根拠範囲",
         "clips": "clips" if english else "クリップ",
         "back": "Back to demo" if english else "デモへ戻る",
     }
+    coverage_labels = {
+        "departure_to_arrival": (
+            "Confirmed departure and arrival" if english else "出発と到着を確認済み"
+        ),
+        "departure_without_arrival": (
+            "Confirmed departure; arrival is not confirmed"
+            if english
+            else "出発を確認済み。到着は未確認"
+        ),
+        "arrival_without_departure": (
+            "Confirmed arrival; departure is not confirmed"
+            if english
+            else "到着を確認済み。出発は未確認"
+        ),
+        "middle_of_journey_only": (
+            "Middle of journey only; endpoints are not confirmed"
+            if english
+            else "旅の途中のみ。出発・到着は未確認"
+        ),
+    }
     text = {key: escape(value) for key, value in strings.items()}
     strings_json = json.dumps(strings, ensure_ascii=False).replace("<", "\\u003c")
+    coverage_labels_json = json.dumps(coverage_labels, ensure_ascii=False).replace(
+        "<", "\\u003c"
+    )
     return f"""<!doctype html>
 <html lang="{language.value}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ride Storyteller — {text['title']}</title>
 <style>body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#17212b;background:#f7f8fa}}main{{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 10px #0001}}#notice{{padding:12px;background:#f2f7ff;border-radius:8px}}li{{margin:10px 0}}code{{background:#e9edf2;padding:2px 4px;border-radius:4px}}</style>
 </head><body><main><p><a href="/?lang={language.value}">{text['back']}</a></p><h1>{text['title']}</h1><p>{text['intro']}</p><p id="notice" aria-live="polite">{text['loading']}</p><section id="script" hidden></section>
 <script>
-const text={strings_json},notice=document.querySelector('#notice'),section=document.querySelector('#script');
+const text={strings_json},coverageLabels={coverage_labels_json},notice=document.querySelector('#notice'),section=document.querySelector('#script');
 function safe(value){{return String(value).replace(/[&<>"']/g,char=>({{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}}[char]))}}
-fetch('/api/private-director-preview').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(payload=>{{const script=payload.director_script;notice.textContent='';section.hidden=false;section.innerHTML=`<dl><dt>${{text.composer}}</dt><dd><code>${{safe(script.composer)}}</code></dd><dt>${{text.events}}</dt><dd>${{script.event_count_used}} / ${{script.event_count_in}}</dd></dl><ol>${{script.scenes.map(scene=>`<li><strong>${{safe(scene.role)}}</strong>: ${{scene.event_count}} ${{text.clips}} (${{safe(scene.transition_type)}})${{scene.overlay_text?' — '+safe(scene.overlay_text):''}}</li>`).join('')}}</ol>`}}).catch(()=>{{notice.textContent=text.failed}});
+fetch('/api/private-director-preview').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(payload=>{{const script=payload.director_script;notice.textContent='';section.hidden=false;section.innerHTML=`<dl><dt>${{text.composer}}</dt><dd><code>${{safe(script.composer)}}</code></dd><dt>${{text.events}}</dt><dd>${{script.event_count_used}} / ${{script.event_count_in}}</dd><dt>${{text.coverage}}</dt><dd>${{safe(coverageLabels[script.journey_coverage]||text.failed)}}</dd></dl><ol>${{script.scenes.map(scene=>`<li><strong>${{safe(scene.role)}}</strong>: ${{scene.event_count}} ${{text.clips}} (${{safe(scene.transition_type)}})${{scene.overlay_text?' — '+safe(scene.overlay_text):''}}</li>`).join('')}}</ol>`}}).catch(()=>{{notice.textContent=text.failed}});
 </script></main></body></html>"""
 
 

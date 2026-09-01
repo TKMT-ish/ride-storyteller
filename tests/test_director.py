@@ -15,6 +15,7 @@ from app.director import (
     GeminiDirector,
     GeminiDirectorError,
     GeminiDirectorTransport,
+    JourneyCoverage,
     NarrativeArc,
     RuleBasedDirector,
     Scene,
@@ -294,6 +295,7 @@ def test_browser_safe_script_view_excludes_clip_and_location_identity() -> None:
 
     assert view["composer"] == "rule_based"
     assert view["fallback_used"] is True
+    assert view["journey_coverage"] == JourneyCoverage.DEPARTURE_TO_ARRIVAL.value
     assert [scene["role"] for scene in view["scenes"]] == [
         "hook", "build_up", "climax", "resolution"
     ]
@@ -312,6 +314,22 @@ def test_compose_with_no_events_raises() -> None:
     director = RuleBasedDirector()
     with pytest.raises(ValueError, match="at least one event"):
         director.compose(())
+
+
+def test_director_marks_middle_only_evidence_without_inventing_journey_endpoints() -> None:
+    script = RuleBasedDirector().compose(
+        (
+            _confirmed_event("evt_turn", event_type="direction_change"),
+            _confirmed_event(
+                "evt_speed",
+                event_type="speed_change",
+                requested_start_sec=50.0,
+                requested_end_sec=80.0,
+            ),
+        )
+    )
+
+    assert script.metadata.journey_coverage is JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY
 
 
 # ---------------------------------------------------------------------------

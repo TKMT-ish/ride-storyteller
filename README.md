@@ -284,6 +284,10 @@ When a private `local-director-script.json` has been created, its story order ca
 be applied to the silent local render. The script is revalidated against the
 matched clips and confirmed-evidence allow-list before FFmpeg starts:
 
+Its browser-safe preview also states whether confirmed evidence includes both
+journey anchors, only one anchor, or only a middle segment. This is a factual
+coverage label; it never infers an unconfirmed departure or arrival.
+
 ```bash
 python -m app.local_render "/path/to/private-output" \
   --director-script "/path/to/private-output/local-director-script.json"

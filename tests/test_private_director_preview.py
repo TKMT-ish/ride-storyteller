@@ -62,6 +62,7 @@ def test_payload_contains_only_browser_safe_story_structure(tmp_path: Path) -> N
         "composer": "rule_based",
         "event_count_in": 4,
         "event_count_used": 4,
+        "journey_coverage": "middle_of_journey_only",
         "scenes": [
             {
                 "role": "hook",
@@ -117,6 +118,16 @@ def test_rejects_transition_not_supported_by_the_deterministic_editor(tmp_path: 
     path.write_text(json.dumps(artifact), encoding="utf-8")
 
     with pytest.raises(PrivateDirectorPreviewError, match="invalid transition"):
+        PrivateDirectorPreview.from_file(path).payload()
+
+
+def test_rejects_invalid_journey_coverage(tmp_path: Path) -> None:
+    artifact = _artifact(scene_types=["hook"])
+    artifact["metadata"]["journey_coverage"] = "invented_complete_trip"  # type: ignore[index]
+    path = tmp_path / "invalid-coverage.json"
+    path.write_text(json.dumps(artifact), encoding="utf-8")
+
+    with pytest.raises(PrivateDirectorPreviewError, match="invalid journey coverage"):
         PrivateDirectorPreview.from_file(path).payload()
 
 

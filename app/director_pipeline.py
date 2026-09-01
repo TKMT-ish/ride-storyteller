@@ -336,6 +336,7 @@ def _script_to_dict(
             "event_count_in": script.metadata.event_count_in,
             "event_count_used": script.metadata.event_count_used,
             "arc_names": list(script.metadata.arc_names),
+            "journey_coverage": script.metadata.journey_coverage.value,
         },
         "scenes": scenes_data,
     }
@@ -361,16 +362,28 @@ def load_private_director_script_artifact(path: Path) -> DirectorScript:
         raise ValueError("private DirectorScript artifact has an invalid schema version")
 
     raw_metadata = _artifact_mapping(root["metadata"], "artifact.metadata")
-    _artifact_exact_keys(
-        raw_metadata,
-        {"composer", "event_count_in", "event_count_used", "arc_names"},
-        "artifact.metadata",
-    )
+    metadata_keys = {"composer", "event_count_in", "event_count_used", "arc_names"}
+    coverage_key = "journey_coverage"
+    if frozenset(raw_metadata) not in (
+        frozenset(metadata_keys),
+        frozenset(metadata_keys | {coverage_key}),
+    ):
+        raise ValueError("private DirectorScript artifact has an invalid artifact.metadata")
     arc_names_raw = raw_metadata["arc_names"]
     if not isinstance(arc_names_raw, list) or not all(
         isinstance(value, str) and value for value in arc_names_raw
     ):
         raise ValueError("private DirectorScript artifact has invalid arc_names")
+    try:
+        from app.director import JourneyCoverage
+
+        journey_coverage = JourneyCoverage(
+            raw_metadata.get(coverage_key, JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY.value)
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "private DirectorScript artifact has an invalid journey_coverage"
+        ) from error
     metadata = DirectorMetadata(
         composer=_artifact_non_empty_string(raw_metadata["composer"], "composer"),
         event_count_in=_artifact_non_negative_int(
@@ -380,6 +393,7 @@ def load_private_director_script_artifact(path: Path) -> DirectorScript:
             raw_metadata["event_count_used"], "event_count_used"
         ),
         arc_names=tuple(arc_names_raw),
+        journey_coverage=journey_coverage,
     )
 
     raw_scenes = root["scenes"]

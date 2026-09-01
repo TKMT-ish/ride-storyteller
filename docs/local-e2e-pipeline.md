@@ -147,6 +147,11 @@ source identityを上書きせず、Director・artifact作成・FFmpeg計画の�
 Director script artifactはsource identityを含むため、repository内へ書く場合はignoredな
 private出力directoryだけを許可する。
 
+DirectorScriptのbrowser-safe summaryには、確認済みevidenceに出発と到着が両方あるか、片方だけか、
+旅の途中だけかを示す`journey_coverage`を含める。これはevent typeからの事実ラベルであり、
+未確認の出発・到着を物語上の事実として補わない。古いprivate artifactにこのfieldがない場合も、
+安全側に「旅の途中だけ」として扱う。
+
 人手確認後のローカルE2Eで、外部通信なしに物語構成を作る場合は、同じ私用出力directoryへ
 `--overwrite --director-mode`を付けて再実行する。`--director-mode`はconfirmed eventだけを
 RuleBasedDirectorへ渡し、Geminiを設定・呼出ししない。confirmed eventが0件ならDirectorは

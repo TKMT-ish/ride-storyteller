@@ -74,6 +74,15 @@ class NarrativeArc(StrEnum):
     RESOLUTION = "resolution"
 
 
+class JourneyCoverage(StrEnum):
+    """Evidence-backed coverage of the journey anchors in a script input."""
+
+    DEPARTURE_TO_ARRIVAL = "departure_to_arrival"
+    DEPARTURE_WITHOUT_ARRIVAL = "departure_without_arrival"
+    ARRIVAL_WITHOUT_DEPARTURE = "arrival_without_departure"
+    MIDDLE_OF_JOURNEY_ONLY = "middle_of_journey_only"
+
+
 # Preferred arc assignment order when events are ranked by score/intensity.
 # Earlier arcs in this sequence receive higher-ranked events first.
 _ARC_PRIORITY: tuple[NarrativeArc, ...] = (
@@ -149,6 +158,7 @@ class DirectorMetadata:
     event_count_in: int
     event_count_used: int
     arc_names: tuple[str, ...]
+    journey_coverage: JourneyCoverage = JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY
 
 
 @dataclass(frozen=True)
@@ -203,6 +213,7 @@ def browser_safe_script_view(
         "fallback_used": fallback_used,
         "event_count_in": script.metadata.event_count_in,
         "event_count_used": script.metadata.event_count_used,
+        "journey_coverage": script.metadata.journey_coverage.value,
         "scenes": [
             {
                 "role": scene.scene_type.value,
@@ -293,6 +304,7 @@ class RuleBasedDirector:
                 event_count_in=len(events),
                 event_count_used=sum(len(s.clips) for s in scenes),
                 arc_names=arc_names,
+                journey_coverage=_journey_coverage(events),
             ),
         )
 
@@ -406,6 +418,19 @@ def _is_departure(event: UniversalEvent) -> bool:
 
 def _is_arrival(event: UniversalEvent) -> bool:
     return event.event_type in {"arrival", "arrival_candidate"}
+
+
+def _journey_coverage(events: tuple[UniversalEvent, ...]) -> JourneyCoverage:
+    """Classify only the supplied evidence; do not infer missing route anchors."""
+    has_departure = any(_is_departure(event) for event in events)
+    has_arrival = any(_is_arrival(event) for event in events)
+    if has_departure and has_arrival:
+        return JourneyCoverage.DEPARTURE_TO_ARRIVAL
+    if has_departure:
+        return JourneyCoverage.DEPARTURE_WITHOUT_ARRIVAL
+    if has_arrival:
+        return JourneyCoverage.ARRIVAL_WITHOUT_DEPARTURE
+    return JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY
 
 
 def _scene_clip(event: UniversalEvent) -> SceneClip:
@@ -758,5 +783,6 @@ def _validated_gemini_script(
             event_count_in=len(events_by_id),
             event_count_used=len(seen_event_ids),
             arc_names=arc_names,
+            journey_coverage=_journey_coverage(tuple(events_by_id.values())),
         ),
     )

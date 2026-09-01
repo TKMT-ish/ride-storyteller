@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 from app.config import load_local_environment
-from app.director import NarrativeArc
+from app.director import JourneyCoverage, NarrativeArc
 from app.director_pipeline import DIRECTOR_SCRIPT_SCHEMA_VERSION
 
 PRIVATE_DIRECTOR_SCRIPT_PATH_ENV = "RIDE_PRIVATE_DIRECTOR_SCRIPT_PATH"
@@ -64,6 +64,16 @@ class PrivateDirectorPreview:
         event_count_used = _non_negative_int(metadata.get("event_count_used"), "event_count_used")
         if event_count_used > event_count_in:
             raise PrivateDirectorPreviewError("private DirectorScript has invalid event counts")
+        try:
+            journey_coverage = JourneyCoverage(
+                metadata.get(
+                    "journey_coverage", JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY.value
+                )
+            )
+        except (TypeError, ValueError) as error:
+            raise PrivateDirectorPreviewError(
+                "private DirectorScript has invalid journey coverage"
+            ) from error
         raw_scenes = raw.get("scenes")
         if not isinstance(raw_scenes, list) or not raw_scenes:
             raise PrivateDirectorPreviewError("private DirectorScript has no scenes")
@@ -120,6 +130,7 @@ class PrivateDirectorPreview:
                 "composer": composer,
                 "event_count_in": event_count_in,
                 "event_count_used": event_count_used,
+                "journey_coverage": journey_coverage.value,
                 "scenes": scenes,
             },
         }
