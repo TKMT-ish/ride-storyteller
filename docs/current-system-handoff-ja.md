@@ -146,7 +146,8 @@ external GPX motion
 
 1. 実メディアと実GPXはローカルprivateを既定とする。
 2. 実素材のクラウド送信は未承認。合成入力のクラウド検証とは分離する。
-3. 視覚証拠を自動confirmedにしない。
+3. ~~視覚証拠を自動confirmedにしない。~~ **2026-09-01にユーザーが明示的に変更**。
+   詳細は本節末尾の「2026-09-01の変更」を参照。
 4. 最終作品は音声ナレーションなし。既存の著作権フリー音楽を使う予定。
 5. 開発UIは日本語を既定とし、提出時は英語表示／英語字幕へ切り替える。
 6. 公開ソースは`AGPL-3.0-only`。私用映像、GPX、音楽、認証情報は対象外。
@@ -154,6 +155,32 @@ external GPX motion
 8. Boxはoptional素材検索基盤であり、IBM track要件でもMVP gateでもない。
 9. Gemini inferenceは`global`、Agent Runtimeとstagingは東京を使う。
 10. private Cloud Runと未認証公開は別承認。現在のserviceはprivateのまま。
+
+### 2026-09-01の変更｜視覚証拠confirmedの人手依頼を最小化
+
+ユーザーの明示指示により、制約3を次のとおり変更する。
+
+- クリップ取得から最終生成物に至るまでの人手確認は、**カメラ→GPS時計オフセットの
+  確認1点だけ**に限定する。これは既存の`build_local_video_catalog`の
+  `clock_offset_confirmed`（[local_catalog.py:100](local_catalog.py)）が既に
+  担っている、素材ごとではなく一度だけの確認である。
+- それ以外（個々のclipが本当にその出来事を写しているか、物語に使うに値する
+  品質か）は、既存の決定論的gate・scoreだけでシステムが自動判定する。
+  `LocalEvidenceReview`（`app/video/review.py`）のevent単位confirm/rejectと、
+  `HighlightReview`（`app/video/highlight_review.py`）のcandidate単位
+  approved/rejectedは、**人手承認待ちのブロッキングUIではなく自動判定**へ
+  移行する。
+- 既知の誤検出リスク（実14 MP4評価で「緩い直線寄り候補が候補として残った」、
+  第2節参照）は許容する。ただし閾値付近の境界事例は、処理を止めずに
+  private非ブロッキングログへ記録し、後から人手が任意に見直せるようにする。
+  ログはopaque candidate ID・score・gate名・reason codeのみを持ち、source
+  path・ファイル名・座標・時刻は含めない（既存の`HighlightReview`と同じ
+  非識別方針）。
+- 映像が全く無い／timestampが一致しないeventは、レンダー全体を止める理由には
+  しない。その出来事は物語から外れる（GPSは提案するだけで断定しないという
+  §1原則どおり）。
+- 詳細設計は[`highlight-story-bridge-design-ja.md`](highlight-story-bridge-design-ja.md)
+  に反映済み。未実装（Proposed）であり、この文書時点ではコード変更を伴わない。
 
 ## 6. 既知の問題と技術負債
 
@@ -178,8 +205,12 @@ external GPX motion
 - DirectorScriptのbrowser-safe summaryは、確認済みeventに出発と到着の両方があるか、片方だけか、
   旅の途中だけかを表示する。未確認の旅程端点を補う表現は使用しない。
 - private metric cacheは実装済みだが、26.7 GiBのv4aでcache hit時の実測短縮時間は未計測。
-- ハイライト候補の採用／却下＋固定理由codeのprivate contractは実装済みだが、review UI、
-  理由を使う閾値評価、Story Planへの接続は未実装。
+- ハイライト候補の採用／却下＋固定理由codeのprivate contractは実装済み。2026-09-01に
+  `auto_decide_highlight_review`／`find_highlight_review_borderline_candidates`を追加し、
+  人手承認待ちのブロッキングUIを自動判定＋非ブロッキング境界事例ログへ置き換えた
+  （[highlight-story-bridge-design-ja.md](highlight-story-bridge-design-ja.md) §7-0）。
+  loopback-only review UI（`app/web/private_evidence_review.py`）とStory Planへの接続は
+  未実装のまま。既存`LocalEvidenceReview`側の同様の移行は未着手。
 - `python -m app.submission`の安全検査自体は成功するが、表示される`media_gates`の
   一部に「実ファイル入手後にinventory作成」等のv4a以前の定型文が残る。提出準備
   statusと実素材開発statusを同一の正本として扱わない。
@@ -242,6 +273,7 @@ E2E基準線、private映像証拠確認UI、その保存防御はローカルco
 
 - [`local-e2e-pipeline.md`](local-e2e-pipeline.md)
 - [`highlight-selection-experiments.md`](highlight-selection-experiments.md)
+- [`highlight-story-bridge-design-ja.md`](highlight-story-bridge-design-ja.md)（Proposed、§6優先度高の接続設計）
 - [`local-media-inventory.md`](local-media-inventory.md)
 - [`submission/architecture.md`](submission/architecture.md)
 - [`submission/technical-evidence.md`](submission/technical-evidence.md)

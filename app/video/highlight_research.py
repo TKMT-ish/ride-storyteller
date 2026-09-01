@@ -44,7 +44,9 @@ from .highlight_quality import (
 )
 from .highlight_review import (
     evaluate_highlight_review,
-    load_or_create_highlight_review,
+    find_highlight_review_borderline_candidates,
+    load_or_autodecide_highlight_review,
+    write_highlight_review_borderline_log,
 )
 from .metric_cache import PrivateMetricCache
 
@@ -75,6 +77,7 @@ class HighlightResearchResult:
     manifest_path: Path
     contact_sheet_path: Path
     review_path: Path
+    borderline_log_path: Path
 
 
 def run_local_highlight_research(
@@ -161,8 +164,14 @@ def run_local_highlight_research(
         )
 
     review_path = output_directory / "highlight-review.json"
-    review = load_or_create_highlight_review(review_path, selections)
+    review = load_or_autodecide_highlight_review(review_path, selections)
     review_result = evaluate_highlight_review(selections, review)
+    borderline_log_path = output_directory / "highlight-review-borderline.json"
+    write_highlight_review_borderline_log(
+        borderline_log_path,
+        find_highlight_review_borderline_candidates(selections),
+        overwrite=True,
+    )
 
     extracted_clip_count, thumbnail_paths = _extract_research_clips(
         selections,
@@ -214,6 +223,7 @@ def run_local_highlight_research(
         manifest_path=manifest_path,
         contact_sheet_path=contact_sheet_path,
         review_path=review_path,
+        borderline_log_path=borderline_log_path,
     )
 
 

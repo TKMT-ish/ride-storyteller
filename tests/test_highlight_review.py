@@ -16,16 +16,22 @@ from app.video.highlight_quality import (
 )
 from app.video.highlight_review import (
     HighlightReview,
+    HighlightReviewBorderlineReason,
     HighlightReviewDecision,
     HighlightReviewReason,
     HighlightReviewStatus,
+    auto_decide_highlight_review,
     build_highlight_review_template,
     evaluate_highlight_review,
+    find_highlight_review_borderline_candidates,
     highlight_review_candidate_id,
     load_highlight_review,
+    load_highlight_review_borderline_log,
+    load_or_autodecide_highlight_review,
     load_or_create_highlight_review,
     update_highlight_review_decision,
     write_highlight_review,
+    write_highlight_review_borderline_log,
 )
 
 
@@ -118,6 +124,37 @@ def _selections() -> dict[QualitySelectionMethod, tuple[QualitySelection, ...]]:
             _selection(QualitySelectionMethod.RIDE_DYNAMICS, 1, asset_id="asset-b"),
         ),
     }
+
+
+def _selection_with(
+    method: QualitySelectionMethod,
+    rank: int,
+    *,
+    asset_id: str,
+    interest_lanes: tuple[InterestLane, ...] = (InterestLane.STRONG_TURN,),
+    score: float = 0.8,
+    gyro_sustained_rad_s: float = 0.2,
+    center_gyro_sustained_rad_s: float = 0.2,
+) -> QualitySelection:
+    base = _selection(method, rank, asset_id=asset_id)
+    evidence = replace(
+        base.scored.evidence,
+        gpmf=replace(
+            base.scored.evidence.gpmf,
+            gyro_sustained_rad_s=gyro_sustained_rad_s,
+            center_gyro_sustained_rad_s=center_gyro_sustained_rad_s,
+        ),
+    )
+    scored = replace(
+        base.scored,
+        evidence=evidence,
+        interest_lanes=interest_lanes,
+        quality_score=score,
+        dynamics_score=score,
+        scenic_score=score,
+        balanced_score=score,
+    )
+    return replace(base, scored=scored)
 
 
 def test_highlight_review_template_uses_opaque_current_candidate_ids() -> None:
@@ -266,3 +303,170 @@ def test_update_highlight_review_decision_rejects_unknown_candidate() -> None:
             candidate_id="highlight-unknown",
             status=HighlightReviewStatus.AWAITING,
         )
+
+
+def test_auto_decide_highlight_review_approves_from_interest_lane() -> None:
+    selections = {
+        QualitySelectionMethod.QUALITY_FIRST: (
+            _selection_with(
+                QualitySelectionMethod.QUALITY_FIRST,
+                1,
+                asset_id="asset-a",
+                interest_lanes=(InterestLane.VISUAL_EVENT,),
+            ),
+        ),
+    }
+
+    review = auto_decide_highlight_review(selections)
+
+    assert len(review.decisions) == 1
+    decision = review.decisions[0]
+    assert decision.status is HighlightReviewStatus.APPROVED
+    assert decision.reasons == (HighlightReviewReason.TEMPORAL_EVENT,)
+    evaluate_highlight_review(selections, review)  # does not raise: matches current candidates
+
+
+def test_auto_decide_highlight_review_combines_reasons_for_both_lanes() -> None:
+    selections = {
+        QualitySelectionMethod.QUALITY_FIRST: (
+            _selection_with(
+                QualitySelectionMethod.QUALITY_FIRST,
+                1,
+                asset_id="asset-a",
+                interest_lanes=(InterestLane.STRONG_TURN, InterestLane.VISUAL_EVENT),
+            ),
+        ),
+    }
+
+    review = auto_decide_highlight_review(selections)
+
+    assert review.decisions[0].reasons == (
+        HighlightReviewReason.CLEAR_TURN,
+        HighlightReviewReason.TEMPORAL_EVENT,
+    )
+
+
+def test_auto_decide_highlight_review_rejects_mismatched_method() -> None:
+    mismatched = {
+        QualitySelectionMethod.QUALITY_FIRST: (
+            _selection_with(QualitySelectionMethod.RIDE_DYNAMICS, 1, asset_id="asset-a"),
+        ),
+    }
+
+    with pytest.raises(ValueError, match="does not match its collection"):
+        auto_decide_highlight_review(mismatched)
+
+
+def test_find_highlight_review_borderline_candidates_flags_low_score_within_method() -> None:
+    strong = _selection_with(
+        QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-strong", score=0.9
+    )
+    weak = _selection_with(
+        QualitySelectionMethod.QUALITY_FIRST, 2, asset_id="asset-weak", score=0.2
+    )
+    selections = {QualitySelectionMethod.QUALITY_FIRST: (strong, weak)}
+
+    log = find_highlight_review_borderline_candidates(selections, score_quantile=0.5)
+
+    flagged_ids = {entry.candidate_id for entry in log.entries}
+    assert highlight_review_candidate_id(weak) in flagged_ids
+    assert highlight_review_candidate_id(strong) not in flagged_ids
+    weak_entry = next(
+        entry for entry in log.entries if entry.candidate_id == highlight_review_candidate_id(weak)
+    )
+    assert HighlightReviewBorderlineReason.LOW_SCORE_MARGIN in weak_entry.reasons
+
+
+def test_find_highlight_review_borderline_candidates_flags_near_gate_threshold() -> None:
+    barely_passing = _selection_with(
+        QualitySelectionMethod.QUALITY_FIRST,
+        1,
+        asset_id="asset-barely",
+        gyro_sustained_rad_s=0.026,
+        center_gyro_sustained_rad_s=0.081,
+    )
+    comfortably_passing = _selection_with(
+        QualitySelectionMethod.QUALITY_FIRST, 2, asset_id="asset-clear"
+    )
+    selections = {
+        QualitySelectionMethod.QUALITY_FIRST: (barely_passing, comfortably_passing),
+    }
+
+    log = find_highlight_review_borderline_candidates(selections, score_quantile=0.01)
+
+    barely_entry = next(
+        entry
+        for entry in log.entries
+        if entry.candidate_id == highlight_review_candidate_id(barely_passing)
+    )
+    assert HighlightReviewBorderlineReason.NEAR_GATE_THRESHOLD in barely_entry.reasons
+    assert not any(
+        entry.candidate_id == highlight_review_candidate_id(comfortably_passing)
+        and HighlightReviewBorderlineReason.NEAR_GATE_THRESHOLD in entry.reasons
+        for entry in log.entries
+    )
+
+
+def test_find_highlight_review_borderline_candidates_rejects_invalid_parameters() -> None:
+    selections = _selections()
+
+    with pytest.raises(ValueError, match="score_quantile"):
+        find_highlight_review_borderline_candidates(selections, score_quantile=0.0)
+    with pytest.raises(ValueError, match="gate_margin_ratio"):
+        find_highlight_review_borderline_candidates(selections, gate_margin_ratio=0.5)
+
+
+def test_load_or_autodecide_highlight_review_creates_and_preserves_manual_correction(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "highlight-review.json"
+    selections = _selections()
+
+    created = load_or_autodecide_highlight_review(path, selections)
+    assert all(decision.status is HighlightReviewStatus.APPROVED for decision in created.decisions)
+
+    corrected = update_highlight_review_decision(
+        created,
+        candidate_id=created.decisions[0].candidate_id,
+        status=HighlightReviewStatus.REJECTED,
+        reasons=(HighlightReviewReason.TOO_STRAIGHT,),
+    )
+    write_highlight_review(path, corrected, overwrite=True)
+
+    reloaded = load_or_autodecide_highlight_review(path, selections)
+    assert reloaded == corrected
+
+
+def test_highlight_review_borderline_log_round_trip_and_excludes_private_identifiers(
+    tmp_path: Path,
+) -> None:
+    path = tmp_path / "highlight-review-borderline.json"
+    weak = _selection_with(QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-a", score=0.1)
+    strong = _selection_with(
+        QualitySelectionMethod.QUALITY_FIRST, 2, asset_id="asset-b", score=0.9
+    )
+    selections = {QualitySelectionMethod.QUALITY_FIRST: (weak, strong)}
+    log = find_highlight_review_borderline_candidates(selections, score_quantile=0.5)
+
+    write_highlight_review_borderline_log(path, log)
+    reloaded = load_highlight_review_borderline_log(path)
+
+    assert reloaded == log
+    payload = path.read_text(encoding="utf-8")
+    assert "asset-a" not in payload
+    assert "asset-b" not in payload
+    assert "start_offset" not in payload
+    assert "path" not in payload
+
+
+def test_write_highlight_review_borderline_log_overwrite_flag(tmp_path: Path) -> None:
+    path = tmp_path / "highlight-review-borderline.json"
+    empty_log = find_highlight_review_borderline_candidates(
+        {QualitySelectionMethod.QUALITY_FIRST: ()}
+    )
+    write_highlight_review_borderline_log(path, empty_log)
+
+    with pytest.raises(FileExistsError, match="already exists"):
+        write_highlight_review_borderline_log(path, empty_log, overwrite=False)
+
+    assert write_highlight_review_borderline_log(path, empty_log, overwrite=True) == path
