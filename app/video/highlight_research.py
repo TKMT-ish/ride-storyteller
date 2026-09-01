@@ -48,6 +48,10 @@ from .highlight_review import (
     load_or_autodecide_highlight_review,
     write_highlight_review_borderline_log,
 )
+from .highlight_story_bridge import (
+    export_highlight_bridge_candidates,
+    write_highlight_bridge_candidates,
+)
 from .metric_cache import PrivateMetricCache
 
 
@@ -78,6 +82,7 @@ class HighlightResearchResult:
     contact_sheet_path: Path
     review_path: Path
     borderline_log_path: Path
+    bridge_candidates_path: Path
 
 
 def run_local_highlight_research(
@@ -172,6 +177,12 @@ def run_local_highlight_research(
         find_highlight_review_borderline_candidates(selections),
         overwrite=True,
     )
+    bridge_candidates_path = output_directory / "highlight-bridge-candidates.json"
+    write_highlight_bridge_candidates(
+        bridge_candidates_path,
+        export_highlight_bridge_candidates(selections, review_result),
+        overwrite=True,
+    )
 
     extracted_clip_count, thumbnail_paths = _extract_research_clips(
         selections,
@@ -224,6 +235,7 @@ def run_local_highlight_research(
         contact_sheet_path=contact_sheet_path,
         review_path=review_path,
         borderline_log_path=borderline_log_path,
+        bridge_candidates_path=bridge_candidates_path,
     )
 
 

@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -16,10 +17,15 @@ from app.video.highlight_quality import (
 from app.video.highlight_review import HighlightReviewResult, highlight_review_candidate_id
 from app.video.highlight_story_bridge import (
     HIGHLIGHT_EVENT_TYPE,
+    HighlightBridgeCandidate,
     HighlightStoryBridgeError,
     build_highlight_gps_event,
     build_highlight_gps_events,
+    export_highlight_bridge_candidates,
+    highlight_bridge_candidate_from_selection,
+    load_highlight_bridge_candidates,
     overlaps_existing_event,
+    write_highlight_bridge_candidates,
 )
 
 _WINDOW_START = datetime(2026, 8, 30, 9, 0, 0, tzinfo=UTC)
@@ -113,6 +119,30 @@ def _selection(
     )
 
 
+def _candidate(
+    *,
+    candidate_id: str = "highlight-abc123",
+    method: QualitySelectionMethod = QualitySelectionMethod.QUALITY_FIRST,
+    rank: int = 1,
+    start_time: datetime = _WINDOW_START,
+    duration_s: float = 12.0,
+    latitude: float = 35.0,
+    longitude: float = 139.0,
+    interest_lanes: tuple[InterestLane, ...] = (InterestLane.STRONG_TURN,),
+    score: float = 0.8,
+) -> HighlightBridgeCandidate:
+    return HighlightBridgeCandidate(
+        candidate_id=candidate_id,
+        method=method,
+        rank=rank,
+        start_time=start_time,
+        duration_s=duration_s,
+        location=Location(latitude, longitude),
+        interest_lanes=interest_lanes,
+        score=score,
+    )
+
+
 def _gps_event(
     event_id: str, start_time: datetime, end_time: datetime, event_type: str = "stop"
 ) -> GpsEvent:
@@ -130,10 +160,161 @@ def _gps_event(
     )
 
 
-def test_build_highlight_gps_event_from_approved_candidate() -> None:
+# ---------------------------------------------------------------------------
+# Projection: QualitySelection -> HighlightBridgeCandidate
+# ---------------------------------------------------------------------------
+
+
+def test_highlight_bridge_candidate_from_selection_projects_only_the_needed_fields() -> None:
     selection = _selection(QualitySelectionMethod.QUALITY_FIRST, 1)
 
-    event = build_highlight_gps_event(selection)
+    candidate = highlight_bridge_candidate_from_selection(selection)
+
+    assert candidate.candidate_id == highlight_review_candidate_id(selection)
+    assert candidate.start_time == _WINDOW_START
+    assert candidate.duration_s == 12.0
+    assert candidate.location.latitude == pytest.approx(35.0)
+    assert candidate.location.longitude == pytest.approx(139.0)
+    assert candidate.interest_lanes == (InterestLane.STRONG_TURN,)
+    assert candidate.score == pytest.approx(0.8)
+
+
+def test_highlight_bridge_candidate_from_selection_rejects_missing_location() -> None:
+    selection = _selection(QualitySelectionMethod.QUALITY_FIRST, 1, latitude=None, longitude=None)
+
+    with pytest.raises(HighlightStoryBridgeError, match="no recorded GPS location"):
+        highlight_bridge_candidate_from_selection(selection)
+
+
+def test_export_highlight_bridge_candidates_only_includes_approved() -> None:
+    approved = _selection(QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-a")
+    rejected = _selection(QualitySelectionMethod.RIDE_DYNAMICS, 1, asset_id="asset-b")
+    selections = {
+        QualitySelectionMethod.QUALITY_FIRST: (approved,),
+        QualitySelectionMethod.RIDE_DYNAMICS: (rejected,),
+    }
+    review_result = HighlightReviewResult(
+        approved_candidate_ids=(highlight_review_candidate_id(approved),),
+        awaiting_candidate_ids=(),
+        rejected_candidate_ids=(highlight_review_candidate_id(rejected),),
+        reason_counts={},
+    )
+
+    candidate_set = export_highlight_bridge_candidates(selections, review_result)
+
+    assert [candidate.candidate_id for candidate in candidate_set.candidates] == [
+        highlight_review_candidate_id(approved)
+    ]
+
+
+def test_export_highlight_bridge_candidates_skips_missing_location_without_failing() -> None:
+    approved_with_location = _selection(
+        QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-a"
+    )
+    approved_without_location = _selection(
+        QualitySelectionMethod.RIDE_DYNAMICS,
+        1,
+        asset_id="asset-b",
+        latitude=None,
+        longitude=None,
+    )
+    selections = {
+        QualitySelectionMethod.QUALITY_FIRST: (approved_with_location,),
+        QualitySelectionMethod.RIDE_DYNAMICS: (approved_without_location,),
+    }
+    review_result = HighlightReviewResult(
+        approved_candidate_ids=(
+            highlight_review_candidate_id(approved_with_location),
+            highlight_review_candidate_id(approved_without_location),
+        ),
+        awaiting_candidate_ids=(),
+        rejected_candidate_ids=(),
+        reason_counts={},
+    )
+
+    candidate_set = export_highlight_bridge_candidates(selections, review_result)
+
+    assert len(candidate_set.candidates) == 1
+    assert candidate_set.candidates[0].candidate_id == highlight_review_candidate_id(
+        approved_with_location
+    )
+
+
+# ---------------------------------------------------------------------------
+# Persistence
+# ---------------------------------------------------------------------------
+
+
+def test_highlight_bridge_candidates_round_trip(tmp_path: Path) -> None:
+    path = tmp_path / "highlight-bridge-candidates.json"
+    selection = _selection(QualitySelectionMethod.QUALITY_FIRST, 1)
+    candidate_set = export_highlight_bridge_candidates(
+        {QualitySelectionMethod.QUALITY_FIRST: (selection,)},
+        HighlightReviewResult(
+            approved_candidate_ids=(highlight_review_candidate_id(selection),),
+            awaiting_candidate_ids=(),
+            rejected_candidate_ids=(),
+            reason_counts={},
+        ),
+    )
+
+    write_highlight_bridge_candidates(path, candidate_set)
+    reloaded = load_highlight_bridge_candidates(path)
+
+    assert reloaded == candidate_set
+
+
+def test_highlight_bridge_candidates_payload_excludes_asset_identity(tmp_path: Path) -> None:
+    path = tmp_path / "highlight-bridge-candidates.json"
+    selection = _selection(QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-secret")
+    candidate_set = export_highlight_bridge_candidates(
+        {QualitySelectionMethod.QUALITY_FIRST: (selection,)},
+        HighlightReviewResult(
+            approved_candidate_ids=(highlight_review_candidate_id(selection),),
+            awaiting_candidate_ids=(),
+            rejected_candidate_ids=(),
+            reason_counts={},
+        ),
+    )
+
+    write_highlight_bridge_candidates(path, candidate_set)
+
+    payload = path.read_text(encoding="utf-8")
+    assert "asset-secret" not in payload
+    assert "road" not in payload  # no Vision classification label
+    assert "gyro" not in payload  # no raw GPMF metric
+
+
+def test_write_highlight_bridge_candidates_overwrite_flag(tmp_path: Path) -> None:
+    path = tmp_path / "highlight-bridge-candidates.json"
+    from app.video.highlight_story_bridge import HighlightBridgeCandidateSet
+
+    empty = HighlightBridgeCandidateSet(())
+    write_highlight_bridge_candidates(path, empty)
+
+    with pytest.raises(FileExistsError, match="already exist"):
+        write_highlight_bridge_candidates(path, empty, overwrite=False)
+
+    assert write_highlight_bridge_candidates(path, empty, overwrite=True) == path
+
+
+def test_load_highlight_bridge_candidates_rejects_unsupported_schema(tmp_path: Path) -> None:
+    path = tmp_path / "highlight-bridge-candidates.json"
+    path.write_text('{"schema_version": "other"}', encoding="utf-8")
+
+    with pytest.raises(ValueError, match="unsupported"):
+        load_highlight_bridge_candidates(path)
+
+
+# ---------------------------------------------------------------------------
+# GpsEvent synthesis
+# ---------------------------------------------------------------------------
+
+
+def test_build_highlight_gps_event_from_candidate() -> None:
+    candidate = _candidate()
+
+    event = build_highlight_gps_event(candidate)
 
     assert event.event_type == HIGHLIGHT_EVENT_TYPE
     assert event.start_time == _WINDOW_START
@@ -142,34 +323,18 @@ def test_build_highlight_gps_event_from_approved_candidate() -> None:
     assert event.location.longitude == pytest.approx(139.0)
     assert event.evidence == ("strong_turn",)
     assert event.importance_hint == pytest.approx(0.8)
-    # No private identifier leaks into the event's own fields.
-    assert "asset-a" not in event.event_id
-    assert "asset-a" not in event.video_query.asset_name_hint
 
 
 def test_build_highlight_gps_event_combines_both_lanes_in_evidence() -> None:
-    selection = _selection(
-        QualitySelectionMethod.QUALITY_FIRST,
-        1,
-        interest_lanes=(InterestLane.STRONG_TURN, InterestLane.VISUAL_EVENT),
-    )
+    candidate = _candidate(interest_lanes=(InterestLane.STRONG_TURN, InterestLane.VISUAL_EVENT))
 
-    event = build_highlight_gps_event(selection)
+    event = build_highlight_gps_event(candidate)
 
     assert event.evidence == ("strong_turn", "visual_event")
 
 
-def test_build_highlight_gps_event_rejects_candidate_without_location() -> None:
-    selection = _selection(
-        QualitySelectionMethod.QUALITY_FIRST, 1, latitude=None, longitude=None
-    )
-
-    with pytest.raises(HighlightStoryBridgeError, match="no recorded GPS location"):
-        build_highlight_gps_event(selection)
-
-
 def test_overlaps_existing_event_detects_time_intersection() -> None:
-    selection = _selection(QualitySelectionMethod.QUALITY_FIRST, 1)
+    candidate = _candidate()
     overlapping = _gps_event(
         "evt_stop", _WINDOW_START + timedelta(seconds=5), _WINDOW_START + timedelta(seconds=20)
     )
@@ -179,38 +344,15 @@ def test_overlaps_existing_event_detects_time_intersection() -> None:
         _WINDOW_START + timedelta(hours=2, seconds=30),
     )
 
-    assert overlaps_existing_event(selection, (overlapping,)) is True
-    assert overlaps_existing_event(selection, (distant,)) is False
-    assert overlaps_existing_event(selection, ()) is False
+    assert overlaps_existing_event(candidate, (overlapping,)) is True
+    assert overlaps_existing_event(candidate, (distant,)) is False
+    assert overlaps_existing_event(candidate, ()) is False
 
 
-def test_build_highlight_gps_events_skips_overlapping_and_unapproved_candidates() -> None:
-    approved_clear = _selection(QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-a")
-    approved_overlapping = _selection(
-        QualitySelectionMethod.RIDE_DYNAMICS,
-        1,
-        asset_id="asset-b",
-        start_time=_WINDOW_START + timedelta(hours=1),
-    )
-    not_approved = _selection(
-        QualitySelectionMethod.SCENIC_CONTEXT,
-        1,
-        asset_id="asset-c",
-        start_time=_WINDOW_START + timedelta(hours=3),
-    )
-    selections = {
-        QualitySelectionMethod.QUALITY_FIRST: (approved_clear,),
-        QualitySelectionMethod.RIDE_DYNAMICS: (approved_overlapping,),
-        QualitySelectionMethod.SCENIC_CONTEXT: (not_approved,),
-    }
-    review_result = HighlightReviewResult(
-        approved_candidate_ids=(
-            highlight_review_candidate_id(approved_clear),
-            highlight_review_candidate_id(approved_overlapping),
-        ),
-        awaiting_candidate_ids=(),
-        rejected_candidate_ids=(highlight_review_candidate_id(not_approved),),
-        reason_counts={},
+def test_build_highlight_gps_events_skips_overlapping_candidates() -> None:
+    clear = _candidate(candidate_id="highlight-clear")
+    overlapping = _candidate(
+        candidate_id="highlight-overlap", start_time=_WINDOW_START + timedelta(hours=1)
     )
     existing = (
         _gps_event(
@@ -220,62 +362,32 @@ def test_build_highlight_gps_events_skips_overlapping_and_unapproved_candidates(
         ),
     )
 
-    events = build_highlight_gps_events(selections, review_result, existing)
+    events = build_highlight_gps_events((clear, overlapping), existing)
 
     assert len(events) == 1
     assert events[0].start_time == _WINDOW_START
 
 
 def test_build_highlight_gps_events_deduplicates_the_same_window_across_methods() -> None:
-    same_window_a = _selection(QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-a")
-    same_window_b = _selection(QualitySelectionMethod.RIDE_DYNAMICS, 1, asset_id="asset-a")
-    selections = {
-        QualitySelectionMethod.QUALITY_FIRST: (same_window_a,),
-        QualitySelectionMethod.RIDE_DYNAMICS: (same_window_b,),
-    }
-    review_result = HighlightReviewResult(
-        approved_candidate_ids=(
-            highlight_review_candidate_id(same_window_a),
-            highlight_review_candidate_id(same_window_b),
-        ),
-        awaiting_candidate_ids=(),
-        rejected_candidate_ids=(),
-        reason_counts={},
+    same_window_a = _candidate(
+        candidate_id="highlight-a", method=QualitySelectionMethod.QUALITY_FIRST
+    )
+    same_window_b = _candidate(
+        candidate_id="highlight-b", method=QualitySelectionMethod.RIDE_DYNAMICS
     )
 
-    events = build_highlight_gps_events(selections, review_result, ())
+    events = build_highlight_gps_events((same_window_a, same_window_b), ())
 
     assert len(events) == 1
 
 
 def test_build_highlight_gps_events_returns_chronological_order() -> None:
-    later = _selection(
-        QualitySelectionMethod.QUALITY_FIRST,
-        1,
-        asset_id="asset-later",
-        start_time=_WINDOW_START + timedelta(hours=2),
+    later = _candidate(
+        candidate_id="highlight-later", start_time=_WINDOW_START + timedelta(hours=2)
     )
-    earlier = _selection(
-        QualitySelectionMethod.RIDE_DYNAMICS,
-        1,
-        asset_id="asset-earlier",
-        start_time=_WINDOW_START,
-    )
-    selections = {
-        QualitySelectionMethod.QUALITY_FIRST: (later,),
-        QualitySelectionMethod.RIDE_DYNAMICS: (earlier,),
-    }
-    review_result = HighlightReviewResult(
-        approved_candidate_ids=(
-            highlight_review_candidate_id(later),
-            highlight_review_candidate_id(earlier),
-        ),
-        awaiting_candidate_ids=(),
-        rejected_candidate_ids=(),
-        reason_counts={},
-    )
+    earlier = _candidate(candidate_id="highlight-earlier", start_time=_WINDOW_START)
 
-    events = build_highlight_gps_events(selections, review_result, ())
+    events = build_highlight_gps_events((later, earlier), ())
 
     assert [event.start_time for event in events] == [
         _WINDOW_START,

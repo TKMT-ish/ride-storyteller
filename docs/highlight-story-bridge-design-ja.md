@@ -265,23 +265,56 @@
 event_type文字列を特別扱いしておらず、未知typeはBuild-upへ落ちるか、
 scoreが高ければClimax／Hookにもなり得る。**コード変更は不要**と確認できた。
 
-### 新たに判明した制約（§4項目3・4に影響）
+### 判明した制約は2026-09-02に解消（§7-3参照）
 
-`highlight_quality.QualitySelection`（Vision frame・GPMF summary・window
-featuresを含む）には**永続化（disk保存／再読込）の手段が現状存在しない**。
-`highlight-research-manifest.json`は集計統計だけを保存し、`QualitySelection`
-オブジェクトを再構築できない。したがって本橋渡しは、**同一プロセス内で
-`run_local_highlight_research`を呼び出した直後**のin-memory結果に対してしか
-使えない。`app.local_pipeline`のデフォルトフロー（別プロセス・別タイミングで
-実行される）へ接続するには、先に`QualitySelection`の永続化設計が要る。
-これは§4項目3（置き換えUI）より手前にある、未検討の追加論点である。
+`highlight_quality.QualitySelection`には永続化手段が無いという制約自体は、
+`QualitySelection`をそのまま保存するのではなく、橋渡しが実際に必要とする
+情報だけを持つ狭いレコード`HighlightBridgeCandidate`を新設することで解消した。
+詳細は§7-3。
 
-### 統合（wiring）は未実施
+## 7-3. 実装済み｜HighlightBridgeCandidateの永続化（2026-09-02）
 
-`app.local_pipeline`のCLIやデフォルトフローには接続していない。関数は
-呼び出し可能な状態で存在するが、呼び出し元は無い。これは意図的である。
-上記の永続化論点と、§4項目3（補強UI）・4（実素材適用時期）が確定してから
-接続する。
+ユーザー指示によりQualitySelectionの永続化を設計・実装した。ただし
+`QualitySelection`本体（Vision frame・GPMF summary・window特徴量を含む）を
+丸ごと保存する設計は採らなかった。理由は次のとおり。
+
+- `highlight_quality.export_quality_research_manifest`は
+  `coordinates_in_manifest: False`、`vision_labels_in_manifest: False`等を
+  明記し、privateな成果物であってもVision分類ラベル・座標・asset_idを含めない
+  方針を既に確立している。`metric_cache.PrivateMetricCache`も同様にVision出力を
+  キャッシュ対象から除外している（handoff §12）。`QualitySelection`をそのまま
+  永続化すると、この既存方針に反する。
+- 橋渡しが`GpsEvent`を合成するために実際に必要な情報は、opaque candidate ID、
+  method、rank、絶対時刻窓、位置、interest lane、importance_hint用scoreの
+  8項目だけであり、asset_id・生のFFmpeg/GPMF数値・Vision分類ラベルは不要と
+  判明した（同一物理windowは絶対時刻窓が一致するため、event識別・重複排除にも
+  asset_idは不要）。
+
+### 実装内容
+
+- `app/video/highlight_story_bridge.py`に`HighlightBridgeCandidate`
+  （上記8項目のみを持つ狭いview）、`highlight_bridge_candidate_from_selection`
+  （`QualitySelection`からの射影。位置情報が無ければ`HighlightStoryBridgeError`）、
+  `export_highlight_bridge_candidates`（review-approvedかつ位置情報のある候補
+  だけを集める。位置情報欠如は個別skipで全体を失敗させない）、
+  `write_highlight_bridge_candidates`／`load_highlight_bridge_candidates`
+  （新schema`local-highlight-bridge-candidates-v1`、atomic write）を追加した。
+- `build_highlight_gps_event`／`overlaps_existing_event`／
+  `build_highlight_gps_events`は`QualitySelection`ではなく
+  `HighlightBridgeCandidate`を受け取るよう変更した（既存API変更、
+  呼び出し元は前日実装のtestのみだったため影響なし）。
+- `app/video/highlight_research.py`を配線し、`highlight-bridge-candidates.json`
+  を毎回再生成する（人手編集対象ではないため`overwrite=True`固定、他の派生
+  出力と同じ扱い）。`HighlightResearchResult`に`bridge_candidates_path`を追加。
+- synthetic contract testを追加（射影、位置欠如時の個別skip、payloadの
+  非識別性——asset_id・Vision分類ラベル・生GPMF値を含まないことを直接検証、
+  round-trip、schema検証、overwrite挙動）。612件成功、Ruff成功。
+
+### まだ未実施
+
+`app.local_pipeline`・`app.private_story_e2e`等の呼び出し元は追加していない。
+`highlight-bridge-candidates.json`を読み、既存GpsEvent集合と合流させ、
+Story Plannerへ渡す統合コードは次段階。
 
 ## 7. 移行の進め方（提案）
 
