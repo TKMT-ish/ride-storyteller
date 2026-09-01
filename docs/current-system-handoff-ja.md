@@ -229,7 +229,11 @@ IBM Bobの追加利用は終了した。以後はソラが、現在コードへ�
 
 2026-09-01時点で、repository testは562件成功、Ruff成功、`git diff --check`成功。
 外部Google SDK由来の非致命的な非推奨warningが7件ある。現在workspaceには未コミットの
-ローカルスクリーンショット1枚があり、実装成果物ではないためcommit対象外である。private story
+ローカルスクリーンショット1枚（`docs/スクリーンショット 2026-08-30 23.58.48.png`）があり、
+ユーザーの申告によりIBM Bob利用証跡である（第10節参照）。account email
+（`bonz2000@gmail.com`）とBobの予算／使用量数値が写っており、`submission/ibm-bob-evidence.md`
+が定めるpublic-safe基準（email非表示、費用・使用量非表示）を満たさないため、sanitize前は
+public評価用assetへ加えない。private story
 E2E基準線、private映像証拠確認UI、その保存防御はローカルcommit `08f7099`、`8a5287c`、
 `bc7e995`、`82f736e`、`ba96633`、`bbe331e`に保存済みで、公開GitHubの`main`がこの文書と
 同一状態とは限らない。
@@ -255,6 +259,16 @@ E2E基準線、private映像証拠確認UI、その保存防御はローカルco
 - 正確な消費クレジット数、費用、アカウント情報は取得しておらず、ここにも記録しない。
 - Bobに起因する各作業の正確な実装範囲・当時のtest数は、保存済みの提出証跡で裏付け
   られる範囲だけを表現する。後続の未確認変更までBobがreviewしたとは扱わない。
+- 2026-09-01、ユーザーの申告により、未コミットの
+  `docs/スクリーンショット 2026-08-30 23.58.48.png`（撮影日時からBob作業当時のもの）を
+  IBM Bob利用証跡として記録した。画面にはBobのTodoリストがあり、
+  `app/agents/vertex_director.py`、`app/director_pipeline.py`、
+  `tests/test_director_pipeline.py`等の作成項目が写る。既存の
+  `ibm-bob-evidence.md`記載内容（review／findingマッピング中心）に加えて、
+  Bobがdirector／executor関連ファイルの作成作業自体にも関与したことを示す証跡である。
+  一方でaccount email（`bonz2000@gmail.com`）とBobの予算・使用量数値が写っており、
+  同文書が定めるpublic-safe基準（email・費用非表示）を満たさない。sanitize（トリミング
+  または黒塗り）とユーザーの明示的な承認前は、public submission assetへ追加しない。
 
 ## 11. 2026-08-31｜Director映像証拠bridgeの引継ぎ修正
 
