@@ -15,6 +15,7 @@ from app.video import (
     LocalEvidenceDecision,
     LocalEvidenceReview,
     LocalVideoMetadata,
+    load_local_evidence_review,
     write_local_evidence_review,
 )
 
@@ -93,13 +94,28 @@ def test_private_story_e2e_renders_in_director_story_order(tmp_path: Path) -> No
 
 def test_private_story_e2e_rejects_awaiting_evidence_before_probing(tmp_path: Path) -> None:
     package = _prepared_package(tmp_path)
+    # A matched clip is auto-confirmed by default; simulate a human manually
+    # reopening one decision so an outstanding awaiting candidate remains.
+    review_path = package / "evidence-review.json"
+    review = load_local_evidence_review(review_path)
+    reopened = LocalEvidenceReview(
+        tuple(
+            LocalEvidenceDecision(
+                decision.event_id, CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
+            )
+            if index == 0
+            else decision
+            for index, decision in enumerate(review.decisions)
+        )
+    )
+    write_local_evidence_review(review_path, reopened, overwrite=True)
     calls: list[Path] = []
 
     def probe(path: Path) -> LocalVideoMetadata:
         calls.append(path)
         return _metadata(path)
 
-    with pytest.raises(ValueError, match="must be confirmed"):
+    with pytest.raises(ValueError, match="no decision left awaiting"):
         run_private_story_e2e(package, probe=probe)
 
     assert calls == []

@@ -748,7 +748,9 @@ def test_director_mode_false_leaves_existing_path_unchanged(tmp_path: Path) -> N
     assert result.catalog_entry_count == 1
     assert result.matched_clip_count >= 1
     payload = result.to_dict()
-    assert payload["next_gate"] == "human_visual_evidence_review"
+    # The matched clip is auto-confirmed; the remaining blocker is that a
+    # single short event does not reach the target story duration.
+    assert payload["next_gate"] == "add_timestamp_matched_candidates"
     # No director key when director_mode=False
     assert "director" not in payload
 
@@ -757,21 +759,52 @@ def test_director_mode_true_with_no_confirmed_events_does_not_crash(
     tmp_path: Path,
 ) -> None:
     """director_mode=True with no confirmed events must not crash the pipeline."""
+    from app.edit import CandidateEvidenceStatus
     from app.local_pipeline import prepare_local_review_package
+    from app.video import (
+        LocalEvidenceDecision,
+        LocalEvidenceReview,
+        load_local_evidence_review,
+        write_local_evidence_review,
+    )
 
     video_root = tmp_path / "videos"
     video_root.mkdir()
     (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
 
-    # No confirmed events in evidence-review (default template = all awaiting).
-    result = prepare_local_review_package(
+    prepare_local_review_package(
         Path("tests/fixtures/sample_route.xml"),
         video_root,
-        tmp_path / "output",
+        output,
         video_to_gps_offset_s=5.0,
         clock_offset_confirmed=True,
         extract_reviews=False,
         probe=_metadata,
+    )
+    # A matched clip is auto-confirmed by default; simulate a human rejecting
+    # every candidate so no confirmed event remains.
+    review_path = output / "evidence-review.json"
+    review = load_local_evidence_review(review_path)
+    all_rejected = LocalEvidenceReview(
+        tuple(
+            LocalEvidenceDecision(
+                decision.event_id, CandidateEvidenceStatus.REJECTED, "human_review"
+            )
+            for decision in review.decisions
+        )
+    )
+    write_local_evidence_review(review_path, all_rejected, overwrite=True)
+
+    result = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        overwrite=True,
         director_mode=True,
         gemini_transport=None,
     )

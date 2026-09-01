@@ -44,13 +44,15 @@ def run_private_story_e2e(
     clip_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
     render_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> PrivateStoryE2EResult:
-    """Create a private story film from exactly one fully confirmed package.
+    """Create a private story film from one package with no evidence left awaiting.
 
     ``rerun_local_director_from_package`` first verifies the private input
-    manifest and requires every human visual-evidence decision to be
-    confirmed.  The resulting DirectorScript is then supplied to the existing
-    deterministic renderer, which rechecks both source identity and the
-    evidence allow-list before invoking FFmpeg.
+    manifest and requires at least one confirmed visual-evidence decision with
+    none left awaiting (per the 2026-09-01 decision, a rejected or unmatched
+    event simply drops out of the story rather than blocking the rerun). The
+    resulting DirectorScript is then supplied to the existing deterministic
+    renderer, which rechecks both source identity and the evidence allow-list
+    before invoking FFmpeg.
 
     This function never calls Gemini, Google Cloud, Box, or any other network
     service. It has no parameter for GPX or source-video paths, so callers
@@ -75,7 +77,9 @@ def run_private_story_e2e(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Render one private, fully human-confirmed Ride Storyteller film."
+        description=(
+            "Render one private Ride Storyteller film with no evidence decision left awaiting."
+        )
     )
     parser.add_argument("package", type=Path, help="private local pipeline package")
     parser.add_argument(

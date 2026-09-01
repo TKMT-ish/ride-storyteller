@@ -194,6 +194,43 @@
   592件成功、Ruff成功。
 - 実14 MP4データへは未適用。§7の2番目（`LocalEvidenceReview`側の同様の移行）は未着手。
 
+## 7-1. 実装済み｜LocalEvidenceReview側の自動判定＋fail-closed意味変更（2026-09-01）
+
+§7の2番目を実装した。HighlightReview側より影響範囲が広く、3つの既存gateを
+連動して変更した。
+
+- `app/video/review.py`に`auto_decide_local_evidence_review`（`VideoMatchStatus.MATCHED`
+  なら`CONFIRMED`、`NOT_FOUND`なら`REJECTED`。どちらも固定の非識別source文字列
+  `AUTO_DECIDED_MATCHED_SOURCE`/`AUTO_DECIDED_UNMATCHED_SOURCE`を使う）と
+  `load_or_autodecide_local_evidence_review`（既存ファイルがあれば人手訂正含め保持、
+  無ければ自動判定）を追加した。
+- `evaluate_local_evidence_review`の`ready_for_render`を、「reasonsが空」から
+  「awaitingが無く、かつconfirmedが1件以上ある」へ変更した。rejected／unmatchedは
+  `reasons`に情報として残るが、単独ではrenderを止めなくなった。
+- `app/edit/candidate_planner.py`の`review_candidate_edit_plan`も同型に変更した。
+  `is_ready_for_edit`は「不足尺が無く、awaitingが無く、confirmedが1件以上ある」で
+  判定し、rejected由来のreasonは表示のみで単独ではブロックしない。
+- `app/local_pipeline.py`の`rerun_local_director_from_package`の事前check（旧:
+  「全件confirmed」必須）を、「awaitingが無く、confirmedが1件以上」へ緩和した。
+  `_next_local_pipeline_gate`は`is_ready_for_edit`を最初に判定するよう順序を
+  入れ替え、readyならrejectedが残っていてもrenderへ進む。
+- `LocalPipelineResult`のprivacy summaryにある`visual_evidence_auto_confirmed`は
+  `False`固定から`True`固定へ変更した（実態を正しく反映するため）。
+- `app/video/__init__.py`に新関数をexportした。
+- 影響した既存test（`test_local_pipeline.py`、`test_director_pipeline.py`、
+  `test_private_story_e2e.py`）のうち、「初期状態は全件awaiting」という前提が
+  崩れたものは、人手が既存決定を手動でawaiting／rejectedへ戻す状況を明示的に
+  再現する形へ書き換えた。新規に、rejectedとconfirmedが混在してもrenderが
+  進む場合・nothingがconfirmedなら進まない場合の positive testを追加した。
+- 598件成功、Ruff成功。実14 MP4データへは未適用。
+
+### 未解決（この増分の対象外）
+
+- `app/web/private_evidence_review.py`（人手のUI）はそのまま残しており、
+  `_next_evidence_gate`のメッセージは変更していない。既存の任意手動訂正用途は
+  引き続き機能する。
+- highlight由来eventとGpsEventの橋渡し本体（本設計書§3）はまだ未着手。
+
 ## 7. 移行の進め方（提案）
 
 §4で未確定の項目（2, 3, 4, 5）はそれぞれ独立に着手できるため、次の順で

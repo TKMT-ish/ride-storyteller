@@ -132,7 +132,14 @@ def build_candidate_edit_plan(
 
 
 def review_candidate_edit_plan(plan: CandidateEditPlan) -> CandidateEditReview:
-    """Fail closed until duration and visual evidence have both been confirmed."""
+    """Fail closed on insufficient duration or an outstanding evidence decision.
+
+    Per the 2026-09-01 decision (current-system-handoff-ja.md §5), a rejected
+    clip is reported for transparency but no longer blocks readiness by
+    itself; it simply drops out of the edit. Readiness still requires enough
+    confirmed duration, no clip left awaiting a decision, and at least one
+    confirmed clip to build from.
+    """
     missing_duration_s = max(0.0, plan.target_duration_s - plan.candidate_duration_s)
     pending_event_ids = tuple(
         clip.event_id
@@ -144,6 +151,7 @@ def review_candidate_edit_plan(plan: CandidateEditPlan) -> CandidateEditReview:
         for clip in plan.clips
         if clip.evidence_status is CandidateEvidenceStatus.REJECTED
     )
+    confirmed_ids = confirmed_event_ids(plan)
     reasons: list[str] = []
     if missing_duration_s > 0:
         reasons.append("目標尺を満たす候補クリップが不足しています。")
@@ -151,8 +159,9 @@ def review_candidate_edit_plan(plan: CandidateEditPlan) -> CandidateEditReview:
         reasons.append("候補クリップの映像証拠が未確認です。")
     if rejected_event_ids:
         reasons.append("映像証拠が不適切と判定された候補クリップがあります。差し替えが必要です。")
+    is_ready_for_edit = missing_duration_s <= 0 and not pending_event_ids and bool(confirmed_ids)
     return CandidateEditReview(
-        is_ready_for_edit=not reasons,
+        is_ready_for_edit=is_ready_for_edit,
         missing_duration_s=missing_duration_s,
         reasons=tuple(reasons),
         event_ids_requiring_evidence=pending_event_ids,

@@ -97,9 +97,11 @@ from .review import (
     LocalEvidenceDecision,
     LocalEvidenceReview,
     LocalEvidenceReviewResult,
+    auto_decide_local_evidence_review,
     build_local_evidence_review_template,
     evaluate_local_evidence_review,
     load_local_evidence_review,
+    load_or_autodecide_local_evidence_review,
     write_local_evidence_review,
 )
 
@@ -166,6 +168,8 @@ __all__ = [
     "build_highlight_review_template",
     "build_local_video_catalog",
     "build_local_evidence_review_template",
+    "auto_decide_local_evidence_review",
+    "load_or_autodecide_local_evidence_review",
     "export_local_video_inventory",
     "export_local_video_catalog",
     "export_local_review_clip_manifest",

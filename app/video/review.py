@@ -1,4 +1,16 @@
-"""Persist and evaluate human visual-evidence decisions for local clips."""
+"""Decide and persist visual-evidence decisions for local clips.
+
+As of 2026-09-01, the only required human confirmation in the local pipeline is
+the camera-to-GPS clock offset (see `local_catalog.clock_offset_confirmed`).
+`auto_decide_local_evidence_review` therefore decides every candidate clip
+automatically: a timestamp-matched clip is confirmed, and a clip with no
+matching video is rejected, using a fixed, non-identifying source marker
+either way. A rejected or unmatched event simply drops out of the story; it no
+longer blocks rendering by itself (see `evaluate_local_evidence_review`). The
+lower-level manual template and the human-review web UI
+(`app/web/private_evidence_review.py`) remain available for optional
+correction.
+"""
 
 from __future__ import annotations
 
@@ -13,6 +25,11 @@ from app.edit import CandidateEvidenceStatus
 from .catalog import ResolvedCandidateClip, VideoMatchStatus
 
 LOCAL_EVIDENCE_REVIEW_SCHEMA_VERSION = "local-evidence-review-v1"
+
+# Fixed, non-identifying evidence_source markers used by the automatic
+# decision. They never carry a file name, asset ID, or timestamp.
+AUTO_DECIDED_MATCHED_SOURCE = "auto_decided_timestamp_matched"
+AUTO_DECIDED_UNMATCHED_SOURCE = "auto_decided_no_matching_video"
 
 
 @dataclass(frozen=True)
@@ -130,14 +147,70 @@ def evaluate_local_evidence_review(
         reasons.append("visual_evidence_awaiting")
     if rejected:
         reasons.append("visual_evidence_rejected")
+    # Per the 2026-09-01 decision (current-system-handoff-ja.md §5), an event
+    # with no matching video, or an explicitly rejected one, simply drops out
+    # of the story rather than blocking the whole render. Only an outstanding
+    # awaiting decision, or having nothing confirmed at all, blocks it.
+    ready_for_render = not awaiting and bool(confirmed)
     return LocalEvidenceReviewResult(
-        ready_for_render=not reasons,
+        ready_for_render=ready_for_render,
         confirmed_event_ids=confirmed,
         awaiting_event_ids=awaiting,
         rejected_event_ids=rejected,
         unmatched_event_ids=unmatched,
         reasons=tuple(reasons),
     )
+
+
+def auto_decide_local_evidence_review(
+    clips: tuple[ResolvedCandidateClip, ...],
+) -> LocalEvidenceReview:
+    """Decide every candidate clip automatically from timestamp matching alone.
+
+    This is the sole decision step once the one required human confirmation
+    (camera-to-GPS clock offset) is in place; no per-clip human confirmation is
+    requested. A matched clip is confirmed; an unmatched clip is rejected so it
+    drops out of the story instead of leaving the pipeline waiting on a human.
+    Neither outcome reveals a source path, file name, or timestamp.
+    """
+    return LocalEvidenceReview(
+        tuple(
+            LocalEvidenceDecision(
+                event_id=clip.event_id,
+                evidence_status=(
+                    CandidateEvidenceStatus.CONFIRMED
+                    if clip.status is VideoMatchStatus.MATCHED
+                    else CandidateEvidenceStatus.REJECTED
+                ),
+                evidence_source=(
+                    AUTO_DECIDED_MATCHED_SOURCE
+                    if clip.status is VideoMatchStatus.MATCHED
+                    else AUTO_DECIDED_UNMATCHED_SOURCE
+                ),
+            )
+            for clip in clips
+        )
+    )
+
+
+def load_or_autodecide_local_evidence_review(
+    path: Path,
+    clips: tuple[ResolvedCandidateClip, ...],
+) -> LocalEvidenceReview:
+    """Preserve a prior review (including any manual correction) or auto-decide.
+
+    A prior file may hold either an old awaiting/human-reviewed file or a
+    previous automatic decision; either is kept as-is so a human's manual
+    correction survives a rerun. Only a missing file triggers a fresh
+    automatic decision.
+    """
+    if path.exists():
+        review = load_local_evidence_review(path)
+        evaluate_local_evidence_review(clips, review)
+        return review
+    review = auto_decide_local_evidence_review(clips)
+    write_local_evidence_review(path, review)
+    return review
 
 
 def load_local_evidence_review(path: Path) -> LocalEvidenceReview:

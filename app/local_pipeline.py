@@ -22,15 +22,14 @@ from app.video import (
     LocalEvidenceReview,
     LocalReviewClip,
     LocalVideoMetadata,
-    build_local_evidence_review_template,
     build_local_video_catalog,
     evaluate_local_evidence_review,
     extract_local_review_clips,
     load_local_evidence_review,
+    load_or_autodecide_local_evidence_review,
     resolve_candidate_clips,
     select_video_backed_events,
     write_candidate_exports,
-    write_local_evidence_review,
     write_local_review_clip_manifest,
     write_local_video_catalog,
 )
@@ -74,7 +73,11 @@ class LocalPipelineResult:
                 "external_data_sent": False,
                 "coordinates_in_summary": False,
                 "absolute_paths_in_summary": False,
-                "visual_evidence_auto_confirmed": False,
+                # True per the 2026-09-01 decision (current-system-handoff-ja.md
+                # §5): the only required human confirmation is the camera-to-GPS
+                # clock offset; per-clip evidence is decided automatically from
+                # timestamp matching alone (see app.video.review).
+                "visual_evidence_auto_confirmed": True,
             },
             "route": {
                 "point_count": self.route_point_count,
@@ -225,12 +228,9 @@ def prepare_local_review_package(
     )
     write_candidate_exports(output_directory, resolved_clips)
     evidence_review_path = output_directory / "evidence-review.json"
-    if not evidence_review_path.exists():
-        write_local_evidence_review(
-            evidence_review_path,
-            build_local_evidence_review_template(resolved_clips),
-        )
-    evidence_review = load_local_evidence_review(evidence_review_path)
+    evidence_review = load_or_autodecide_local_evidence_review(
+        evidence_review_path, resolved_clips
+    )
     review_eval = evaluate_local_evidence_review(resolved_clips, evidence_review)
     reviewed_candidate_clips = _apply_evidence_review_to_candidate_clips(
         candidate_plan.clips,
@@ -315,12 +315,20 @@ def rerun_local_director_from_package(
     """
     inputs = load_local_pipeline_inputs(output_directory / "local-pipeline-inputs.json")
     review = load_local_evidence_review(output_directory / "evidence-review.json")
+    # Per the 2026-09-01 decision (current-system-handoff-ja.md §5), a rejected
+    # or unmatched event simply drops out of the story; it no longer has to be
+    # confirmed too. An outstanding awaiting decision, or nothing confirmed at
+    # all, still blocks the rerun.
     if not review.decisions or any(
-        decision.evidence_status is not CandidateEvidenceStatus.CONFIRMED
+        decision.evidence_status is CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
+        for decision in review.decisions
+    ) or not any(
+        decision.evidence_status is CandidateEvidenceStatus.CONFIRMED
         for decision in review.decisions
     ):
         raise ValueError(
-            "all local visual evidence decisions must be confirmed before rerunning Director"
+            "local visual evidence review must have at least one confirmed decision "
+            "and no decision left awaiting before rerunning Director"
         )
     return prepare_local_review_package(
         inputs.gpx_path,
@@ -454,17 +462,17 @@ def _next_local_pipeline_gate(
 
     if not isinstance(candidate_review, CandidateEditReview):
         raise TypeError("candidate_review must be CandidateEditReview")
-    if candidate_review.rejected_event_ids:
-        return "replace_rejected_candidate_clips"
+    if candidate_review.is_ready_for_edit:
+        if isinstance(director_result, DirectorPipelineResult):
+            return "render_director_script"
+        return "run_offline_director"
     if candidate_review.event_ids_requiring_evidence:
         return "human_visual_evidence_review"
+    if candidate_review.rejected_event_ids:
+        return "replace_rejected_candidate_clips"
     if candidate_review.missing_duration_s > 0:
         return "add_timestamp_matched_candidates"
-    if not candidate_review.is_ready_for_edit:
-        return "human_visual_evidence_review"
-    if isinstance(director_result, DirectorPipelineResult):
-        return "render_director_script"
-    return "run_offline_director"
+    return "human_visual_evidence_review"
 
 
 def _validate_private_output_directory(output_directory: Path) -> None:

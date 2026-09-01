@@ -210,7 +210,10 @@ external GPX motion
   人手承認待ちのブロッキングUIを自動判定＋非ブロッキング境界事例ログへ置き換えた
   （[highlight-story-bridge-design-ja.md](highlight-story-bridge-design-ja.md) §7-0）。
   loopback-only review UI（`app/web/private_evidence_review.py`）とStory Planへの接続は
-  未実装のまま。既存`LocalEvidenceReview`側の同様の移行は未着手。
+  未実装のまま。2026-09-01に`LocalEvidenceReview`側（`app/video/review.py`、
+  `app/edit/candidate_planner.py`、`app/local_pipeline.py`のfail-closed gate3箇所）
+  も同型の自動判定へ移行済み（同設計書§7-1）。highlight由来eventとGpsEventの橋渡し
+  本体（同設計書§3）はまだ未着手。
 - `python -m app.submission`の安全検査自体は成功するが、表示される`media_gates`の
   一部に「実ファイル入手後にinventory作成」等のv4a以前の定型文が残る。提出準備
   statusと実素材開発statusを同一の正本として扱わない。

@@ -192,6 +192,35 @@ def test_review_all_confirmed_is_ready() -> None:
     assert review.rejected_event_ids == ()
 
 
+def test_review_ready_when_confirmed_meets_target_despite_a_rejected_clip() -> None:
+    """Per the 2026-09-01 decision, a rejected clip drops out but does not block."""
+    target = 30.0
+    confirmed = confirm_clip_evidence(
+        _awaiting_clip("evt_001", duration_s=target), confirmed=True, source="human_review"
+    )
+    rejected = confirm_clip_evidence(
+        _awaiting_clip("evt_002", duration_s=10.0), confirmed=False, source="video_analysis"
+    )
+    plan = _plan(confirmed, rejected, target_duration_s=target)
+
+    review = review_candidate_edit_plan(plan)
+
+    assert review.is_ready_for_edit
+    assert review.rejected_event_ids == ("evt_002",)
+    assert "差し替え" in " ".join(review.reasons)
+
+
+def test_review_not_ready_when_nothing_is_confirmed_even_if_duration_looks_satisfied() -> None:
+    rejected = confirm_clip_evidence(
+        _awaiting_clip("evt_001", duration_s=480.0), confirmed=False, source="video_analysis"
+    )
+    plan = _plan(rejected, target_duration_s=480.0)
+
+    review = review_candidate_edit_plan(plan)
+
+    assert not review.is_ready_for_edit
+
+
 def test_review_to_dict_includes_rejected_event_ids() -> None:
     rejected = confirm_clip_evidence(
         _awaiting_clip("evt_001"), confirmed=False, source="video_analysis"

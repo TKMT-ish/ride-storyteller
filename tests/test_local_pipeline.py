@@ -17,6 +17,7 @@ from app.video import (
     LocalEvidenceDecision,
     LocalEvidenceReview,
     LocalVideoMetadata,
+    load_local_evidence_review,
     write_local_evidence_review,
 )
 
@@ -68,9 +69,11 @@ def test_local_pipeline_connects_gpx_catalog_matching_and_review_clips(
         "external_data_sent": False,
         "coordinates_in_summary": False,
         "absolute_paths_in_summary": False,
-        "visual_evidence_auto_confirmed": False,
+        "visual_evidence_auto_confirmed": True,
     }
-    assert payload["next_gate"] == "human_visual_evidence_review"
+    # The matched clip is auto-confirmed; the remaining blocker is that a
+    # single short event does not reach the target story duration.
+    assert payload["next_gate"] == "add_timestamp_matched_candidates"
     assert (output / "local-video-catalog.json").exists()
     assert (output / "ride-storyteller-candidates.json").exists()
     assert (output / "ride-storyteller-candidates.csv").exists()
@@ -131,7 +134,7 @@ def test_local_pipeline_summary_contains_no_coordinates_or_absolute_paths(
     assert str(tmp_path) not in summary
     assert "latitude" not in summary
     assert "longitude" not in summary
-    assert json.loads(summary)["next_gate"] == "human_visual_evidence_review"
+    assert json.loads(summary)["next_gate"] == "add_timestamp_matched_candidates"
 
 
 def test_local_pipeline_requires_explicit_overwrite(tmp_path: Path) -> None:
@@ -288,13 +291,29 @@ def test_rerun_local_director_rejects_awaiting_evidence_before_probing(
         probe=_metadata,
         clip_runner=_runner,
     )
+    # A matched clip is auto-confirmed by default; simulate a human manually
+    # reopening one decision so the rerun still has an outstanding awaiting
+    # candidate to reject.
+    review_path = output / "evidence-review.json"
+    review = load_local_evidence_review(review_path)
+    reopened = LocalEvidenceReview(
+        tuple(
+            LocalEvidenceDecision(
+                decision.event_id, CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
+            )
+            if index == 0
+            else decision
+            for index, decision in enumerate(review.decisions)
+        )
+    )
+    write_local_evidence_review(review_path, reopened, overwrite=True)
     calls: list[Path] = []
 
     def probe(path: Path) -> LocalVideoMetadata:
         calls.append(path)
         return _metadata(path)
 
-    with pytest.raises(ValueError, match="must be confirmed"):
+    with pytest.raises(ValueError, match="no decision left awaiting"):
         rerun_local_director_from_package(output, probe=probe)
 
     assert calls == []
