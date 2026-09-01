@@ -219,11 +219,12 @@ IBM Bobの追加利用は終了した。以後はソラが、現在コードへ�
 
 ## 9. 検証状態
 
-2026-09-01時点で、repository testは554件成功、Ruff成功、`git diff --check`成功。
+2026-09-01時点で、repository testは562件成功、Ruff成功、`git diff --check`成功。
 外部Google SDK由来の非致命的な非推奨warningが7件ある。現在workspaceには未コミットの
 ローカルスクリーンショット1枚があり、実装成果物ではないためcommit対象外である。private story
-E2E基準線とその合成結合回帰はローカルcommit `08f7099`、`8a5287c`、`bc7e995`に保存済みで、
-公開GitHubの`main`がこの文書と同一状態とは限らない。
+E2E基準線、private映像証拠確認UI、その保存防御はローカルcommit `08f7099`、`8a5287c`、
+`bc7e995`、`82f736e`、`ba96633`、`bbe331e`に保存済みで、公開GitHubの`main`がこの文書と
+同一状態とは限らない。
 
 関連文書:
 
