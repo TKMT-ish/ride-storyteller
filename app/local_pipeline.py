@@ -553,6 +553,15 @@ def main() -> None:
             "does not call Gemini or other external services"
         ),
     )
+    parser.add_argument(
+        "--highlight-bridge-candidates",
+        type=Path,
+        help=(
+            "private highlight-bridge-candidates.json (from app.video.highlight_research) "
+            "whose review-approved, non-overlapping candidates are merged into the GPS "
+            "event pool before Story Planning; not remembered for --resume-output"
+        ),
+    )
     args = parser.parse_args()
     if args.resume_output is not None:
         if args.gpx is not None or args.video_root is not None or args.output is not None:
@@ -575,6 +584,7 @@ def main() -> None:
         extract_reviews=not args.skip_review_clips,
         overwrite=args.overwrite,
         director_mode=args.director_mode,
+        highlight_bridge_candidates_path=args.highlight_bridge_candidates,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 

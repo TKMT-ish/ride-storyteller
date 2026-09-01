@@ -312,7 +312,9 @@ scoreが高ければClimax／Hookにもなり得る。**コード変更は不要
 
 ### まだ未実施
 
-`app.private_story_e2e`・`--resume-output`経路への接続、CLI引数化は未実施。
+`app.private_story_e2e`・`--resume-output`経路への接続は未実施。CLI引数化は
+`python -m app.local_pipeline --highlight-bridge-candidates <path>`として
+2026-09-02に追加済み（`--resume-output`側には未追加、意図的）。
 
 ## 7-4. 実装済み｜app.local_pipelineへの配線（2026-09-02）
 

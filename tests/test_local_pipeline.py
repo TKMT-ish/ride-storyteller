@@ -446,7 +446,42 @@ def test_cli_director_mode_is_explicit_and_offline(monkeypatch: pytest.MonkeyPat
         "extract_reviews": True,
         "overwrite": False,
         "director_mode": True,
+        "highlight_bridge_candidates_path": None,
     }
+
+
+def test_cli_accepts_highlight_bridge_candidates_path(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app import local_pipeline
+
+    captured: dict[str, object] = {}
+
+    def fake_prepare(*args: object, **kwargs: object) -> object:
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(to_dict=lambda: {"ok": True})
+
+    monkeypatch.setattr(local_pipeline, "prepare_local_review_package", fake_prepare)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "local_pipeline",
+            "private-route.gpx",
+            "private-videos",
+            "--output",
+            "private-media/work/cli-test",
+            "--clock-offset-s",
+            "0",
+            "--clock-offset-confirmed",
+            "--highlight-bridge-candidates",
+            "private-media/work/highlight-bridge-candidates.json",
+        ],
+    )
+
+    local_pipeline.main()
+
+    assert captured["kwargs"]["highlight_bridge_candidates_path"] == Path(
+        "private-media/work/highlight-bridge-candidates.json"
+    )
 
 
 def test_cli_resume_output_reuses_the_private_manifest(monkeypatch: pytest.MonkeyPatch) -> None:
