@@ -257,7 +257,7 @@ def test_duplicate_event_id_across_scenes_raises() -> None:
         _script((
             _scene(NarrativeArc.HOOK,   (sc1,)),
             _scene(NarrativeArc.CLIMAX, (sc2,)),
-        ), n_in=1, n_used=2)
+        ), n_in=2, n_used=2)
 
 
 # ---------------------------------------------------------------------------

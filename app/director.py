@@ -160,6 +160,19 @@ class DirectorMetadata:
     arc_names: tuple[str, ...]
     journey_coverage: JourneyCoverage = JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY
 
+    def __post_init__(self) -> None:
+        if not self.composer or not self.composer.strip():
+            raise ValueError("DirectorMetadata.composer must be a non-empty string")
+        if any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in (self.event_count_in, self.event_count_used)
+        ):
+            raise ValueError("DirectorMetadata event counts must be non-negative integers")
+        if self.event_count_used > self.event_count_in:
+            raise ValueError("DirectorMetadata.event_count_used must not exceed event_count_in")
+        if not isinstance(self.journey_coverage, JourneyCoverage):
+            raise ValueError("DirectorMetadata.journey_coverage must be JourneyCoverage")
+
 
 @dataclass(frozen=True)
 class DirectorScript:

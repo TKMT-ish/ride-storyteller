@@ -231,6 +231,24 @@ class TestDirectorScript:
                 ),
             )
 
+    def test_metadata_rejects_used_events_above_input_events(self) -> None:
+        with pytest.raises(ValueError, match="must not exceed"):
+            DirectorMetadata(
+                composer="test",
+                event_count_in=1,
+                event_count_used=2,
+                arc_names=("hook",),
+            )
+
+    def test_metadata_rejects_blank_composer(self) -> None:
+        with pytest.raises(ValueError, match="composer"):
+            DirectorMetadata(
+                composer="   ",
+                event_count_in=1,
+                event_count_used=1,
+                arc_names=("hook",),
+            )
+
     def test_rejects_out_of_order_scene_roles(self) -> None:
         hook = self._scene()
         climax = Scene(
@@ -284,7 +302,7 @@ class TestDirectorScript:
                 scenes=(hook, build_up),
                 metadata=DirectorMetadata(
                     composer="test",
-                    event_count_in=1,
+                    event_count_in=2,
                     event_count_used=2,
                     arc_names=("hook", "build_up"),
                 ),
