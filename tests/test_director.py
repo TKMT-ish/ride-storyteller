@@ -263,6 +263,33 @@ class TestDirectorScript:
                 ),
             )
 
+    def test_rejects_an_event_reused_across_scenes(self) -> None:
+        clip = self._scene().clips[0]
+        hook = Scene(
+            scene_id="scene_hook",
+            scene_type=NarrativeArc.HOOK,
+            clips=(clip,),
+            transition_type="cut",
+            overlay_text=None,
+        )
+        build_up = Scene(
+            scene_id="scene_build_up",
+            scene_type=NarrativeArc.BUILD_UP,
+            clips=(clip,),
+            transition_type="cut",
+            overlay_text=None,
+        )
+        with pytest.raises(ValueError, match="SceneClip.event_id values must be unique"):
+            DirectorScript(
+                scenes=(hook, build_up),
+                metadata=DirectorMetadata(
+                    composer="test",
+                    event_count_in=1,
+                    event_count_used=2,
+                    arc_names=("hook", "build_up"),
+                ),
+            )
+
 
 # ---------------------------------------------------------------------------
 # 4. Director protocol structural check

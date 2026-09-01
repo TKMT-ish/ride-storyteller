@@ -188,7 +188,11 @@ class DirectorScript:
             )
         if self.metadata.arc_names != tuple(scene_type.value for scene_type in scene_types):
             raise ValueError("DirectorScript.metadata.arc_names must match scenes")
-        clip_count = sum(len(scene.clips) for scene in self.scenes)
+        scene_clips = tuple(clip for scene in self.scenes for clip in scene.clips)
+        clip_event_ids = tuple(clip.event_id for clip in scene_clips)
+        if len(clip_event_ids) != len(set(clip_event_ids)):
+            raise ValueError("DirectorScript SceneClip.event_id values must be unique")
+        clip_count = len(scene_clips)
         if self.metadata.event_count_used != clip_count:
             raise ValueError(
                 "DirectorScript.metadata.event_count_used must match clip count"

@@ -251,16 +251,13 @@ def test_partial_resolved_clips_raises_for_missing_one() -> None:
 # ---------------------------------------------------------------------------
 
 def test_duplicate_event_id_across_scenes_raises() -> None:
-    rc = _resolved("evt_dup")
     sc1 = _scene_clip("evt_dup")
     sc2 = _scene_clip("evt_dup")
-    script = _script((
-        _scene(NarrativeArc.HOOK,   (sc1,)),
-        _scene(NarrativeArc.CLIMAX, (sc2,)),
-    ), n_in=1, n_used=2)
-
-    with pytest.raises(ValueError, match="appears more than once"):
-        ScriptExecutor().execute(script, (rc,))
+    with pytest.raises(ValueError, match="SceneClip.event_id values must be unique"):
+        _script((
+            _scene(NarrativeArc.HOOK,   (sc1,)),
+            _scene(NarrativeArc.CLIMAX, (sc2,)),
+        ), n_in=1, n_used=2)
 
 
 # ---------------------------------------------------------------------------
