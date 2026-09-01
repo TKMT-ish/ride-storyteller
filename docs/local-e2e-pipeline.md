@@ -123,6 +123,8 @@ chapterは同一directory／camera family／recording IDで論理録画化し、
 loopback serverの`/private-evidence-review`で確認用クリップを見ながら、1件ずつ
 `confirmed`、`rejected`、`awaiting_video_evidence`を保存できる。ブラウザにはopaque review IDと
 server-owned media URLだけを返し、event ID、asset ID、ファイル名、区間、座標、pathは返さない。
+未設定の状態で画面を開いても、実際のdirectory値や設定エラーを返さず、必要な環境設定名と
+ローカルサーバー再起動だけを案内する。
 決定元は固定の`human_local_review`であり、ハイライト品質reviewのapproved/rejectedとは別の
 映像証拠判断として保持する。public demo modeでは画面・API・media配信をすべて拒否する。
 `evidence-review.json`の保存は同一directory内の一時ファイルから置換する。保存途中の失敗では

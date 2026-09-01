@@ -230,6 +230,23 @@ def test_private_evidence_http_paths_are_disabled_in_public_demo(
         assert body == b'{"error":"disabled in public demo mode"}'
 
 
+def test_private_evidence_page_shows_safe_setup_help_without_configuration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "local")
+    monkeypatch.delenv("RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY", raising=False)
+
+    status, headers, body = _request("/private-evidence-review")
+    rendered = body.decode()
+
+    assert status == "200 OK"
+    assert headers["Content-Type"] == "text/html; charset=utf-8"
+    assert "RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY" in rendered
+    assert str(tmp_path) not in rendered
+    assert "private evidence review is unavailable" not in rendered
+
+
 def test_private_evidence_page_updates_one_card_without_repainting_unsaved_cards() -> None:
     page = _private_evidence_review_page(UiLanguage.JAPANESE)
 

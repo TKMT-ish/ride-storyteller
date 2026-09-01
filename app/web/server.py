@@ -212,16 +212,16 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
                 "application/json; charset=utf-8",
                 '{"error":"GETを使用してください。"}'.encode(),
             )
+        language = resolve_language(query.get("lang", [None])[0])
         try:
             PrivateEvidenceReviewSession.from_environment()
         except PrivateEvidenceReviewError:
             return _respond(
                 start_response,
-                "503 Service Unavailable",
-                "application/json; charset=utf-8",
-                b'{"error":"private evidence review is unavailable"}',
+                "200 OK",
+                "text/html; charset=utf-8",
+                _private_evidence_review_setup_page(language).encode(),
             )
-        language = resolve_language(query.get("lang", [None])[0])
         return _respond(
             start_response,
             "200 OK",
@@ -1032,6 +1032,35 @@ function card(candidate){{const article=document.createElement('article'),title=
 function render(payload){{cards.replaceChildren(...payload.review.candidates.map(card));notice.textContent=summary(payload.review.status_counts,payload.next_gate)}}
 fetch('/api/private-evidence-review').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(render).catch(()=>{{notice.textContent=text.failed}});
 </script></main></body></html>"""
+
+
+def _private_evidence_review_setup_page(language: UiLanguage) -> str:
+    """Show local-only setup guidance without exposing a path or configuration value."""
+    english = language is UiLanguage.ENGLISH
+    title = "Private visual-evidence review" if english else "私用の映像証拠確認"
+    explanation = (
+        "This private review is not configured on this device yet."
+        if english
+        else "この端末では、私用の映像証拠確認がまだ設定されていません。"
+    )
+    steps = (
+        (
+            "Set the local package directory using the environment setting below. "
+            "Do not enter that directory in a public service."
+        )
+        if english
+        else "下記の環境設定に、ローカルの確認パッケージdirectoryを指定します。公開サービスへ入力しません。"
+    )
+    restart = (
+        "Restart the local Ride Storyteller server, then reopen this page."
+        if english
+        else "Ride Storytellerのローカルサーバーを再起動してから、この画面を開き直します。"
+    )
+    return f"""<!doctype html>
+<html lang=\"{language.value}\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">
+<title>Ride Storyteller — {escape(title)}</title>
+<style>body{{font-family:-apple-system,BlinkMacSystemFont,\"Hiragino Sans\",sans-serif;max-width:760px;margin:40px auto;padding:0 20px;color:#17212b;background:#f7f8fa}}main{{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 10px #0001}}code{{background:#e9edf2;padding:2px 4px;border-radius:4px;overflow-wrap:anywhere}}li{{margin:12px 0}}</style>
+</head><body><main><p><a href=\"/?lang={language.value}\">{escape('Back to demo' if english else 'デモへ戻る')}</a></p><h1>{escape(title)}</h1><p>{escape(explanation)}</p><ol><li>{escape(steps)}<br><code>RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY</code></li><li>{escape(restart)}</li></ol></main></body></html>"""
 
 
 def _private_director_preview_page(language: UiLanguage) -> str:

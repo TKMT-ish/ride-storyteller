@@ -172,6 +172,7 @@ external GPX motion
   `confirmed`、`rejected`、`awaiting`として保存する。品質reviewの採用／却下とは自動接続しない。
   画面は判断状態に基づく次のlocal gateを表示するが、全件confirmedでもDirectorやrenderを
   自動開始せず、local pipelineの再検証を要求する。
+  未設定時はpathや設定値を露出せず、必要なローカル設定名と再起動だけを案内する。
 - DirectorScriptのbrowser-safe summaryは、確認済みeventに出発と到着の両方があるか、片方だけか、
   旅の途中だけかを表示する。未確認の旅程端点を補う表現は使用しない。
 - private metric cacheは実装済みだが、26.7 GiBのv4aでcache hit時の実測短縮時間は未計測。
