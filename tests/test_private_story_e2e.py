@@ -82,10 +82,12 @@ def test_private_story_e2e_renders_in_director_story_order(tmp_path: Path) -> No
     assert result.render.story_order_applied is True
     assert result.render.audio_included is False
     assert (package / result.render.output_file_name).is_file()
-    payload = json.dumps(result.to_dict())
+    result_payload = result.to_dict()
+    payload = json.dumps(result_payload)
     assert "external_data_sent" in payload
     assert '"source_asset_id"' not in payload
     assert '"source_start_sec"' not in payload
+    assert "output_file_name" not in result_payload["render"]
 
 
 def test_private_story_e2e_rejects_awaiting_evidence_before_probing(tmp_path: Path) -> None:

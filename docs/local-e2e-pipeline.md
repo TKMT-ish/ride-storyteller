@@ -147,7 +147,8 @@ python -m app.private_story_e2e "/path/to/private-output"
 
 この経路はDirectorScriptのsource identityとconfirmed allow-listを、既存deterministic
 rendererで再確認してからFFmpegを起動する。音声は含めず、Gemini、Google、Box、その他の
-ネットワークサービスは呼ばない。
+ネットワークサービスは呼ばない。CLIの集計出力にも、出力動画名、source asset ID、映像区間、
+ファイル名、pathは含めない。
 
 `RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY`へprivate output directoryを明示設定すると、
 loopback serverの`/private-evidence-review`で確認用クリップを見ながら、1件ずつ

@@ -24,7 +24,13 @@ class PrivateStoryE2EResult:
     def to_dict(self) -> dict[str, object]:
         return {
             "director": self.director.to_dict(),
-            "render": self.render.to_dict(),
+            "render": {
+                "clip_count": self.render.clip_count,
+                "duration_s": self.render.duration_s,
+                "audio_included": self.render.audio_included,
+                "story_order_applied": self.render.story_order_applied,
+                "external_data_sent": False,
+            },
             "external_data_sent": False,
         }
 

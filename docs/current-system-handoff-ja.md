@@ -391,3 +391,5 @@ Cloudの外部通信・費用を伴い得るため、今回の実装では実行
   DirectorScript生成後も既存Editorがsource identityとconfirmed allow-listを再確認する。
 - 合成contractで、confirmed packageがDirector順にrenderされること、awaiting packageが動画probe前に
   停止することを確認した。Gemini、Google、Box、外部通信は行わない。
+- `app.private_story_e2e`の集計出力は、出力動画名を含めない。source asset ID、区間、素材名、pathも
+  同様に含めず、private実行の結果は件数・尺・無音・story order適用の事実だけを返す。
