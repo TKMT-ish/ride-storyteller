@@ -391,6 +391,8 @@ def _private_input_path(value: object, label: str, *, expect_directory: bool) ->
     if not isinstance(value, str) or not value:
         raise ValueError(f"private local pipeline inputs have an invalid {label}")
     path = Path(value)
+    if not path.is_absolute():
+        raise ValueError(f"private local pipeline inputs have a non-absolute {label}")
     if path.is_symlink() or (not path.is_dir() if expect_directory else not path.is_file()):
         raise ValueError(f"private local pipeline {label} is unavailable")
     return path.resolve()

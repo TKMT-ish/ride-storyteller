@@ -190,6 +190,25 @@ def test_local_pipeline_rejects_a_different_input_before_probing(tmp_path: Path)
     assert calls == []
 
 
+def test_input_manifest_rejects_relative_source_paths(tmp_path: Path) -> None:
+    manifest = tmp_path / "local-pipeline-inputs.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "schema_version": "local-pipeline-input-manifest-v1",
+                "gpx_path": "relative-route.gpx",
+                "video_root": "/private/videos",
+                "video_to_gps_offset_s": 0.0,
+                "target_duration_s": 300.0,
+                "output_language": "ja",
+            }
+        )
+    )
+
+    with pytest.raises(ValueError, match="non-absolute GPX"):
+        load_local_pipeline_inputs(manifest)
+
+
 def test_local_pipeline_rejects_unignored_repository_output() -> None:
     repository_root = Path(__file__).resolve().parents[1]
 
