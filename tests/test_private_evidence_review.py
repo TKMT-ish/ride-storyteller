@@ -20,8 +20,9 @@ from app.video import (
     write_local_evidence_review,
     write_local_review_clip_manifest,
 )
+from app.web.i18n import UiLanguage
 from app.web.private_evidence_review import PrivateEvidenceReviewSession
-from app.web.server import application
+from app.web.server import _private_evidence_review_page, application
 
 
 def _clip(event_id: str, asset_id: str) -> ResolvedCandidateClip:
@@ -197,3 +198,42 @@ def test_private_evidence_http_paths_are_disabled_in_public_demo(
         status, _, body = _request(path)
         assert status == "403 Forbidden"
         assert body == b'{"error":"disabled in public demo mode"}'
+
+
+def test_private_evidence_page_updates_one_card_without_repainting_unsaved_cards() -> None:
+    page = _private_evidence_review_page(UiLanguage.JAPANESE)
+
+    assert "render(await response.json())" not in page
+    assert "updatedCandidate=payload.review.candidates.find" in page
+    assert "candidate.status=updatedCandidate.status" in page
+    assert "cards.replaceChildren" in page
+
+
+def test_private_evidence_http_update_rejects_non_loopback_origin(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _create_package(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "local")
+    monkeypatch.setenv("RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY", str(tmp_path))
+    body = json.dumps({"review_id": "review-001", "status": "confirmed"}).encode()
+    captured: dict[str, object] = {}
+
+    def start_response(status: str, headers: list[tuple[str, str]]) -> None:
+        captured["status"] = status
+        captured["headers"] = dict(headers)
+
+    response = b"".join(
+        application(
+            {
+                "PATH_INFO": "/api/private-evidence-review",
+                "QUERY_STRING": "",
+                "REQUEST_METHOD": "POST",
+                "CONTENT_LENGTH": str(len(body)),
+                "HTTP_ORIGIN": "https://example.com",
+                "wsgi.input": BytesIO(body),
+            },
+            start_response,
+        )
+    )
+    assert captured["status"] == "400 Bad Request"
+    assert response == b'{"error":"private evidence review request is invalid"}'
