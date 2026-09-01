@@ -262,6 +262,8 @@ writes a single human `confirmed`, `rejected`, or `awaiting_video_evidence` deci
 and never exposes or uploads event IDs, source asset IDs, file names, paths, offsets,
 or coordinates. It is disabled in public-demo mode. Evidence decisions are written by
 an atomic local replacement, so an interrupted save keeps the previous review file.
+The page also shows the next local evidence gate; even after all clips are confirmed,
+it requires an explicit local-pipeline revalidation before the Director may run.
 
 To generate a local-only DirectorScript from the confirmed events, rerun the same
 private output folder with `--overwrite --director-mode`. This uses the offline

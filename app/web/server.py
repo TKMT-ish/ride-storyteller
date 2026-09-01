@@ -995,10 +995,29 @@ def _private_evidence_review_page(language: UiLanguage) -> str:
         "summary": "Confirmed {confirmed} / Rejected {rejected} / Awaiting {awaiting}"
         if english
         else "確認 {confirmed} / 却下 {rejected} / 未判断 {awaiting}",
+        "next": "Next local step" if english else "次のローカル手順",
         "back": "Back to demo" if english else "デモへ戻る",
+    }
+    gate_labels = {
+        "human_visual_evidence_review": (
+            "Review every clip before creating the story."
+            if english
+            else "物語を作る前に、すべてのクリップを確認します。"
+        ),
+        "replace_rejected_candidate_clips": (
+            "Replace rejected evidence before creating the story."
+            if english
+            else "物語を作る前に、却下した映像証拠を差し替えます。"
+        ),
+        "revalidate_local_pipeline": (
+            "Revalidate the local pipeline before creating the story."
+            if english
+            else "物語を作る前に、ローカルpipelineを再検証します。"
+        ),
     }
     text = {key: escape(value) for key, value in strings.items()}
     strings_json = json.dumps(strings, ensure_ascii=False).replace("<", "\\u003c")
+    gate_labels_json = json.dumps(gate_labels, ensure_ascii=False).replace("<", "\\u003c")
     return f"""<!doctype html>
 <html lang="{language.value}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Ride Storyteller — {text['title']}</title>
@@ -1006,11 +1025,11 @@ def _private_evidence_review_page(language: UiLanguage) -> str:
 body{{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans",sans-serif;max-width:1100px;margin:32px auto;padding:0 20px;color:#17212b;background:#f7f8fa}}main{{background:#fff;border-radius:16px;padding:28px;box-shadow:0 2px 10px #0001}}.grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}}article{{border:1px solid #d7dde5;border-radius:12px;padding:14px}}video{{display:block;width:100%;border-radius:8px;background:#17212b;margin:8px 0}}select,button{{font:inherit;padding:8px;margin:5px 0}}button{{background:#1264d6;color:#fff;border:0;border-radius:7px;cursor:pointer}}#notice{{padding:12px;background:#f2f7ff;border-radius:8px}}</style>
 </head><body><main><p><a href="/?lang={language.value}">{text['back']}</a></p><h1>{text['title']}</h1><p>{text['intro']}</p><p id="notice" aria-live="polite">{text['loading']}</p><section id="cards" class="grid"></section>
 <script>
-const text={strings_json};
+const text={strings_json},gateLabels={gate_labels_json};
 const notice=document.querySelector('#notice'),cards=document.querySelector('#cards');
-function summary(counts){{return text.summary.replace('{{confirmed}}',counts.confirmed).replace('{{rejected}}',counts.rejected).replace('{{awaiting}}',counts.awaiting_video_evidence)}}
-function card(candidate){{const article=document.createElement('article'),title=document.createElement('h2'),video=document.createElement('video'),statusLabel=document.createElement('label'),status=document.createElement('select'),save=document.createElement('button');title.textContent=candidate.review_id;video.src=candidate.media_url;video.controls=true;video.preload='metadata';for(const [value,label] of [['confirmed',text.confirmed],['rejected',text.rejected],['awaiting_video_evidence',text.awaiting]]){{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=candidate.status===value;status.append(option)}}statusLabel.textContent=text.status+' ';statusLabel.append(status);save.textContent=text.save;save.addEventListener('click',async()=>{{save.disabled=true;try{{const response=await fetch('/api/private-evidence-review',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{review_id:candidate.review_id,status:status.value}})}});if(!response.ok)throw Error();const payload=await response.json(),updatedCandidate=payload.review.candidates.find(item=>item.review_id===candidate.review_id);if(!updatedCandidate)throw Error();candidate.status=updatedCandidate.status;notice.textContent=`${{text.saved}} ${{summary(payload.review.status_counts)}}`}}catch(error){{notice.textContent=text.failed}}finally{{save.disabled=false}}}});article.append(title,video,statusLabel,save);return article}}
-function render(payload){{cards.replaceChildren(...payload.review.candidates.map(card));notice.textContent=summary(payload.review.status_counts)}}
+function summary(counts,nextGate){{return text.summary.replace('{{confirmed}}',counts.confirmed).replace('{{rejected}}',counts.rejected).replace('{{awaiting}}',counts.awaiting_video_evidence)+' / '+text.next+': '+(gateLabels[nextGate]||text.failed)}}
+function card(candidate){{const article=document.createElement('article'),title=document.createElement('h2'),video=document.createElement('video'),statusLabel=document.createElement('label'),status=document.createElement('select'),save=document.createElement('button');title.textContent=candidate.review_id;video.src=candidate.media_url;video.controls=true;video.preload='metadata';for(const [value,label] of [['confirmed',text.confirmed],['rejected',text.rejected],['awaiting_video_evidence',text.awaiting]]){{const option=document.createElement('option');option.value=value;option.textContent=label;option.selected=candidate.status===value;status.append(option)}}statusLabel.textContent=text.status+' ';statusLabel.append(status);save.textContent=text.save;save.addEventListener('click',async()=>{{save.disabled=true;try{{const response=await fetch('/api/private-evidence-review',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify({{review_id:candidate.review_id,status:status.value}})}});if(!response.ok)throw Error();const payload=await response.json(),updatedCandidate=payload.review.candidates.find(item=>item.review_id===candidate.review_id);if(!updatedCandidate)throw Error();candidate.status=updatedCandidate.status;notice.textContent=`${{text.saved}} ${{summary(payload.review.status_counts,payload.next_gate)}}`}}catch(error){{notice.textContent=text.failed}}finally{{save.disabled=false}}}});article.append(title,video,statusLabel,save);return article}}
+function render(payload){{cards.replaceChildren(...payload.review.candidates.map(card));notice.textContent=summary(payload.review.status_counts,payload.next_gate)}}
 fetch('/api/private-evidence-review').then(response=>{{if(!response.ok)throw Error();return response.json()}}).then(render).catch(()=>{{notice.textContent=text.failed}});
 </script></main></body></html>"""
 

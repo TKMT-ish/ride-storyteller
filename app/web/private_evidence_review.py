@@ -93,6 +93,7 @@ class PrivateEvidenceReviewSession:
         return {
             "local_only": True,
             "external_data_sent": False,
+            "next_gate": _next_evidence_gate(review),
             "review": {
                 "schema_version": "private-evidence-review-v1",
                 "candidate_count": len(manifest),
@@ -183,6 +184,21 @@ class PrivateEvidenceReviewSession:
     @staticmethod
     def _url_for(review_id: str) -> str:
         return "/api/private-evidence-review/asset?" + urlencode({"review_id": review_id})
+
+
+def _next_evidence_gate(review: LocalEvidenceReview) -> str:
+    """Return the next local action without claiming story-render readiness.
+
+    This deliberately reflects only human evidence decisions.  A later local
+    pipeline pass still validates candidate duration and timestamp matching
+    before it may run the Director or renderer.
+    """
+    statuses = {decision.evidence_status for decision in review.decisions}
+    if CandidateEvidenceStatus.REJECTED in statuses:
+        return "replace_rejected_candidate_clips"
+    if CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE in statuses:
+        return "human_visual_evidence_review"
+    return "revalidate_local_pipeline"
 
 
 def _review_id(index: int) -> str:

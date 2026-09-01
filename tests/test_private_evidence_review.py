@@ -116,6 +116,7 @@ def test_private_evidence_payload_exposes_only_opaque_review_ids(tmp_path: Path)
     assert "private-alpha.mp4" not in serialized
     assert str(tmp_path) not in serialized
     assert "/api/private-evidence-review/asset?review_id=review-001" in serialized
+    assert payload["next_gate"] == "human_visual_evidence_review"
 
 
 def test_private_evidence_update_persists_only_the_selected_human_decision(
@@ -136,6 +137,35 @@ def test_private_evidence_update_persists_only_the_selected_human_decision(
     decisions = {decision.event_id: decision for decision in review.decisions}
     assert decisions[clips[0].event_id].evidence_source == "human_local_review"
     assert decisions[clips[1].event_id].evidence_source is None
+
+
+def test_private_evidence_next_gate_requires_replacement_before_remaining_review(
+    tmp_path: Path,
+) -> None:
+    _create_package(tmp_path)
+    session = PrivateEvidenceReviewSession.from_directory(tmp_path)
+
+    payload = session.update(
+        review_id="review-001",
+        status=CandidateEvidenceStatus.REJECTED,
+    )
+
+    assert payload["next_gate"] == "replace_rejected_candidate_clips"
+
+
+def test_private_evidence_next_gate_requires_pipeline_revalidation_after_confirmation(
+    tmp_path: Path,
+) -> None:
+    _create_package(tmp_path)
+    session = PrivateEvidenceReviewSession.from_directory(tmp_path)
+    session.update(review_id="review-001", status=CandidateEvidenceStatus.CONFIRMED)
+
+    payload = session.update(
+        review_id="review-002",
+        status=CandidateEvidenceStatus.CONFIRMED,
+    )
+
+    assert payload["next_gate"] == "revalidate_local_pipeline"
 
 
 def test_private_evidence_session_rejects_unknown_review_id_and_missing_asset(
@@ -207,6 +237,7 @@ def test_private_evidence_page_updates_one_card_without_repainting_unsaved_cards
     assert "updatedCandidate=payload.review.candidates.find" in page
     assert "candidate.status=updatedCandidate.status" in page
     assert "cards.replaceChildren" in page
+    assert "gateLabels[nextGate]" in page
 
 
 def test_private_evidence_http_update_rejects_non_loopback_origin(
