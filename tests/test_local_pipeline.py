@@ -1,12 +1,13 @@
 import json
 import subprocess
 import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from app.contracts import Location
 from app.edit import CandidateEvidenceStatus
 from app.local_pipeline import (
     load_local_pipeline_inputs,
@@ -19,6 +20,12 @@ from app.video import (
     LocalVideoMetadata,
     load_local_evidence_review,
     write_local_evidence_review,
+)
+from app.video.highlight_quality import InterestLane, QualitySelectionMethod
+from app.video.highlight_story_bridge import (
+    HighlightBridgeCandidate,
+    HighlightBridgeCandidateSet,
+    write_highlight_bridge_candidates,
 )
 
 
@@ -85,6 +92,60 @@ def test_local_pipeline_connects_gpx_catalog_matching_and_review_clips(
     assert inputs.gpx_path == Path("tests/fixtures/sample_route.xml").resolve()
     assert inputs.video_root == video_root.resolve()
     assert inputs.video_to_gps_offset_s == 5.0
+
+
+def test_prepare_local_review_package_merges_highlight_bridge_candidates(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+
+    # Well clear of the GPS-derived event near the start of the recording.
+    gps_file_start = _metadata(Path("GX010001.MP4")).recorded_start_time + timedelta(seconds=5.0)
+    candidate = HighlightBridgeCandidate(
+        candidate_id="highlight-0123456789abcdef",
+        method=QualitySelectionMethod.QUALITY_FIRST,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=500.0),
+        duration_s=12.0,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.9,
+    )
+    bridge_path = tmp_path / "highlight-bridge-candidates.json"
+    write_highlight_bridge_candidates(bridge_path, HighlightBridgeCandidateSet((candidate,)))
+
+    result = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_bridge_candidates_path=bridge_path,
+    )
+
+    assert result.matched_clip_count >= 2
+    candidates_payload = json.loads(
+        (output / "ride-storyteller-candidates.json").read_text()
+    )
+    highlight_clips = [
+        clip
+        for clip in candidates_payload["clips"]
+        if clip["event_id"].startswith("highlight-event-")
+    ]
+    assert len(highlight_clips) == 1
+    assert highlight_clips[0]["status"] == "matched"
+    review = load_local_evidence_review(output / "evidence-review.json")
+    highlight_decision = next(
+        decision
+        for decision in review.decisions
+        if decision.event_id == highlight_clips[0]["event_id"]
+    )
+    assert highlight_decision.evidence_status is CandidateEvidenceStatus.CONFIRMED
 
 
 def test_local_pipeline_stops_before_probing_without_clock_confirmation(

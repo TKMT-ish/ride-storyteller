@@ -217,7 +217,10 @@ external GPX motion
   2026-09-02、橋渡しが実際に必要とする狭いレコード`HighlightBridgeCandidate`の
   永続化（`highlight-bridge-candidates.json`）を実装し、`QualitySelection`本体を
   保存しない設計でVision分類ラベル・asset_id非公開方針を維持したまま解決した
-  （同設計書§7-3）。`app.local_pipeline`への呼び出し元接続はまだ無い。
+  （同設計書§7-3）。同日、`app.local_pipeline.prepare_local_review_package`に
+  `highlight_bridge_candidates_path`引数を追加して配線した（同設計書§7-4）。
+  合成fixtureでcatalog一致→matched→evidence-review自動confirmedまでの
+  一気通貫を確認済み。CLI引数化・`--resume-output`との統合・実素材適用は未実施。
 - `python -m app.submission`の安全検査自体は成功するが、表示される`media_gates`の
   一部に「実ファイル入手後にinventory作成」等のv4a以前の定型文が残る。提出準備
   statusと実素材開発statusを同一の正本として扱わない。

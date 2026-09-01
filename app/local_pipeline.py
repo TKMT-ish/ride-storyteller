@@ -33,6 +33,10 @@ from app.video import (
     write_local_review_clip_manifest,
     write_local_video_catalog,
 )
+from app.video.highlight_story_bridge import (
+    build_highlight_gps_events,
+    load_highlight_bridge_candidates,
+)
 
 if TYPE_CHECKING:
     from app.director import GeminiDirectorTransport
@@ -141,6 +145,7 @@ def prepare_local_review_package(
     director_mode: bool = False,
     gemini_transport: GeminiDirectorTransport | None = None,
     allow_external_director: bool = False,
+    highlight_bridge_candidates_path: Path | None = None,
 ) -> LocalPipelineResult:
     """Prepare private catalogs, candidate exports, and optional review proxies.
 
@@ -159,6 +164,14 @@ def prepare_local_review_package(
     decisions are a separate gate and must be deliberately edited through the
     evidence-review workflow. A review that no longer matches the regenerated
     candidate event set raises ``ValueError`` rather than being silently reset.
+
+    Pass ``highlight_bridge_candidates_path`` to additionally load a
+    ``highlight-bridge-candidates.json`` written by
+    ``app.video.highlight_research`` and merge its review-approved,
+    non-overlapping candidates into the GPS event pool before Story Planning
+    (see docs/highlight-story-bridge-design-ja.md). This is a fresh,
+    per-invocation input: it is not remembered in ``local-pipeline-inputs.json``
+    and is not replayed by ``--resume-output``.
     """
     _validate_private_output_directory(output_directory)
     _validate_source_video_directory(video_root)
@@ -202,6 +215,11 @@ def prepare_local_review_package(
 
     route = parse_gpx(gpx_path)
     events = consolidate_events(extract_events(route, asset_name_hint="local_catalog"))
+    if highlight_bridge_candidates_path is not None:
+        bridge_candidates = load_highlight_bridge_candidates(
+            highlight_bridge_candidates_path
+        ).candidates
+        events = events + build_highlight_gps_events(bridge_candidates, events)
     video_backed_events = select_video_backed_events(
         events,
         catalog_build.catalog,

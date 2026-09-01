@@ -312,9 +312,28 @@ scoreが高ければClimax／Hookにもなり得る。**コード変更は不要
 
 ### まだ未実施
 
-`app.local_pipeline`・`app.private_story_e2e`等の呼び出し元は追加していない。
-`highlight-bridge-candidates.json`を読み、既存GpsEvent集合と合流させ、
-Story Plannerへ渡す統合コードは次段階。
+`app.private_story_e2e`・`--resume-output`経路への接続、CLI引数化は未実施。
+
+## 7-4. 実装済み｜app.local_pipelineへの配線（2026-09-02）
+
+`prepare_local_review_package`に`highlight_bridge_candidates_path: Path | None`
+を追加した。指定すると`highlight-bridge-candidates.json`を読み込み、GPS由来
+event集合とのovlerap判定を経て`build_highlight_gps_events`で合流させてから
+`select_video_backed_events`／Story Plannerへ渡す。
+
+- 新規eventは既存のcatalog解決・auto-decide evidence・candidate exportの
+  経路をそのまま通る。実装を追加した部分は無く、eventの合流点1箇所のみ。
+- 意図的にscopeを絞った点: `local-pipeline-inputs.json`（`--resume-output`が
+  読む再実行用manifest）にはこのpathを記録しない。毎回明示的に渡す
+  per-invocation入力として扱う。CLI引数（`argparse`）へは未接続。
+- 統合testを追加: 実際に候補を合流させ、catalogとtimestampが一致すれば
+  `matched`、evidence-reviewが自動`confirmed`になることまで確認した
+  （合成fixtureのみ、実14 MP4は未適用）。613件成功、Ruff成功。
+
+これで橋渡し機構は、同一プロセス内であれば「highlight研究の出力」から
+「Director/Editorが実際に使えるconfirmed event」まで一気通貫でつながった。
+残る主な論点は§4の3（既存GPS eventとの重なり時に区間を補強するUI）・4
+（実素材適用のタイミング）と、CLI引数化・`--resume-output`との統合である。
 
 ## 7. 移行の進め方（提案）
 
