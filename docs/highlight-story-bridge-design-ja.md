@@ -231,6 +231,58 @@
   引き続き機能する。
 - highlight由来eventとGpsEventの橋渡し本体（本設計書§3）はまだ未着手。
 
+## 7-2. 実装済み｜highlight→GpsEvent橋渡しの中核機構（2026-09-01）
+
+本設計書§3・§5の中核部分を実装した。ただし実装過程で、当初の想定より
+現実的な統合範囲が狭いことが判明したため、§4項目2は解消、項目3・4は
+未確定のまま、統合面の制約を1つ新たに記録する。
+
+### 実装内容
+
+- `app/video/highlight_discovery.py`の`WindowFeatures`に`latitude`／
+  `longitude`（両方optional、デフォルト`None`、既存呼び出し元・testと
+  後方互換）を追加した。`_gps_features`のmidpoint route pointから設定する。
+  調査の結果、`timeline_s`は既にvideo-relativeではなく**絶対GPS-clock
+  Unixタイムスタンプ**であることが判明したため、絶対時刻用の新規fieldは
+  不要だった（設計書§1の記述を訂正）。
+- 新規`app/video/highlight_story_bridge.py`に、`build_highlight_gps_event`
+  （approved 1候補→`GpsEvent`）、`overlaps_existing_event`（既存GpsEventとの
+  時間重なり判定）、`build_highlight_gps_events`（複数method分をapproved
+  candidate_idでfilterし、重なるものを除外し、同一window由来の重複を
+  event_id基準で除去し、時系列順に返す）を実装した。event_idはwindowの
+  asset_id・offset・durationのみから導出し、method・rankを含めない
+  （同じ物理windowが複数methodで選ばれても1 eventに収束する）。
+  event_type文字列は新規`visual_highlight`。
+- synthetic contract testを追加（承認済み候補からのevent合成、位置情報欠如時の
+  拒否、重なり判定、approved／rejected混在時のfilter、method間重複除去、
+  時系列順ソート）。605件成功、Ruff成功。
+
+### §4項目2は調査により解消（新event_typeのDirector配置）
+
+`app/agents/story_planner.py`の`roles`/`priority`辞書は`event.event_type`が
+未知でもfallback表示・優先度0で安全に扱う。`app/director.py`の役割判定
+（`_is_departure`／`_is_arrival`による判定＋`_rank_key`による汎用ranking）も
+event_type文字列を特別扱いしておらず、未知typeはBuild-upへ落ちるか、
+scoreが高ければClimax／Hookにもなり得る。**コード変更は不要**と確認できた。
+
+### 新たに判明した制約（§4項目3・4に影響）
+
+`highlight_quality.QualitySelection`（Vision frame・GPMF summary・window
+featuresを含む）には**永続化（disk保存／再読込）の手段が現状存在しない**。
+`highlight-research-manifest.json`は集計統計だけを保存し、`QualitySelection`
+オブジェクトを再構築できない。したがって本橋渡しは、**同一プロセス内で
+`run_local_highlight_research`を呼び出した直後**のin-memory結果に対してしか
+使えない。`app.local_pipeline`のデフォルトフロー（別プロセス・別タイミングで
+実行される）へ接続するには、先に`QualitySelection`の永続化設計が要る。
+これは§4項目3（置き換えUI）より手前にある、未検討の追加論点である。
+
+### 統合（wiring）は未実施
+
+`app.local_pipeline`のCLIやデフォルトフローには接続していない。関数は
+呼び出し可能な状態で存在するが、呼び出し元は無い。これは意図的である。
+上記の永続化論点と、§4項目3（補強UI）・4（実素材適用時期）が確定してから
+接続する。
+
 ## 7. 移行の進め方（提案）
 
 §4で未確定の項目（2, 3, 4, 5）はそれぞれ独立に着手できるため、次の順で

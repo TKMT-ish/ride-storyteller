@@ -117,6 +117,14 @@ class WindowFeatures:
     dynamic_range_mean: float
     saturation_mean: float
     entropy_mean: float
+    # The route point nearest this window's midpoint. Optional and defaulted
+    # so existing callers and fixtures are unaffected; only the real
+    # `_features_for_source` builder populates it. `timeline_s` is already an
+    # absolute GPS-clock Unix timestamp, so together with `duration_s` these
+    # two fields let a window be placed on the route without re-deriving
+    # anything from source paths or file names.
+    latitude: float | None = None
+    longitude: float | None = None
 
     def __post_init__(self) -> None:
         if not self.asset_id:
@@ -127,6 +135,8 @@ class WindowFeatures:
             raise ValueError("moving_ratio must be between zero and one")
         if not 0 <= self.path_efficiency <= 1:
             raise ValueError("path_efficiency must be between zero and one")
+        if (self.latitude is None) != (self.longitude is None):
+            raise ValueError("window latitude and longitude must be set together")
 
 
 @dataclass(frozen=True)
@@ -773,6 +783,8 @@ def _gps_features(
     ordered_speeds = sorted(speeds)
     center_speed = selected[midpoint].speed_mps
     return {
+        "latitude": selected[midpoint].latitude,
+        "longitude": selected[midpoint].longitude,
         "mean_speed_mps": fmean(speeds),
         "minimum_speed_mps": min(speeds),
         "speed_p10_mps": _percentile(ordered_speeds, 0.10),
