@@ -134,6 +134,8 @@ python -m app.local_pipeline --resume-output "/path/to/private-output"
 
 記録済み入力が欠損・破損・symlink・別入力への差し替えなら停止する。この再開経路は
 RuleBased Directorだけを使い、Geminiその他の外部サービスへ素材を送らない。
+`awaiting`または`rejected`が1件でも残る場合も、動画probe前に停止する。したがって
+未確認・却下済みの候補からDirectorScriptを作る経路はない。
 
 `RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY`へprivate output directoryを明示設定すると、
 loopback serverの`/private-evidence-review`で確認用クリップを見ながら、1件ずつ

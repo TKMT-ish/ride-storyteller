@@ -253,6 +253,34 @@ def test_rerun_local_director_reuses_the_exact_private_input_manifest(tmp_path: 
     assert (output / "local-director-script.json").exists()
 
 
+def test_rerun_local_director_rejects_awaiting_evidence_before_probing(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        probe=_metadata,
+        clip_runner=_runner,
+    )
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="must be confirmed"):
+        rerun_local_director_from_package(output, probe=probe)
+
+    assert calls == []
+
+
 def test_local_pipeline_fails_closed_without_video_backed_events(tmp_path: Path) -> None:
     video_root = tmp_path / "videos"
     video_root.mkdir()

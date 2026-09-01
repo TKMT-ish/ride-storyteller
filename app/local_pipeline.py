@@ -314,6 +314,14 @@ def rerun_local_director_from_package(
     folders or silently pairing human evidence decisions with a different ride.
     """
     inputs = load_local_pipeline_inputs(output_directory / "local-pipeline-inputs.json")
+    review = load_local_evidence_review(output_directory / "evidence-review.json")
+    if not review.decisions or any(
+        decision.evidence_status is not CandidateEvidenceStatus.CONFIRMED
+        for decision in review.decisions
+    ):
+        raise ValueError(
+            "all local visual evidence decisions must be confirmed before rerunning Director"
+        )
     return prepare_local_review_package(
         inputs.gpx_path,
         inputs.video_root,
