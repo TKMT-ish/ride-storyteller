@@ -1,13 +1,16 @@
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from subprocess import CompletedProcess
 
 import pytest
 
+import app.video.highlight_discovery as highlight_discovery_module
 from app.video.highlight_discovery import (
     HighlightCandidate,
     HighlightMethod,
     WindowFeatures,
+    _proxy_matches_source_duration,
     analyze_video_metrics,
     build_highlight_clip_command,
     discover_and_extract_highlights,
@@ -15,6 +18,7 @@ from app.video.highlight_discovery import (
     parse_ffmpeg_metric_output,
     rank_highlight_windows,
 )
+from app.video.probe import LocalVideoMetadata, VideoProbeError
 
 
 def _window(
@@ -220,3 +224,69 @@ def test_highlight_discovery_rejects_unignored_repository_output() -> None:
             Path("missing-catalog.json"),
             repository_root / "unsafe-highlight-output",
         )
+
+
+# ---------------------------------------------------------------------------
+# _proxy_matches_source_duration
+#
+# Real-media testing on 2026-09-02 found that `_recording_key` can pair an
+# unrelated, much shorter .LRV to an .MP4 that merely shares its numeric
+# suffix (see docs/current-system-handoff-ja.md). These tests cover the
+# duration check added to reject that mismatch.
+# ---------------------------------------------------------------------------
+
+
+def _metadata(duration_s: float) -> LocalVideoMetadata:
+    return LocalVideoMetadata(
+        file_name="proxy.LRV",
+        duration_s=duration_s,
+        recorded_start_time=datetime(2026, 1, 1, tzinfo=UTC),
+        video_codec="hevc",
+        width=1920,
+        height=1080,
+        frames_per_second=30.0,
+        has_audio=False,
+    )
+
+
+def test_proxy_matches_source_duration_accepts_a_proxy_covering_the_source(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        highlight_discovery_module, "probe_local_video_metadata", lambda path: _metadata(275.4)
+    )
+
+    assert _proxy_matches_source_duration(tmp_path / "proxy.LRV", 275.4) is True
+
+
+def test_proxy_matches_source_duration_accepts_within_tolerance(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        highlight_discovery_module, "probe_local_video_metadata", lambda path: _metadata(273.0)
+    )
+
+    assert _proxy_matches_source_duration(tmp_path / "proxy.LRV", 275.4) is True
+
+
+def test_proxy_matches_source_duration_rejects_a_much_shorter_proxy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    # Reproduces the real case: a 44s .LRV coincidentally sharing a chapter
+    # number with a 275s .MP4 it does not correspond to.
+    monkeypatch.setattr(
+        highlight_discovery_module, "probe_local_video_metadata", lambda path: _metadata(44.16)
+    )
+
+    assert _proxy_matches_source_duration(tmp_path / "proxy.LRV", 275.4) is False
+
+
+def test_proxy_matches_source_duration_rejects_when_probe_fails(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def fail(path: Path) -> LocalVideoMetadata:
+        raise VideoProbeError("simulated probe failure")
+
+    monkeypatch.setattr(highlight_discovery_module, "probe_local_video_metadata", fail)
+
+    assert _proxy_matches_source_duration(tmp_path / "proxy.LRV", 275.4) is False

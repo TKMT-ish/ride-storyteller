@@ -27,6 +27,7 @@ from app.gps import parse_gpx
 
 from .catalog import VideoCatalogEntry, load_video_catalog
 from .inventory import build_local_video_inventory
+from .probe import VideoProbeError, probe_local_video_metadata
 
 if TYPE_CHECKING:
     from .metric_cache import PrivateMetricCache
@@ -236,7 +237,13 @@ def analyze_local_highlight_windows(
         source_path = source_paths.get(entry.asset_id)
         if source_path is None:
             continue
-        analysis_path = proxies_by_key.get(_recording_key(entry.file_name), source_path)
+        candidate_proxy = proxies_by_key.get(_recording_key(entry.file_name))
+        analysis_path = (
+            candidate_proxy
+            if candidate_proxy is not None
+            and _proxy_matches_source_duration(candidate_proxy, entry.duration_s)
+            else source_path
+        )
         samples = (
             metric_cache.load_or_analyze_video_metrics(analysis_path, metric_analyzer)
             if metric_cache is not None
@@ -847,6 +854,31 @@ def _recording_key(file_name: str) -> str:
     if len(stem) < 3 or not stem.startswith("G"):
         return stem
     return stem[2:]
+
+
+# A real GoPro low-resolution proxy covers the full duration of its paired
+# high-resolution chapter; a small gap only comes from encoder rounding.
+_PROXY_DURATION_TOLERANCE_S = 3.0
+
+
+def _proxy_matches_source_duration(proxy_path: Path, expected_duration_s: float) -> bool:
+    """Reject a candidate LRV proxy whose duration does not cover its source.
+
+    `_recording_key` pairs files by their shared numeric suffix regardless of
+    the two-letter prefix (e.g. GX/GH/GL), which real-media testing on
+    2026-09-02 showed is not always a valid same-recording pairing on every
+    GoPro unit: an unrelated, much shorter ``.LRV`` can coincidentally share a
+    chapter number with an ``.MP4`` it does not correspond to. Using such a
+    mismatched proxy would silently derive metrics and extracted frames only
+    from its first few seconds for any window past that point, rather than
+    failing loudly. Falling back to the full-resolution source is slower but
+    correct.
+    """
+    try:
+        proxy_duration_s = probe_local_video_metadata(proxy_path).duration_s
+    except VideoProbeError:
+        return False
+    return proxy_duration_s >= expected_duration_s - _PROXY_DURATION_TOLERANCE_S
 
 
 def _std(values: Iterable[float]) -> float:
