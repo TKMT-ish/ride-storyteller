@@ -270,14 +270,7 @@ class RuleBasedDirector:
         Raises ``ValueError`` if ``events`` is empty or if any event has
         ``evidence_confirmed=False`` (caller must pre-filter).
         """
-        if not events:
-            raise ValueError("RuleBasedDirector.compose requires at least one event")
-        for event in events:
-            if not event.evidence_confirmed:
-                raise ValueError(
-                    f"event {event.event_id!r} has evidence_confirmed=False; "
-                    "only confirmed events may be passed to the Director"
-                )
+        _validate_director_events(events, "RuleBasedDirector")
 
         arc_assignments = _assign_arcs(events)
         scenes: list[Scene] = []
@@ -317,6 +310,25 @@ def _rank_key(event: UniversalEvent) -> tuple[float, float]:
     """Higher ranking_score / intensity → sorted first (descending)."""
     score = event.ranking_score if event.ranking_score is not None else event.intensity
     return (-score, -event.intensity)
+
+
+def _validate_director_events(
+    events: tuple[UniversalEvent, ...], director_name: str
+) -> None:
+    """Reject ambiguous or unconfirmed Director inputs before any composition."""
+    if not events:
+        raise ValueError(f"{director_name}.compose requires at least one event")
+    event_ids = tuple(event.event_id for event in events)
+    if len(event_ids) != len(set(event_ids)):
+        raise ValueError(
+            f"{director_name}.compose requires unique event_id values"
+        )
+    for event in events:
+        if not event.evidence_confirmed:
+            raise ValueError(
+                f"event {event.event_id!r} has evidence_confirmed=False; "
+                "only confirmed events may be passed to the Director"
+            )
 
 
 def _assign_arcs(
@@ -528,14 +540,7 @@ class GeminiDirector:
             On transport failure, invalid response structure, or validation
             failure.
         """
-        if not events:
-            raise ValueError("GeminiDirector.compose requires at least one event")
-        for event in events:
-            if not event.evidence_confirmed:
-                raise ValueError(
-                    f"event {event.event_id!r} has evidence_confirmed=False; "
-                    "only confirmed events may be passed to the Director"
-                )
+        _validate_director_events(events, "GeminiDirector")
 
         events_by_id: dict[str, UniversalEvent] = {e.event_id: e for e in events}
         payload = _sanitize_payload(events)

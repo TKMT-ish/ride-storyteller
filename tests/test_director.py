@@ -351,6 +351,38 @@ def test_compose_rejects_purely_unconfirmed_input() -> None:
         director.compose((_unconfirmed_event("evt_x"),))
 
 
+def test_rule_based_director_rejects_duplicate_event_ids() -> None:
+    duplicate_events = (
+        _confirmed_event("evt_duplicate", source_start_sec=0.0, source_end_sec=30.0),
+        _confirmed_event("evt_duplicate", source_start_sec=50.0, source_end_sec=80.0),
+    )
+
+    with pytest.raises(ValueError, match="unique event_id"):
+        RuleBasedDirector().compose(duplicate_events)
+
+
+def test_gemini_director_rejects_duplicate_event_ids_before_transport() -> None:
+    class _NeverCalledTransport:
+        called = False
+
+        def compose_script(
+            self, *, prompt: str, story_payload: Mapping[str, object]
+        ) -> Mapping[str, object]:
+            self.called = True
+            return {"scenes": []}
+
+    transport = _NeverCalledTransport()
+    duplicate_events = (
+        _confirmed_event("evt_duplicate", source_start_sec=0.0, source_end_sec=30.0),
+        _confirmed_event("evt_duplicate", source_start_sec=50.0, source_end_sec=80.0),
+    )
+
+    with pytest.raises(ValueError, match="unique event_id"):
+        GeminiDirector(transport).compose(duplicate_events)
+
+    assert transport.called is False
+
+
 # ---------------------------------------------------------------------------
 # 7. Director does not mutate evidence state
 # ---------------------------------------------------------------------------
