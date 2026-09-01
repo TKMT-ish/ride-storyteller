@@ -166,7 +166,8 @@ external GPX motion
   実14 MP4での候補品質と本数は未評価である。
 - private highlight-review UIはloopback-only local serverに実装済み。明示設定した研究出力だけを
   読み、opaque IDと固定理由codeだけを表示・保存する。1候補の保存は他カードを再描画しないため、
-  未保存の選択と再生位置をリセットしない。review labelをStory Planへ接続する処理は未実装。
+  未保存の選択と再生位置をリセットしない。保存は原子的で、途中失敗時にも既存の判断履歴を保持する。
+  review labelをStory Planへ接続する処理は未実装。
 - private evidence-review UIはlocal pipelineの確認用clipだけを読み、human visual evidenceを
   `confirmed`、`rejected`、`awaiting`として保存する。品質reviewの採用／却下とは自動接続しない。
 - private metric cacheは実装済みだが、26.7 GiBのv4aでcache hit時の実測短縮時間は未計測。

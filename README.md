@@ -357,7 +357,9 @@ directory. Then open `/private-highlight-review` on the loopback-only local serv
 page streams only the selected local thumbnails and clips through opaque candidate IDs,
 and writes fixed-vocabulary `approved`, `rejected`, or `awaiting` decisions back to the
 package's `highlight-review.json`. It exposes no source paths, filenames, timestamps,
-coordinates, frames, or free-form notes, and is unavailable in public-demo mode.
+coordinates, frames, or free-form notes, and is unavailable in public-demo mode. Each
+save atomically replaces the review file; a failed save leaves the previous decisions
+intact rather than writing partial JSON.
 
 ## Private DirectorScript preview
 

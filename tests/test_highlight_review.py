@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+import app.video.highlight_review as highlight_review_module
 from app.video.apple_vision import VisionClassification, VisionImageAnalysis
 from app.video.gpmf_metrics import GpmfWindowSummary
 from app.video.highlight_discovery import WindowFeatures
@@ -199,6 +200,32 @@ def test_highlight_review_round_trip_preserves_current_review(tmp_path: Path) ->
     with pytest.raises(FileExistsError, match="already exists"):
         write_highlight_review(path, created)
     assert write_highlight_review(path, created, overwrite=True) == path
+
+
+def test_highlight_review_atomic_write_preserves_existing_review_on_replace_failure(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "highlight-review.json"
+    original = build_highlight_review_template(_selections())
+    write_highlight_review(path, original)
+    original_payload = path.read_text(encoding="utf-8")
+    updated = update_highlight_review_decision(
+        original,
+        candidate_id=original.decisions[0].candidate_id,
+        status=HighlightReviewStatus.APPROVED,
+        reasons=(HighlightReviewReason.CLEAR_TURN,),
+    )
+
+    def fail_replace(_source: Path, _destination: Path) -> None:
+        raise OSError("simulated replace failure")
+
+    monkeypatch.setattr(highlight_review_module.os, "replace", fail_replace)
+
+    with pytest.raises(OSError, match="simulated replace failure"):
+        write_highlight_review(path, updated, overwrite=True)
+
+    assert path.read_text(encoding="utf-8") == original_payload
+    assert not list(tmp_path.glob(".highlight-review.json.*.tmp"))
 
 
 def test_highlight_review_payload_excludes_private_selection_identifiers(tmp_path: Path) -> None:
