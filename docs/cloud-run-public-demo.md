@@ -167,6 +167,19 @@ synthetic demo, five private/Google 403 routes, 405/413 request-shape guards,
 429 plus `Retry-After`, and all security headers. IAM still had no public
 binding and unauthenticated `/health` remained 403.
 
+On 2026-09-09 the current tree (`cb43326`, the tree of public commit `548c2b8`)
+was built as `linux/amd64` from a clean worktree (49,765,692 bytes), pushed as
+immutable tag `public-demo:cb43326` (remote digest
+`sha256:6172ad46688e7f183fa59c26a1110e2041761404546bed9a323391f65c9be4f2`), and
+deployed as the sixth private revision `ride-storyteller-public-demo-00006-bbp`
+with the reviewed limits and `--no-allow-unauthenticated`. Through the
+authenticated proxy: `/health` 200 with `basic_auth_configured=false`, the
+English page 200, POST 405, the private-GPX route 404; the unauthenticated URL
+403. The judge credential was generated into
+`private-media/hosting/judge-credential.env` (ignored by git and Docker) but is
+**not yet set on the service**; the owner sets it and opens IAM in two commands
+after looking at the page (see gate 10).
+
 ## Staged approval gates
 
 Each stage requires a separate exact-target review. Do not combine the stages
@@ -199,7 +212,8 @@ into one unattended command.
 9. Budget alerts are verified. Verify the unauthenticated public URL, bilingual
    Source link, response headers, and abuse/cost controls before treating public
    hosting as complete.
-10. **Decided, not yet executed (2026-09-08):** public IAM access is gated by
+10. **Decided 2026-09-08, image and revision ready 2026-09-09, two owner
+    commands remain:** public IAM access is gated by
     an application-level judge Basic Auth credential
     (`RIDE_PUBLIC_DEMO_BASIC_AUTH_USER` / `_PASSWORD`), shared with judges only
     through the Devpost submission form, never committed to the repository or

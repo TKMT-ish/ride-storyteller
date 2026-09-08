@@ -93,3 +93,33 @@ grep -rniE "実地名を列挙したパターン" app tests docs README.md devpo
 
 いずれの場合も公開直前に本文書の再実行コマンド・全回帰テスト・Ruff・
 `python -m app.submission` を通すこと。
+
+## 2026-09-09｜実行: 現在のツリーだけを公開 `main` に載せた
+
+オーナーの判断（2026-09-09 03:30 JST）は「**現在のツリーのみ**」。実行した内容:
+
+1. **二度目の地名除去 `cb43326`**。初回 `cedd104` 以後、テスト fixture 8 ファイルと
+   handoff 3 行が走行地名（町・郊外・道路・展望地）を拾い直していた。検査は
+   手打ちの語ではなく、実素材の地名キャッシュ
+   `private-media/work/*/place-names.json`（1,223 語、マクロン有無の両方）で
+   HEAD のツリー全体を照合した。公式ツーリングルート名と国道番号は全国の参照
+   データなので残し、町・郊外・道路・展望地は同じ形の架空名に替えた。
+2. **1 commit `548c2b8`** を `git commit-tree cb43326^{tree} -p origin/main` で作り、
+   公開 `main`（`3a27970`、既に公開されていた 49 commit）の上に fast-forward で
+   push した。force push はしていない。私有履歴（約 420 commit）は dev ミラー
+   だけに残る。以後の更新も同じ方法で 1 commit ずつ載せる。
+3. 配布物 `ride-storyteller-day-7.zip`（1,730,095,484 バイト）と `.sha256` を
+   **draft release** `day-7-package` に添付した。draft は公開リポジトリでも
+   共同作業者にしか見えず、タグは公開時に作られる。
+4. **可視性の変更は当層では実行していない**（自動モードの分類器が公開操作を
+   止めた）。オーナーが実行する 1 コマンド:
+
+   ```bash
+   gh repo edit TKMT-ish/ride-storyteller --visibility public --accept-visibility-change-consequences
+   ```
+
+   release の公開も同様に 1 コマンド（`gh release edit day-7-package --draft=false`）。
+
+再検査の手順（公開 push の前に毎回）: HEAD のツリーを上記キャッシュの語で照合し、
+`docs/research-touring-video-editing-ja.md` 以外に走行地名が 0 件であることを確認
+してから、クリーンな worktree で全テスト・Ruff・`python -m app.submission` を通す。

@@ -3,9 +3,10 @@
 ## Status
 
 The safe public demo is deployed to one **private** Cloud Run service in Tokyo.
-Its fifth revision, `ride-storyteller-public-demo-00005-zvs`, is verified Ready,
-Active, and ContainerHealthy with 100% traffic, but
-unauthenticated access has not been approved or enabled. There is no public
+Its sixth revision, `ride-storyteller-public-demo-00006-bbp` (image tag
+`cb43326`, deployed 2026-09-09), is verified Ready with 100% traffic, but
+unauthenticated access has not been approved or enabled, and the judge
+credential is not yet set on the service. There is no public
 deployment evidence yet. Authenticated hosted verification confirms the exact
 GitHub AGPL Source link and the private/Google route blocks.
 

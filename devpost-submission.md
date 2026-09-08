@@ -192,14 +192,14 @@ re-verified.
 
 ## Public Repository Link
 
-<https://github.com/TKMT-ish/ride-storyteller> — **exists but is behind.** Its
-`main` is at the 2026-08-25 commit; everything since, including the whole
-real-ride story layer, is only in the private mirror. Bringing it up to date is
-one of the four remaining owner actions, and **how** to bring it up to date is a
-decision: the working tree carries no place name from the rider's route, but the
-417 commits between the public commit and here do. Both ways out, with their
-commands, are in
+<https://github.com/TKMT-ish/ride-storyteller> — `main` is at `548c2b8`
+(2026-09-09): the current tree as one commit on top of the 49 commits that were
+already public. It carries no place name from the rider's route; the private
+development history stays in the private mirror. The repository is still
+**private** until the owner runs the one visibility command recorded in
 [`docs/submission/public-repository-preflight-ja.md`](docs/submission/public-repository-preflight-ja.md).
+The judge package (`ride-storyteller-day-7.zip`) is attached to a draft release
+on the same repository, to be published with it.
 
 ## Demo Video
 
