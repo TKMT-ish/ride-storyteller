@@ -71,9 +71,7 @@ def test_settings_load_ignored_local_environment_without_exposing_values(
     assert "local-secret" not in str(result.to_dict())
 
 
-def test_process_environment_takes_precedence_over_local_environment(
-    monkeypatch, tmp_path
-) -> None:  # type: ignore[no-untyped-def]
+def test_process_environment_takes_precedence_over_local_environment(monkeypatch, tmp_path) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.chdir(tmp_path)
     (tmp_path / ".env").write_text("BOX_CLIENT_ID=local-client\n")
     monkeypatch.setenv("BOX_CLIENT_ID", "process-client")

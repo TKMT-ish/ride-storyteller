@@ -1,6 +1,8 @@
 """Discover varied local highlight candidates without uploading private media.
 
-The discovery pass analyzes GoPro LRV proxies with FFmpeg at one frame per second,
+The discovery pass analyzes each recording with FFmpeg at one frame per second,
+preferring a GoPro LRV proxy when one pairs with the source and falling back to
+the full-resolution file when none does -- not every camera writes proxies,
 joins those visual signals to private GPX motion features, and extracts comparison
 clips from the corresponding MP4 sources. It deliberately does not confirm visual
 evidence: every output remains a human-review candidate.
@@ -586,10 +588,16 @@ def discover_and_extract_highlights(
     top_k: int = DEFAULT_TOP_K,
     min_separation_s: float = 30.0,
     overwrite: bool = False,
-    analyzer: Callable[[Path], tuple[VideoMetricSample, ...]] = analyze_lrv_metrics,
+    analyzer: Callable[[Path], tuple[VideoMetricSample, ...]] | None = None,
     clip_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
 ) -> HighlightDiscoveryResult:
-    """Analyze proxies and extract per-method comparison clips from MP4 sources."""
+    """Analyse each recording and extract per-method comparison clips.
+
+    ``analyzer`` defaults to one that reads a proxy or the full-resolution
+    source, whichever the window analysis picked. It used to default to the
+    proxy-only analyser, which refused the source and made a ride without
+    proxies unanalysable -- and not every camera writes them.
+    """
     if clip_duration_s <= 0 or stride_s <= 0:
         raise ValueError("clip duration and stride must be positive")
     _validate_private_output_directory(output_directory)

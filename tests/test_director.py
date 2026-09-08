@@ -87,20 +87,32 @@ def _four_events() -> tuple[UniversalEvent, ...]:
     """Four confirmed events in chronological order, varying intensity."""
     return (
         _confirmed_event(
-            "evt_departure", event_type="departure",
-            requested_start_sec=0.0, requested_end_sec=30.0, intensity=0.60,
+            "evt_departure",
+            event_type="departure",
+            requested_start_sec=0.0,
+            requested_end_sec=30.0,
+            intensity=0.60,
         ),
         _confirmed_event(
-            "evt_mid1", event_type="elevation_change",
-            requested_start_sec=100.0, requested_end_sec=130.0, intensity=0.70,
+            "evt_mid1",
+            event_type="elevation_change",
+            requested_start_sec=100.0,
+            requested_end_sec=130.0,
+            intensity=0.70,
         ),
         _confirmed_event(
-            "evt_climax", event_type="scenery_change",
-            requested_start_sec=200.0, requested_end_sec=230.0, intensity=0.95,
+            "evt_climax",
+            event_type="scenery_change",
+            requested_start_sec=200.0,
+            requested_end_sec=230.0,
+            intensity=0.95,
         ),
         _confirmed_event(
-            "evt_arrival", event_type="arrival_candidate",
-            requested_start_sec=350.0, requested_end_sec=380.0, intensity=0.55,
+            "evt_arrival",
+            event_type="arrival_candidate",
+            requested_start_sec=350.0,
+            requested_end_sec=380.0,
+            intensity=0.55,
         ),
     )
 
@@ -108,6 +120,7 @@ def _four_events() -> tuple[UniversalEvent, ...]:
 # ---------------------------------------------------------------------------
 # 1. SceneClip invariants
 # ---------------------------------------------------------------------------
+
 
 class TestSceneClip:
     def test_valid_scene_clip(self) -> None:
@@ -122,43 +135,55 @@ class TestSceneClip:
     def test_rejects_empty_event_id(self) -> None:
         with pytest.raises(ValueError, match="event_id"):
             SceneClip(
-                event_id="", source_asset_id="asset-abc",
-                source_start_sec=10.0, source_end_sec=40.0,
+                event_id="",
+                source_asset_id="asset-abc",
+                source_start_sec=10.0,
+                source_end_sec=40.0,
             )
 
     def test_rejects_empty_asset_id(self) -> None:
         with pytest.raises(ValueError, match="source_asset_id"):
             SceneClip(
-                event_id="evt_001", source_asset_id="",
-                source_start_sec=10.0, source_end_sec=40.0,
+                event_id="evt_001",
+                source_asset_id="",
+                source_start_sec=10.0,
+                source_end_sec=40.0,
             )
 
     def test_rejects_whitespace_asset_id(self) -> None:
         with pytest.raises(ValueError, match="source_asset_id"):
             SceneClip(
-                event_id="evt_001", source_asset_id="   ",
-                source_start_sec=10.0, source_end_sec=40.0,
+                event_id="evt_001",
+                source_asset_id="   ",
+                source_start_sec=10.0,
+                source_end_sec=40.0,
             )
 
     def test_rejects_negative_start(self) -> None:
         with pytest.raises(ValueError, match="source_start_sec"):
             SceneClip(
-                event_id="evt_001", source_asset_id="asset-abc",
-                source_start_sec=-1.0, source_end_sec=40.0,
+                event_id="evt_001",
+                source_asset_id="asset-abc",
+                source_start_sec=-1.0,
+                source_end_sec=40.0,
             )
 
     def test_rejects_inverted_interval(self) -> None:
         with pytest.raises(ValueError, match="source_end_sec"):
             SceneClip(
-                event_id="evt_001", source_asset_id="asset-abc",
-                source_start_sec=40.0, source_end_sec=10.0,
+                event_id="evt_001",
+                source_asset_id="asset-abc",
+                source_start_sec=40.0,
+                source_end_sec=10.0,
             )
 
     def test_source_start_less_than_source_end(self) -> None:
         """source_start_sec < source_end_sec must hold for every valid SceneClip."""
         clip = SceneClip(
-            event_id="e", source_asset_id="a",
-            source_start_sec=5.0, source_end_sec=6.0,
+            event_id="e",
+            source_asset_id="a",
+            source_start_sec=5.0,
+            source_end_sec=6.0,
         )
         assert clip.source_start_sec < clip.source_end_sec
 
@@ -167,11 +192,14 @@ class TestSceneClip:
 # 2. Scene invariants
 # ---------------------------------------------------------------------------
 
+
 class TestScene:
     def _clip(self) -> SceneClip:
         return SceneClip(
-            event_id="e", source_asset_id="a",
-            source_start_sec=5.0, source_end_sec=10.0,
+            event_id="e",
+            source_asset_id="a",
+            source_start_sec=5.0,
+            source_end_sec=10.0,
         )
 
     def test_valid_scene(self) -> None:
@@ -187,22 +215,31 @@ class TestScene:
     def test_rejects_empty_clips(self) -> None:
         with pytest.raises(ValueError, match="clips must not be empty"):
             Scene(
-                scene_id="s", scene_type=NarrativeArc.HOOK,
-                clips=(), transition_type="cut", overlay_text=None,
+                scene_id="s",
+                scene_type=NarrativeArc.HOOK,
+                clips=(),
+                transition_type="cut",
+                overlay_text=None,
             )
 
     def test_rejects_empty_scene_id(self) -> None:
         with pytest.raises(ValueError, match="scene_id"):
             Scene(
-                scene_id="", scene_type=NarrativeArc.HOOK,
-                clips=(self._clip(),), transition_type="cut", overlay_text=None,
+                scene_id="",
+                scene_type=NarrativeArc.HOOK,
+                clips=(self._clip(),),
+                transition_type="cut",
+                overlay_text=None,
             )
 
     def test_rejects_empty_transition_type(self) -> None:
         with pytest.raises(ValueError, match="transition_type"):
             Scene(
-                scene_id="s", scene_type=NarrativeArc.HOOK,
-                clips=(self._clip(),), transition_type="", overlay_text=None,
+                scene_id="s",
+                scene_type=NarrativeArc.HOOK,
+                clips=(self._clip(),),
+                transition_type="",
+                overlay_text=None,
             )
 
 
@@ -210,15 +247,21 @@ class TestScene:
 # 3. DirectorScript invariants
 # ---------------------------------------------------------------------------
 
+
 class TestDirectorScript:
     def _scene(self) -> Scene:
         clip = SceneClip(
-            event_id="e", source_asset_id="a",
-            source_start_sec=5.0, source_end_sec=10.0,
+            event_id="e",
+            source_asset_id="a",
+            source_start_sec=5.0,
+            source_end_sec=10.0,
         )
         return Scene(
-            scene_id="scene_hook", scene_type=NarrativeArc.HOOK,
-            clips=(clip,), transition_type="cut", overlay_text=None,
+            scene_id="scene_hook",
+            scene_type=NarrativeArc.HOOK,
+            clips=(clip,),
+            transition_type="cut",
+            overlay_text=None,
         )
 
     def test_rejects_empty_scenes(self) -> None:
@@ -226,8 +269,10 @@ class TestDirectorScript:
             DirectorScript(
                 scenes=(),
                 metadata=DirectorMetadata(
-                    composer="test", event_count_in=1,
-                    event_count_used=1, arc_names=(),
+                    composer="test",
+                    event_count_in=1,
+                    event_count_used=1,
+                    arc_names=(),
                 ),
             )
 
@@ -313,6 +358,7 @@ class TestDirectorScript:
 # 4. Director protocol structural check
 # ---------------------------------------------------------------------------
 
+
 def test_rule_based_director_satisfies_director_protocol() -> None:
     """RuleBasedDirector must satisfy the Director Protocol."""
     assert isinstance(RuleBasedDirector(), Director)
@@ -342,11 +388,20 @@ def test_browser_safe_script_view_excludes_clip_and_location_identity() -> None:
     assert view["fallback_used"] is True
     assert view["journey_coverage"] == JourneyCoverage.DEPARTURE_TO_ARRIVAL.value
     assert [scene["role"] for scene in view["scenes"]] == [
-        "hook", "build_up", "climax", "resolution"
+        "hook",
+        "build_up",
+        "climax",
+        "resolution",
     ]
     for forbidden in (
-        "event_id", "source_asset_id", "source_start_sec", "source_end_sec",
-        "file_name", "latitude", "longitude", "path",
+        "event_id",
+        "source_asset_id",
+        "source_start_sec",
+        "source_end_sec",
+        "file_name",
+        "latitude",
+        "longitude",
+        "path",
     ):
         assert forbidden not in serialized
 
@@ -354,6 +409,7 @@ def test_browser_safe_script_view_excludes_clip_and_location_identity() -> None:
 # ---------------------------------------------------------------------------
 # 5. Empty input raises
 # ---------------------------------------------------------------------------
+
 
 def test_compose_with_no_events_raises() -> None:
     director = RuleBasedDirector()
@@ -380,6 +436,7 @@ def test_director_marks_middle_only_evidence_without_inventing_journey_endpoints
 # ---------------------------------------------------------------------------
 # 6. Unconfirmed event in input raises
 # ---------------------------------------------------------------------------
+
 
 def test_compose_rejects_unconfirmed_event() -> None:
     """Unconfirmed events must not be accepted even if mixed with confirmed ones."""
@@ -432,6 +489,7 @@ def test_gemini_director_rejects_duplicate_event_ids_before_transport() -> None:
 # 7. Director does not mutate evidence state
 # ---------------------------------------------------------------------------
 
+
 def test_director_does_not_change_evidence_confirmed() -> None:
     """Director must never change evidence_confirmed on any event."""
     director = RuleBasedDirector()
@@ -458,6 +516,7 @@ def test_director_does_not_change_evidence_video() -> None:
 # 8. Single event → at least one scene, no duplication
 # ---------------------------------------------------------------------------
 
+
 def test_single_event_produces_non_empty_script() -> None:
     director = RuleBasedDirector()
     script = director.compose((_confirmed_event("evt_only"),))
@@ -478,6 +537,7 @@ def test_single_event_not_duplicated_across_scenes() -> None:
 # 9. Two events → no duplication
 # ---------------------------------------------------------------------------
 
+
 def test_two_events_no_duplication() -> None:
     director = RuleBasedDirector()
     e1 = _confirmed_event("evt_a", requested_start_sec=0.0, requested_end_sec=30.0)
@@ -492,6 +552,7 @@ def test_two_events_no_duplication() -> None:
 # ---------------------------------------------------------------------------
 # 10. Four events → Hook / Build-up / Climax / Resolution structure
 # ---------------------------------------------------------------------------
+
 
 def test_four_events_produce_all_four_arcs() -> None:
     director = RuleBasedDirector()
@@ -511,8 +572,10 @@ def test_four_events_arc_order_is_hook_buildup_climax_resolution() -> None:
 
     arc_order = [scene.scene_type for scene in script.scenes]
     expected_order = [
-        NarrativeArc.HOOK, NarrativeArc.BUILD_UP,
-        NarrativeArc.CLIMAX, NarrativeArc.RESOLUTION,
+        NarrativeArc.HOOK,
+        NarrativeArc.BUILD_UP,
+        NarrativeArc.CLIMAX,
+        NarrativeArc.RESOLUTION,
     ]
     assert arc_order == expected_order
 
@@ -539,6 +602,7 @@ def test_four_events_all_events_used() -> None:
 # 11. Climax receives highest-ranked event
 # ---------------------------------------------------------------------------
 
+
 def test_climax_receives_highest_intensity_event() -> None:
     """The Climax scene must contain the highest-ranked event."""
     director = RuleBasedDirector()
@@ -557,16 +621,25 @@ def test_climax_uses_ranking_score_over_intensity() -> None:
     # evt_low has high intensity but no ranking_score
     # evt_high has lower intensity but high ranking_score
     low = _confirmed_event(
-        "evt_low", requested_start_sec=0.0, requested_end_sec=30.0,
-        intensity=0.90, ranking_score=None,
+        "evt_low",
+        requested_start_sec=0.0,
+        requested_end_sec=30.0,
+        intensity=0.90,
+        ranking_score=None,
     )
     high = _confirmed_event(
-        "evt_high", requested_start_sec=100.0, requested_end_sec=130.0,
-        intensity=0.40, ranking_score=0.95,
+        "evt_high",
+        requested_start_sec=100.0,
+        requested_end_sec=130.0,
+        intensity=0.40,
+        ranking_score=0.95,
     )
     last = _confirmed_event(
-        "evt_last", requested_start_sec=200.0, requested_end_sec=230.0,
-        intensity=0.50, ranking_score=None,
+        "evt_last",
+        requested_start_sec=200.0,
+        requested_end_sec=230.0,
+        intensity=0.50,
+        ranking_score=None,
     )
 
     script = director.compose((low, high, last))
@@ -584,6 +657,7 @@ def test_climax_uses_ranking_score_over_intensity() -> None:
 # 12. Journey anchors and story order
 # ---------------------------------------------------------------------------
 
+
 def test_hook_can_use_a_confirmed_middle_of_trip_event() -> None:
     """A hook may preview a real later event without duplicating the climax."""
     director = RuleBasedDirector()
@@ -598,29 +672,36 @@ def test_hook_can_use_a_confirmed_middle_of_trip_event() -> None:
 def test_departure_is_build_up_anchor_not_climax() -> None:
     """A high-score departure remains a truthful progression anchor."""
     departure = _confirmed_event(
-        "evt_departure", event_type="departure",
-        requested_start_sec=0.0, requested_end_sec=30.0, intensity=1.0,
+        "evt_departure",
+        event_type="departure",
+        requested_start_sec=0.0,
+        requested_end_sec=30.0,
+        intensity=1.0,
     )
     hook_candidate = _confirmed_event(
-        "evt_hook", event_type="direction_change",
-        requested_start_sec=100.0, requested_end_sec=130.0, intensity=0.75,
+        "evt_hook",
+        event_type="direction_change",
+        requested_start_sec=100.0,
+        requested_end_sec=130.0,
+        intensity=0.75,
     )
     climax = _confirmed_event(
-        "evt_climax", event_type="scenery_change",
-        requested_start_sec=200.0, requested_end_sec=230.0, intensity=0.95,
+        "evt_climax",
+        event_type="scenery_change",
+        requested_start_sec=200.0,
+        requested_end_sec=230.0,
+        intensity=0.95,
     )
     arrival = _confirmed_event(
-        "evt_arrival", event_type="arrival_candidate",
-        requested_start_sec=300.0, requested_end_sec=330.0, intensity=0.4,
+        "evt_arrival",
+        event_type="arrival_candidate",
+        requested_start_sec=300.0,
+        requested_end_sec=330.0,
+        intensity=0.4,
     )
 
-    script = RuleBasedDirector().compose(
-        (departure, hook_candidate, climax, arrival)
-    )
-    by_arc = {
-        scene.scene_type: {clip.event_id for clip in scene.clips}
-        for scene in script.scenes
-    }
+    script = RuleBasedDirector().compose((departure, hook_candidate, climax, arrival))
+    by_arc = {scene.scene_type: {clip.event_id for clip in scene.clips} for scene in script.scenes}
 
     assert "evt_departure" not in by_arc.get(NarrativeArc.CLIMAX, set())
     assert "evt_departure" in by_arc.get(NarrativeArc.BUILD_UP, set())
@@ -629,15 +710,21 @@ def test_departure_is_build_up_anchor_not_climax() -> None:
 def test_arrival_candidate_is_resolution_even_when_not_chronologically_last() -> None:
     """Explicit arrival semantics win over a later generic telemetry event."""
     midpoint = _confirmed_event(
-        "evt_mid", requested_start_sec=0.0, requested_end_sec=30.0,
+        "evt_mid",
+        requested_start_sec=0.0,
+        requested_end_sec=30.0,
     )
     arrival = _confirmed_event(
-        "evt_arrival", event_type="arrival_candidate",
-        requested_start_sec=100.0, requested_end_sec=130.0,
+        "evt_arrival",
+        event_type="arrival_candidate",
+        requested_start_sec=100.0,
+        requested_end_sec=130.0,
     )
     later_telemetry = _confirmed_event(
-        "evt_later", event_type="speed_change",
-        requested_start_sec=200.0, requested_end_sec=230.0,
+        "evt_later",
+        event_type="speed_change",
+        requested_start_sec=200.0,
+        requested_end_sec=230.0,
     )
 
     script = RuleBasedDirector().compose((midpoint, arrival, later_telemetry))
@@ -662,6 +749,7 @@ def test_resolution_is_chronologically_last_event() -> None:
 # 13. No empty scenes are produced
 # ---------------------------------------------------------------------------
 
+
 def test_no_empty_scenes_in_script() -> None:
     """Every scene in the script must have at least one clip."""
     director = RuleBasedDirector()
@@ -683,6 +771,7 @@ def test_no_empty_scenes_in_script() -> None:
 # 14. source_start_sec < source_end_sec in every SceneClip
 # ---------------------------------------------------------------------------
 
+
 def test_all_scene_clips_have_valid_intervals() -> None:
     director = RuleBasedDirector()
     script = director.compose(_four_events())
@@ -698,6 +787,7 @@ def test_all_scene_clips_have_valid_intervals() -> None:
 # ---------------------------------------------------------------------------
 # 15. Metadata is correct
 # ---------------------------------------------------------------------------
+
 
 def test_metadata_composer_is_rule_based() -> None:
     script = RuleBasedDirector().compose((_confirmed_event("evt_001"),))
@@ -725,6 +815,7 @@ def test_metadata_arc_names_match_scenes() -> None:
 # 16. Pre-filter contract: unconfirmed events excluded before compose
 # ---------------------------------------------------------------------------
 
+
 def test_confirmed_filter_before_compose_matches_director_input_contract() -> None:
     """Caller pre-filters; only confirmed events reach compose()."""
     all_events_mixed = (
@@ -743,6 +834,7 @@ def test_confirmed_filter_before_compose_matches_director_input_contract() -> No
 # ---------------------------------------------------------------------------
 # 17. Small event counts are fail-soft (no exception)
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.parametrize("n", [1, 2, 3])
 def test_fewer_than_four_events_does_not_raise(n: int) -> None:
@@ -777,6 +869,7 @@ def test_fewer_than_four_events_no_duplication(n: int) -> None:
 # 18. SceneClip source fields come from UniversalEvent (not produced by Director)
 # ---------------------------------------------------------------------------
 
+
 def test_scene_clip_source_fields_match_universal_event() -> None:
     evt = _confirmed_event(
         "evt_001",
@@ -801,6 +894,7 @@ def test_scene_clip_source_fields_match_universal_event() -> None:
 # Fake transport helpers
 # ---------------------------------------------------------------------------
 
+
 class _OkTransport:
     """Returns a valid four-scene response for the given events."""
 
@@ -814,12 +908,14 @@ class _OkTransport:
         scenes: list[dict[str, object]] = []
         arc_order = ["hook", "build_up", "climax", "resolution"]
         for i, eid in enumerate(ids[:4]):
-            scenes.append({
-                "scene_type": arc_order[i % 4],
-                "event_ids": [eid],
-                "transition_type": "cut",
-                "overlay_text": f"Scene {i + 1}",
-            })
+            scenes.append(
+                {
+                    "scene_type": arc_order[i % 4],
+                    "event_ids": [eid],
+                    "transition_type": "cut",
+                    "overlay_text": f"Scene {i + 1}",
+                }
+            )
         return {"scenes": scenes}
 
 
@@ -1030,6 +1126,7 @@ def _make_director(transport: GeminiDirectorTransport) -> GeminiDirector:
 # 19. GeminiDirector satisfies Director protocol
 # ---------------------------------------------------------------------------
 
+
 def test_gemini_director_satisfies_director_protocol() -> None:
     transport = _OkTransport(_four_events())
     director = _make_director(transport)
@@ -1040,8 +1137,10 @@ def test_gemini_director_satisfies_director_protocol() -> None:
 # 20. Sanitized payload privacy
 # ---------------------------------------------------------------------------
 
+
 def test_sanitized_payload_excludes_latitude_longitude() -> None:
     import json
+
     events = _four_events()
     payload = _sanitize_payload(events)
     serialized = json.dumps(payload)
@@ -1051,6 +1150,7 @@ def test_sanitized_payload_excludes_latitude_longitude() -> None:
 
 def test_sanitized_payload_excludes_source_asset_id() -> None:
     import json
+
     events = _four_events()
     payload = _sanitize_payload(events)
     serialized = json.dumps(payload)
@@ -1061,6 +1161,7 @@ def test_sanitized_payload_excludes_source_asset_id() -> None:
 
 def test_sanitized_payload_excludes_file_paths() -> None:
     import json
+
     events = _four_events()
     payload = _sanitize_payload(events)
     serialized = json.dumps(payload)
@@ -1120,6 +1221,7 @@ def test_sanitized_payload_duration_derived_from_source_interval() -> None:
 # 21. GeminiDirector happy path
 # ---------------------------------------------------------------------------
 
+
 def test_gemini_director_produces_valid_script() -> None:
     events = _four_events()
     director = _make_director(_OkTransport(events))
@@ -1175,6 +1277,7 @@ def test_gemini_director_source_start_less_than_source_end() -> None:
 # 22. GeminiDirector — evidence state not changed
 # ---------------------------------------------------------------------------
 
+
 def test_gemini_director_does_not_change_evidence_confirmed() -> None:
     events = _four_events()
     before = {e.event_id: e.evidence_confirmed for e in events}
@@ -1195,6 +1298,7 @@ def test_gemini_director_does_not_change_evidence_video() -> None:
 # 23. GeminiDirector — transport failure → GeminiDirectorError
 # ---------------------------------------------------------------------------
 
+
 def test_transport_failure_raises_gemini_director_error() -> None:
     events = (_confirmed_event("evt_001"),)
     with pytest.raises(GeminiDirectorError):
@@ -1211,6 +1315,7 @@ def test_missing_scenes_key_raises_gemini_director_error() -> None:
 # 24. GeminiDirector — structural validation failures
 # ---------------------------------------------------------------------------
 
+
 def test_unknown_event_id_raises_gemini_director_error() -> None:
     events = (_confirmed_event("evt_001"),)
     with pytest.raises(GeminiDirectorError, match="unknown event_id"):
@@ -1226,17 +1331,13 @@ def test_duplicate_event_id_raises_gemini_director_error() -> None:
 def test_duplicate_scene_type_raises_gemini_director_error() -> None:
     events = (_confirmed_event("evt_001"), _confirmed_event("evt_002"))
     with pytest.raises(GeminiDirectorError, match="repeats scene_type"):
-        _make_director(
-            _DuplicateSceneTypeTransport(("evt_001", "evt_002"))
-        ).compose(events)
+        _make_director(_DuplicateSceneTypeTransport(("evt_001", "evt_002"))).compose(events)
 
 
 def test_out_of_order_scenes_raise_gemini_director_error() -> None:
     events = (_confirmed_event("evt_001"), _confirmed_event("evt_002"))
     with pytest.raises(GeminiDirectorError, match="Hook, Build-up, Climax, Resolution"):
-        _make_director(
-            _OutOfOrderSceneTransport(("evt_001", "evt_002"))
-        ).compose(events)
+        _make_director(_OutOfOrderSceneTransport(("evt_001", "evt_002"))).compose(events)
 
 
 def test_empty_event_ids_raises_gemini_director_error() -> None:
@@ -1289,6 +1390,7 @@ def test_unknown_field_in_scene_raises_gemini_director_error() -> None:
 # 25. GeminiDirector — unconfirmed event in input raises ValueError (not GDE)
 # ---------------------------------------------------------------------------
 
+
 def test_gemini_director_rejects_unconfirmed_input() -> None:
     unconfirmed = _unconfirmed_event("evt_x")
     with pytest.raises(ValueError, match="evidence_confirmed=False"):
@@ -1298,6 +1400,7 @@ def test_gemini_director_rejects_unconfirmed_input() -> None:
 # ---------------------------------------------------------------------------
 # 26. FallbackDirector — falls back on GeminiDirectorError
 # ---------------------------------------------------------------------------
+
 
 def test_fallback_director_uses_gemini_on_success() -> None:
     events = _four_events()
@@ -1359,6 +1462,7 @@ def test_fallback_director_fallback_after_unknown_event_id() -> None:
 # ---------------------------------------------------------------------------
 # 27. FallbackDirector — evidence state not changed
 # ---------------------------------------------------------------------------
+
 
 def test_fallback_director_does_not_change_evidence_after_fallback() -> None:
     events = (_confirmed_event("evt_001"),)

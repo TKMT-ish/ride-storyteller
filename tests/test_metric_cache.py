@@ -150,7 +150,7 @@ def test_highlight_window_analysis_uses_the_private_video_metric_cache(tmp_path:
     )
     points = "\n".join(
         (
-            "<trkpt lat=\"-45.0\" lon=\"170.%04d\"><ele>10</ele>"
+            '<trkpt lat="-45.0" lon="170.%04d"><ele>10</ele>'
             "<time>2026-01-01T00:00:%02dZ</time></trkpt>" % (index, index)
         )
         for index in range(13)

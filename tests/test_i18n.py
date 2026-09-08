@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,8 @@ from app.web.i18n import (
     translation_keys,
 )
 from app.web.server import application
+
+_PLACEHOLDER = re.compile(r"\{[a-zA-Z_][a-zA-Z0-9_]*\}")
 
 
 def _get(path: str, query: str = "") -> str:
@@ -108,3 +111,96 @@ def test_inventory_page_switches_to_english_without_external_scripts(
     assert 'href="/?lang=en"' in page
     assert "maps.googleapis.com" not in page
     assert "fetch(" not in page
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("EN", UiLanguage.ENGLISH),
+        ("En", UiLanguage.ENGLISH),
+        ("en-GB", UiLanguage.ENGLISH),
+        ("en_US", UiLanguage.ENGLISH),
+        ("  en  ", UiLanguage.ENGLISH),
+        ("en-", UiLanguage.ENGLISH),
+        ("JA", UiLanguage.JAPANESE),
+        ("ja-JP", UiLanguage.JAPANESE),
+        ("ja_JP", UiLanguage.JAPANESE),
+    ],
+)
+def test_resolve_language_normalizes_case_region_and_whitespace(
+    raw: str, expected: UiLanguage
+) -> None:
+    assert resolve_language(raw) is expected
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [None, "", "   ", "fr", "-en", "123", "japanese", "en,us"],
+)
+def test_resolve_language_falls_back_to_configured_default_on_bad_input(
+    raw: str | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RIDE_UI_DEFAULT_LANGUAGE", raising=False)
+
+    assert resolve_language(raw) is DEFAULT_UI_LANGUAGE
+
+
+def test_configured_default_language_ignores_invalid_env_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_UI_DEFAULT_LANGUAGE", "not-a-real-language")
+
+    assert configured_default_language() is DEFAULT_UI_LANGUAGE
+
+
+def test_configured_default_language_ignores_blank_env_value(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_UI_DEFAULT_LANGUAGE", "   ")
+
+    assert configured_default_language() is DEFAULT_UI_LANGUAGE
+
+
+def test_configured_default_language_reads_local_env_file_when_unset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RIDE_UI_DEFAULT_LANGUAGE", raising=False)
+    (tmp_path / ".env").write_text('RIDE_UI_DEFAULT_LANGUAGE="en"\n', encoding="utf-8")
+
+    assert configured_default_language() is UiLanguage.ENGLISH
+
+
+def test_configured_default_language_prefers_process_env_over_local_file(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_UI_DEFAULT_LANGUAGE", "ja")
+    (tmp_path / ".env").write_text("RIDE_UI_DEFAULT_LANGUAGE=en\n", encoding="utf-8")
+
+    assert configured_default_language() is UiLanguage.JAPANESE
+
+
+def test_copy_for_returns_a_read_only_mapping() -> None:
+    copy = copy_for(UiLanguage.ENGLISH)
+
+    with pytest.raises(TypeError):
+        copy["main.title"] = "tampered"  # type: ignore[index]
+
+
+def test_translation_keys_matches_each_languages_key_set() -> None:
+    keys = translation_keys()
+
+    for language in UiLanguage:
+        assert set(copy_for(language)) == keys
+
+
+@pytest.mark.parametrize("key", sorted(translation_keys()))
+def test_translation_placeholders_match_between_languages(key: str) -> None:
+    ja_placeholders = set(_PLACEHOLDER.findall(copy_for(UiLanguage.JAPANESE)[key]))
+    en_placeholders = set(_PLACEHOLDER.findall(copy_for(UiLanguage.ENGLISH)[key]))
+
+    assert ja_placeholders == en_placeholders

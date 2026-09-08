@@ -45,7 +45,7 @@ _REQUIRED_DEVPOST_SECTIONS = (
     "## Solution",
     "## Why This Matters",
     "## How We Used AI",
-    "## How We Used Codex",
+    "## How We Built It With AI Assistants",
     "## Key Features",
     "## Architecture",
     "## Testing Instructions",
@@ -262,10 +262,10 @@ def build_offline_submission_readiness(
             "Highlight candidate quality on real footage remains PARTIAL: some straight, "
             "unremarkable road segments still pass the strict interest gate. Confirm the "
             "actual clips used in the demo were reviewed, not merely gate-eligible.",
-            "Real-video Gemini analysis remains unapproved and unrun; do not claim it as "
-            "evidence. Per-clip evidence confirmation is now automatic from timestamp "
-            "matching alone (2026-09-01 decision) -- verify this is the intended standard "
-            "before citing it as human review.",
+            "Real-video Gemini analysis was approved and run once (2026-09-03: 173 windows "
+            "of one ride, every judgement returned) and the film was cut from it. Cite that; "
+            "do not claim the model's choices were validated against a rider's. The hosted "
+            "agent has still only received synthetic events.",
             "Record the final English demo with real end-to-end evidence.",
         ),
     )

@@ -97,9 +97,7 @@ def test_gemini_adapter_rejects_malformed_model_output() -> None:
         ("story_relevance_score", 1.01),
     ),
 )
-def test_gemini_adapter_rejects_invalid_required_fields(
-    field: str, invalid_value: object
-) -> None:
+def test_gemini_adapter_rejects_invalid_required_fields(field: str, invalid_value: object) -> None:
     malformed = _response()
     malformed[field] = invalid_value
 

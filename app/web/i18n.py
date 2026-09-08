@@ -31,8 +31,7 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         "common.no": "いいえ",
         "main.title": "Ride Storyteller",
         "main.notice": (
-            "ローカル・モックデモ。通常の操作では実動画、GPS、Box、"
-            "Gemini認証情報は使用しません。"
+            "ローカル・モックデモ。通常の操作では実動画、GPS、Box、Gemini認証情報は使用しません。"
         ),
         "deployment.public_notice": (
             "公開安全デモモード：私用GPX入力、Google Maps、ローカル／クラウドADK実行、"
@@ -145,8 +144,7 @@ _COPY: dict[UiLanguage, dict[str, str]] = {
         ),
         "inventory.open": "動画フォルダ棚卸しを開く",
         "inventory.description": (
-            "GoPro動画のフォルダを選び、ファイルシステムのメタデータだけで非公開JSONを"
-            "作成します。"
+            "GoPro動画のフォルダを選び、ファイルシステムのメタデータだけで非公開JSONを作成します。"
         ),
         "inventory.targets": "対象",
         "inventory.used": "使用：相対パス、ファイル名、サイズ、更新時刻",

@@ -41,7 +41,7 @@ REQUIRED_DEVPOST_SECTIONS = (
     "## Solution",
     "## Why This Matters",
     "## How We Used AI",
-    "## How We Used Codex",
+    "## How We Built It With AI Assistants",
     "## Key Features",
     "## Architecture",
     "## Testing Instructions",
@@ -142,8 +142,8 @@ def test_offline_submission_preflight_uses_local_rules_state_without_claiming_re
     report = build_offline_submission_readiness(root)
 
     assert "records local rules acknowledgment" in report.external_gates[0]
-    assert "live registration and submission status must be re-verified" in (
-        report.external_gates[0]
+    assert (
+        "live registration and submission status must be re-verified" in (report.external_gates[0])
     )
     assert all("Complete Devpost registration" not in gate for gate in report.external_gates)
 
@@ -189,7 +189,9 @@ def test_offline_submission_preflight_reports_missing_devpost_heading(tmp_path: 
     root = _prepared_root(tmp_path)
     draft = root / "devpost-submission.md"
     draft.write_text(
-        draft.read_text(encoding="utf-8").replace("## How We Used Codex", "## Codex"),
+        draft.read_text(encoding="utf-8").replace(
+            "## How We Built It With AI Assistants", "## Assistants"
+        ),
         encoding="utf-8",
     )
 
@@ -199,7 +201,7 @@ def test_offline_submission_preflight_reports_missing_devpost_heading(tmp_path: 
         check for check in report.checks if check.check_id == "devpost_draft_sections"
     )
     assert section_check.ready is False
-    assert "## How We Used Codex" in section_check.detail
+    assert "## How We Built It With AI Assistants" in section_check.detail
 
 
 def test_offline_submission_preflight_requires_recognized_root_license(tmp_path: Path) -> None:
@@ -236,8 +238,7 @@ def test_offline_submission_preflight_recognizes_mit_license(tmp_path: Path) -> 
 def test_offline_submission_preflight_rejects_license_fragment(tmp_path: Path) -> None:
     root = _prepared_root(tmp_path)
     (root / "LICENSE").write_text(
-        "Permission is hereby granted, free of charge\n"
-        'THE SOFTWARE IS PROVIDED "AS IS"\n',
+        'Permission is hereby granted, free of charge\nTHE SOFTWARE IS PROVIDED "AS IS"\n',
         encoding="utf-8",
     )
 
@@ -293,9 +294,7 @@ def test_offline_submission_preflight_detects_secret_markers_in_public_text(
     report = build_offline_submission_readiness(root)
 
     secret_check = next(
-        check
-        for check in report.checks
-        if check.check_id == "no_secret_markers_in_public_text"
+        check for check in report.checks if check.check_id == "no_secret_markers_in_public_text"
     )
     assert secret_check.ready is False
     assert "app/leak.py:google_api_key" in secret_check.detail
@@ -310,8 +309,6 @@ def test_offline_submission_preflight_does_not_read_ignored_environment_file(
     report = build_offline_submission_readiness(root)
 
     secret_check = next(
-        check
-        for check in report.checks
-        if check.check_id == "no_secret_markers_in_public_text"
+        check for check in report.checks if check.check_id == "no_secret_markers_in_public_text"
     )
     assert secret_check.ready is True

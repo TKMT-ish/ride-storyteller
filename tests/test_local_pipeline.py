@@ -4,6 +4,7 @@ import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Callable
 
 import pytest
 
@@ -25,7 +26,12 @@ from app.video.highlight_quality import InterestLane, QualitySelectionMethod
 from app.video.highlight_story_bridge import (
     HighlightBridgeCandidate,
     HighlightBridgeCandidateSet,
+    HighlightReinforcementSelection,
+    HighlightReinforcementSelectionSet,
+    load_highlight_bridge_candidates,
+    load_highlight_reinforcement_selections,
     write_highlight_bridge_candidates,
+    write_highlight_reinforcement_selections,
 )
 
 
@@ -129,9 +135,7 @@ def test_prepare_local_review_package_merges_highlight_bridge_candidates(
     )
 
     assert result.matched_clip_count >= 2
-    candidates_payload = json.loads(
-        (output / "ride-storyteller-candidates.json").read_text()
-    )
+    candidates_payload = json.loads((output / "ride-storyteller-candidates.json").read_text())
     highlight_clips = [
         clip
         for clip in candidates_payload["clips"]
@@ -146,6 +150,616 @@ def test_prepare_local_review_package_merges_highlight_bridge_candidates(
         if decision.event_id == highlight_clips[0]["event_id"]
     )
     assert highlight_decision.evidence_status is CandidateEvidenceStatus.CONFIRMED
+
+
+def test_prepare_local_review_package_reinforces_an_overlapping_resolved_clip(
+    tmp_path: Path,
+) -> None:
+    """A highlight candidate overlapping an existing resolved clip narrows it
+    instead of being discarded (docs/highlight-story-bridge-design-ja.md §7-5:
+    on real media every candidate overlapped an existing event, so only the
+    reinforcement path -- not the new-event path -- has real value)."""
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+
+    baseline = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        tmp_path / "baseline",
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+    )
+    assert baseline.matched_clip_count >= 1
+    baseline_clips = json.loads(
+        (tmp_path / "baseline" / "ride-storyteller-candidates.json").read_text()
+    )["clips"]
+    matched = next(clip for clip in baseline_clips if clip["status"] == "matched")
+    original_start = matched["start_offset_s"]
+    original_end = matched["end_offset_s"]
+    assert original_end - original_start > 4.0  # enough room to narrow meaningfully
+
+    gps_file_start = _metadata(Path("GX010001.MP4")).recorded_start_time + timedelta(seconds=5.0)
+    candidate_start_offset = original_start + 1.0
+    candidate_duration = (original_end - original_start) - 2.0
+    candidate = HighlightBridgeCandidate(
+        candidate_id="highlight-fedcba9876543210",
+        method=QualitySelectionMethod.QUALITY_FIRST,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=candidate_start_offset),
+        duration_s=candidate_duration,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.9,
+    )
+    bridge_path = tmp_path / "highlight-bridge-candidates.json"
+    write_highlight_bridge_candidates(bridge_path, HighlightBridgeCandidateSet((candidate,)))
+
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        tmp_path / "reinforced",
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_bridge_candidates_path=bridge_path,
+    )
+
+    reinforced_clips = json.loads(
+        (tmp_path / "reinforced" / "ride-storyteller-candidates.json").read_text()
+    )["clips"]
+    reinforced_matched = next(
+        clip for clip in reinforced_clips if clip["event_id"] == matched["event_id"]
+    )
+    assert reinforced_matched["start_offset_s"] == pytest.approx(candidate_start_offset)
+    assert reinforced_matched["end_offset_s"] == pytest.approx(
+        candidate_start_offset + candidate_duration
+    )
+    assert (
+        reinforced_matched["end_offset_s"] - reinforced_matched["start_offset_s"]
+        < original_end - original_start
+    )
+    # The candidate overlapped an existing event, so it reinforces that
+    # event's clip rather than also being added as a new one.
+    assert not any(clip["event_id"].startswith("highlight-event-") for clip in reinforced_clips)
+
+
+def _baseline_matched_clip(tmp_path: Path, video_root: Path) -> tuple[dict, datetime]:
+    """A real, timestamp-matched clip and its video's GPS-corrected start time."""
+    baseline = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        tmp_path / "baseline",
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+    )
+    assert baseline.matched_clip_count >= 1
+    baseline_clips = json.loads(
+        (tmp_path / "baseline" / "ride-storyteller-candidates.json").read_text()
+    )["clips"]
+    matched = next(clip for clip in baseline_clips if clip["status"] == "matched")
+    assert matched["end_offset_s"] - matched["start_offset_s"] > 4.0
+    gps_file_start = _metadata(Path("GX010001.MP4")).recorded_start_time + timedelta(seconds=5.0)
+    return matched, gps_file_start
+
+
+def test_prepare_local_review_package_applies_explicit_selection_from_review_directory(
+    tmp_path: Path,
+) -> None:
+    """Two candidates from different methods overlapping the same clip cannot
+    resolve automatically; an explicit HighlightReinforcementSelection from the
+    reinforcement review directory picks one, and only that one narrows the
+    clip."""
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    matched, gps_file_start = _baseline_matched_clip(tmp_path, video_root)
+    original_start = matched["start_offset_s"]
+    original_end = matched["end_offset_s"]
+
+    chosen = HighlightBridgeCandidate(
+        candidate_id="highlight-chosen0000000000000",
+        method=QualitySelectionMethod.QUALITY_FIRST,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=original_start + 1.0),
+        duration_s=(original_end - original_start) - 2.0,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.9,
+    )
+    other = HighlightBridgeCandidate(
+        candidate_id="highlight-other00000000000000",
+        method=QualitySelectionMethod.RIDE_DYNAMICS,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=original_start + 0.5),
+        duration_s=(original_end - original_start) - 1.0,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.8,
+    )
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    write_highlight_bridge_candidates(
+        review_directory / "highlight-bridge-candidates.json",
+        HighlightBridgeCandidateSet((chosen, other)),
+    )
+    write_highlight_reinforcement_selections(
+        review_directory / "highlight-reinforcement-selections.json",
+        HighlightReinforcementSelectionSet(
+            (HighlightReinforcementSelection(matched["event_id"], chosen.candidate_id),)
+        ),
+    )
+
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        tmp_path / "reinforced",
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_reinforcement_review_directory=review_directory,
+    )
+
+    reinforced_clips = json.loads(
+        (tmp_path / "reinforced" / "ride-storyteller-candidates.json").read_text()
+    )["clips"]
+    reinforced_matched = next(
+        clip for clip in reinforced_clips if clip["event_id"] == matched["event_id"]
+    )
+    assert reinforced_matched["start_offset_s"] == pytest.approx(original_start + 1.0)
+    assert reinforced_matched["end_offset_s"] == pytest.approx(original_end - 1.0)
+
+
+def test_prepare_local_review_package_rejects_both_reinforcement_inputs_before_probing(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    candidates_path = tmp_path / "highlight-bridge-candidates.json"
+    write_highlight_bridge_candidates(candidates_path, HighlightBridgeCandidateSet(()))
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    write_highlight_bridge_candidates(
+        review_directory / "highlight-bridge-candidates.json", HighlightBridgeCandidateSet(())
+    )
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="cannot both be given"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            tmp_path / "output",
+            video_to_gps_offset_s=5.0,
+            clock_offset_confirmed=True,
+            probe=probe,
+            highlight_bridge_candidates_path=candidates_path,
+            highlight_reinforcement_review_directory=review_directory,
+        )
+
+    assert calls == []
+
+
+def test_prepare_local_review_package_rejects_unsafe_review_directory_before_probing(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    real_directory = tmp_path / "real-review"
+    real_directory.mkdir()
+    write_highlight_bridge_candidates(
+        real_directory / "highlight-bridge-candidates.json", HighlightBridgeCandidateSet(())
+    )
+    link_directory = tmp_path / "linked-review"
+    link_directory.symlink_to(real_directory)
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="unavailable"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            tmp_path / "output",
+            video_to_gps_offset_s=5.0,
+            clock_offset_confirmed=True,
+            probe=probe,
+            highlight_reinforcement_review_directory=link_directory,
+        )
+
+    assert calls == []
+
+
+def test_prepare_local_review_package_rejects_malformed_candidates_before_probing(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    (review_directory / "highlight-bridge-candidates.json").write_text("not json", encoding="utf-8")
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            tmp_path / "output",
+            video_to_gps_offset_s=5.0,
+            clock_offset_confirmed=True,
+            probe=probe,
+            highlight_reinforcement_review_directory=review_directory,
+        )
+
+    assert calls == []
+
+
+def test_prepare_local_review_package_treats_a_missing_selections_sidecar_as_empty(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    write_highlight_bridge_candidates(
+        review_directory / "highlight-bridge-candidates.json", HighlightBridgeCandidateSet(())
+    )
+    assert not (review_directory / "highlight-reinforcement-selections.json").exists()
+
+    result = prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        tmp_path / "output",
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_reinforcement_review_directory=review_directory,
+    )
+
+    assert result.matched_clip_count >= 1
+    snapshot = load_highlight_reinforcement_selections(
+        tmp_path / "output" / "highlight-reinforcement-selections.json"
+    )
+    assert snapshot == HighlightReinforcementSelectionSet(())
+
+
+def test_prepare_local_review_package_snapshots_reinforcement_inputs(tmp_path: Path) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    matched, gps_file_start = _baseline_matched_clip(tmp_path, video_root)
+    candidate = HighlightBridgeCandidate(
+        candidate_id="highlight-snapshot000000000",
+        method=QualitySelectionMethod.QUALITY_FIRST,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=matched["start_offset_s"] + 1.0),
+        duration_s=(matched["end_offset_s"] - matched["start_offset_s"]) - 2.0,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.9,
+    )
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    candidate_set = HighlightBridgeCandidateSet((candidate,))
+    write_highlight_bridge_candidates(
+        review_directory / "highlight-bridge-candidates.json", candidate_set
+    )
+    selection_set = HighlightReinforcementSelectionSet(
+        (HighlightReinforcementSelection(matched["event_id"], candidate.candidate_id),)
+    )
+    write_highlight_reinforcement_selections(
+        review_directory / "highlight-reinforcement-selections.json", selection_set
+    )
+
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        tmp_path / "output",
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_reinforcement_review_directory=review_directory,
+    )
+
+    snapshot_candidates = load_highlight_bridge_candidates(
+        tmp_path / "output" / "highlight-bridge-candidates.json"
+    )
+    snapshot_selections = load_highlight_reinforcement_selections(
+        tmp_path / "output" / "highlight-reinforcement-selections.json"
+    )
+    assert snapshot_candidates == candidate_set
+    assert snapshot_selections == selection_set
+
+
+def test_resume_replays_reinforcement_from_snapshot_even_if_review_directory_changes(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    matched, gps_file_start = _baseline_matched_clip(tmp_path, video_root)
+    original_start = matched["start_offset_s"]
+    original_end = matched["end_offset_s"]
+
+    first_choice = HighlightBridgeCandidate(
+        candidate_id="highlight-first0000000000000",
+        method=QualitySelectionMethod.QUALITY_FIRST,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=original_start + 1.0),
+        duration_s=(original_end - original_start) - 2.0,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.9,
+    )
+    second_choice = HighlightBridgeCandidate(
+        candidate_id="highlight-second000000000000",
+        method=QualitySelectionMethod.RIDE_DYNAMICS,
+        rank=1,
+        start_time=gps_file_start + timedelta(seconds=original_start + 0.5),
+        duration_s=(original_end - original_start) - 1.0,
+        location=Location(35.0, 139.0),
+        interest_lanes=(InterestLane.STRONG_TURN,),
+        score=0.8,
+    )
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    write_highlight_bridge_candidates(
+        review_directory / "highlight-bridge-candidates.json",
+        HighlightBridgeCandidateSet((first_choice, second_choice)),
+    )
+    write_highlight_reinforcement_selections(
+        review_directory / "highlight-reinforcement-selections.json",
+        HighlightReinforcementSelectionSet(
+            (HighlightReinforcementSelection(matched["event_id"], first_choice.candidate_id),)
+        ),
+    )
+
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_reinforcement_review_directory=review_directory,
+    )
+    # Confirm the event so the rerun's evidence gate is satisfied.
+    review = load_local_evidence_review(output / "evidence-review.json")
+    write_local_evidence_review(
+        output / "evidence-review.json",
+        LocalEvidenceReview(
+            tuple(
+                LocalEvidenceDecision(
+                    event_id=decision.event_id,
+                    evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                    evidence_source="synthetic_human_review",
+                )
+                for decision in review.decisions
+            )
+        ),
+        overwrite=True,
+    )
+
+    # A human later changes their mind in the review directory itself.
+    write_highlight_reinforcement_selections(
+        review_directory / "highlight-reinforcement-selections.json",
+        HighlightReinforcementSelectionSet(
+            (HighlightReinforcementSelection(matched["event_id"], second_choice.candidate_id),)
+        ),
+        overwrite=True,
+    )
+
+    rerun_local_director_from_package(output, probe=_metadata, clip_runner=_runner)
+
+    resumed_clips = json.loads((output / "ride-storyteller-candidates.json").read_text())["clips"]
+    resumed_matched = next(
+        clip for clip in resumed_clips if clip["event_id"] == matched["event_id"]
+    )
+    # Still the first choice: the rerun never re-read the review directory.
+    assert resumed_matched["start_offset_s"] == pytest.approx(original_start + 1.0)
+    assert resumed_matched["end_offset_s"] == pytest.approx(original_end - 1.0)
+
+
+def test_resume_rejects_an_unsafe_reinforcement_snapshot_before_probing(tmp_path: Path) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+    )
+    review = load_local_evidence_review(output / "evidence-review.json")
+    write_local_evidence_review(
+        output / "evidence-review.json",
+        LocalEvidenceReview(
+            tuple(
+                LocalEvidenceDecision(
+                    event_id=decision.event_id,
+                    evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                    evidence_source="synthetic_human_review",
+                )
+                for decision in review.decisions
+            )
+        ),
+        overwrite=True,
+    )
+    # Simulate tampering: a symlinked snapshot appears in the package.
+    elsewhere = tmp_path / "elsewhere.json"
+    write_highlight_bridge_candidates(elsewhere, HighlightBridgeCandidateSet(()))
+    (output / "highlight-bridge-candidates.json").symlink_to(elsewhere)
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="unavailable"):
+        rerun_local_director_from_package(output, probe=probe)
+
+    assert calls == []
+
+
+@pytest.mark.parametrize(
+    ("file_name", "write_snapshot"),
+    (
+        (
+            "highlight-bridge-candidates.json",
+            lambda path: write_highlight_bridge_candidates(path, HighlightBridgeCandidateSet(())),
+        ),
+        (
+            "highlight-reinforcement-selections.json",
+            lambda path: write_highlight_reinforcement_selections(
+                path, HighlightReinforcementSelectionSet(())
+            ),
+        ),
+    ),
+)
+def test_resume_rejects_an_incomplete_reinforcement_snapshot_before_probing(
+    tmp_path: Path,
+    file_name: str,
+    write_snapshot: Callable[[Path], None],
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+    )
+    review = load_local_evidence_review(output / "evidence-review.json")
+    write_local_evidence_review(
+        output / "evidence-review.json",
+        LocalEvidenceReview(
+            tuple(
+                LocalEvidenceDecision(
+                    event_id=decision.event_id,
+                    evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                    evidence_source="synthetic_human_review",
+                )
+                for decision in review.decisions
+            )
+        ),
+        overwrite=True,
+    )
+    write_snapshot(output / file_name)
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(ValueError, match="snapshot is incomplete"):
+        rerun_local_director_from_package(output, probe=probe)
+
+    assert calls == []
+
+
+def test_prepare_rejects_stale_reinforcement_snapshot_on_overwrite_before_probing(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    output = tmp_path / "output"
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+    )
+    write_highlight_bridge_candidates(
+        output / "highlight-bridge-candidates.json", HighlightBridgeCandidateSet(())
+    )
+    write_highlight_reinforcement_selections(
+        output / "highlight-reinforcement-selections.json", HighlightReinforcementSelectionSet(())
+    )
+    calls: list[Path] = []
+
+    def probe(path: Path) -> LocalVideoMetadata:
+        calls.append(path)
+        return _metadata(path)
+
+    with pytest.raises(FileExistsError, match="holds a highlight-reinforcement snapshot"):
+        prepare_local_review_package(
+            Path("tests/fixtures/sample_route.xml"),
+            video_root,
+            output,
+            video_to_gps_offset_s=5.0,
+            clock_offset_confirmed=True,
+            extract_reviews=False,
+            overwrite=True,
+            probe=probe,
+        )
+
+    assert calls == []
+
+
+def test_reinforcement_review_directory_path_never_appears_in_package_output(
+    tmp_path: Path,
+) -> None:
+    video_root = tmp_path / "videos"
+    video_root.mkdir()
+    (video_root / "GX010001.MP4").write_bytes(b"source")
+    review_directory = tmp_path / "reinforcement-review"
+    review_directory.mkdir()
+    write_highlight_bridge_candidates(
+        review_directory / "highlight-bridge-candidates.json", HighlightBridgeCandidateSet(())
+    )
+    output = tmp_path / "output"
+
+    prepare_local_review_package(
+        Path("tests/fixtures/sample_route.xml"),
+        video_root,
+        output,
+        video_to_gps_offset_s=5.0,
+        clock_offset_confirmed=True,
+        extract_reviews=False,
+        probe=_metadata,
+        highlight_reinforcement_review_directory=review_directory,
+    )
+
+    summary = (output / "local-pipeline-summary.json").read_text()
+    candidates = (output / "ride-storyteller-candidates.json").read_text()
+    assert str(review_directory) not in summary
+    assert str(review_directory) not in candidates
 
 
 def test_local_pipeline_stops_before_probing_without_clock_confirmation(
@@ -447,6 +1061,7 @@ def test_cli_director_mode_is_explicit_and_offline(monkeypatch: pytest.MonkeyPat
         "overwrite": False,
         "director_mode": True,
         "highlight_bridge_candidates_path": None,
+        "highlight_reinforcement_review_directory": None,
     }
 
 

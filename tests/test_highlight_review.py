@@ -173,17 +173,26 @@ def test_highlight_review_template_uses_opaque_current_candidate_ids() -> None:
 def test_highlight_review_decision_reasons_match_status() -> None:
     with pytest.raises(ValueError, match="awaiting highlight review"):
         HighlightReviewDecision(
-            "candidate", QualitySelectionMethod.QUALITY_FIRST, 1, HighlightReviewStatus.AWAITING,
+            "candidate",
+            QualitySelectionMethod.QUALITY_FIRST,
+            1,
+            HighlightReviewStatus.AWAITING,
             (HighlightReviewReason.CLEAR_TURN,),
         )
     with pytest.raises(ValueError, match="do not match"):
         HighlightReviewDecision(
-            "candidate", QualitySelectionMethod.QUALITY_FIRST, 1, HighlightReviewStatus.APPROVED,
+            "candidate",
+            QualitySelectionMethod.QUALITY_FIRST,
+            1,
+            HighlightReviewStatus.APPROVED,
             (HighlightReviewReason.TOO_STRAIGHT,),
         )
     with pytest.raises(ValueError, match="do not match"):
         HighlightReviewDecision(
-            "candidate", QualitySelectionMethod.QUALITY_FIRST, 1, HighlightReviewStatus.REJECTED,
+            "candidate",
+            QualitySelectionMethod.QUALITY_FIRST,
+            1,
+            HighlightReviewStatus.REJECTED,
             (),
         )
 
@@ -442,9 +451,7 @@ def test_highlight_review_borderline_log_round_trip_and_excludes_private_identif
 ) -> None:
     path = tmp_path / "highlight-review-borderline.json"
     weak = _selection_with(QualitySelectionMethod.QUALITY_FIRST, 1, asset_id="asset-a", score=0.1)
-    strong = _selection_with(
-        QualitySelectionMethod.QUALITY_FIRST, 2, asset_id="asset-b", score=0.9
-    )
+    strong = _selection_with(QualitySelectionMethod.QUALITY_FIRST, 2, asset_id="asset-b", score=0.9)
     selections = {QualitySelectionMethod.QUALITY_FIRST: (weak, strong)}
     log = find_highlight_review_borderline_candidates(selections, score_quantile=0.5)
 

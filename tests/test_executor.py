@@ -106,6 +106,7 @@ def _script(scenes: tuple[Scene, ...], **kw: object) -> DirectorScript:
 # 1. Single clip — happy path with evidence confirmed
 # ---------------------------------------------------------------------------
 
+
 def test_single_confirmed_clip_produces_ready_for_ffmpeg() -> None:
     rc = _resolved("evt_001")
     sc = _scene_clip("evt_001")
@@ -138,20 +139,27 @@ def test_single_clip_without_confirmation_produces_needs_human_review() -> None:
 # 2. Director-determined scene order is preserved
 # ---------------------------------------------------------------------------
 
+
 def test_scene_order_is_preserved_in_render_plan() -> None:
     """FFmpeg -i inputs must follow DirectorScript scene order, not catalog order."""
-    rc1 = _resolved("evt_first",  file_name="GX010001.MP4", start_offset_s=5.0,  end_offset_s=20.0)
+    rc1 = _resolved("evt_first", file_name="GX010001.MP4", start_offset_s=5.0, end_offset_s=20.0)
     rc2 = _resolved("evt_second", file_name="GX010002.MP4", start_offset_s=30.0, end_offset_s=50.0)
 
     # Director says: second → first (reverse of catalog / chronological order)
-    script = _script((
-        _scene(NarrativeArc.HOOK, (
-            _scene_clip("evt_second", source_start_sec=30.0, source_end_sec=50.0),
-        )),
-        _scene(NarrativeArc.RESOLUTION, (
-            _scene_clip("evt_first", source_start_sec=5.0, source_end_sec=20.0),
-        )),
-    ), n_in=2, n_used=2)
+    script = _script(
+        (
+            _scene(
+                NarrativeArc.HOOK,
+                (_scene_clip("evt_second", source_start_sec=30.0, source_end_sec=50.0),),
+            ),
+            _scene(
+                NarrativeArc.RESOLUTION,
+                (_scene_clip("evt_first", source_start_sec=5.0, source_end_sec=20.0),),
+            ),
+        ),
+        n_in=2,
+        n_used=2,
+    )
 
     plan = ScriptExecutor().execute(
         script,
@@ -166,15 +174,13 @@ def test_scene_order_is_preserved_in_render_plan() -> None:
 
 def test_clip_order_within_scene_is_preserved() -> None:
     """Clips within a single scene must appear in scene.clips order."""
-    rc_a = _resolved("evt_a", file_name="GX010001.MP4", start_offset_s=5.0,  end_offset_s=15.0)
+    rc_a = _resolved("evt_a", file_name="GX010001.MP4", start_offset_s=5.0, end_offset_s=15.0)
     rc_b = _resolved("evt_b", file_name="GX010002.MP4", start_offset_s=20.0, end_offset_s=35.0)
 
-    sc_a = _scene_clip("evt_a", source_start_sec=5.0,  source_end_sec=15.0)
+    sc_a = _scene_clip("evt_a", source_start_sec=5.0, source_end_sec=15.0)
     sc_b = _scene_clip("evt_b", source_start_sec=20.0, source_end_sec=35.0)
 
-    script = _script((
-        _scene(NarrativeArc.HOOK, (sc_a, sc_b)),
-    ), n_in=2, n_used=2)
+    script = _script((_scene(NarrativeArc.HOOK, (sc_a, sc_b)),), n_in=2, n_used=2)
 
     plan = ScriptExecutor().execute(
         script,
@@ -189,21 +195,28 @@ def test_clip_order_within_scene_is_preserved() -> None:
 def test_resolved_clip_catalog_order_does_not_affect_output_order() -> None:
     """Catalog order must never override Director order."""
     rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=10.0, end_offset_s=30.0)
-    rc2 = _resolved("evt_002", file_name="GX010002.MP4", start_offset_s=5.0,  end_offset_s=20.0)
+    rc2 = _resolved("evt_002", file_name="GX010002.MP4", start_offset_s=5.0, end_offset_s=20.0)
     rc3 = _resolved("evt_003", file_name="GX010003.MP4", start_offset_s=35.0, end_offset_s=55.0)
 
     # Director order: 003, 001, 002
-    script = _script((
-        _scene(NarrativeArc.HOOK, (
-            _scene_clip("evt_003", source_start_sec=35.0, source_end_sec=55.0),
-        )),
-        _scene(NarrativeArc.BUILD_UP, (
-            _scene_clip("evt_001", source_start_sec=10.0, source_end_sec=30.0),
-        )),
-        _scene(NarrativeArc.RESOLUTION, (
-            _scene_clip("evt_002", source_start_sec=5.0, source_end_sec=20.0),
-        )),
-    ), n_in=3, n_used=3)
+    script = _script(
+        (
+            _scene(
+                NarrativeArc.HOOK,
+                (_scene_clip("evt_003", source_start_sec=35.0, source_end_sec=55.0),),
+            ),
+            _scene(
+                NarrativeArc.BUILD_UP,
+                (_scene_clip("evt_001", source_start_sec=10.0, source_end_sec=30.0),),
+            ),
+            _scene(
+                NarrativeArc.RESOLUTION,
+                (_scene_clip("evt_002", source_start_sec=5.0, source_end_sec=20.0),),
+            ),
+        ),
+        n_in=3,
+        n_used=3,
+    )
 
     plan = ScriptExecutor().execute(
         script,
@@ -219,6 +232,7 @@ def test_resolved_clip_catalog_order_does_not_affect_output_order() -> None:
 # ---------------------------------------------------------------------------
 # 3. Fail-closed: missing ResolvedCandidateClip
 # ---------------------------------------------------------------------------
+
 
 def test_missing_resolved_clip_raises() -> None:
     sc = _scene_clip("evt_missing")
@@ -237,10 +251,14 @@ def test_partial_resolved_clips_raises_for_missing_one() -> None:
         source_start_sec=5.0,
         source_end_sec=25.0,
     )
-    script = _script((
-        _scene(NarrativeArc.HOOK,    (sc_ok,)),
-        _scene(NarrativeArc.CLIMAX,  (sc_missing,)),
-    ), n_in=2, n_used=2)
+    script = _script(
+        (
+            _scene(NarrativeArc.HOOK, (sc_ok,)),
+            _scene(NarrativeArc.CLIMAX, (sc_missing,)),
+        ),
+        n_in=2,
+        n_used=2,
+    )
 
     with pytest.raises(ValueError, match="evt_missing"):
         ScriptExecutor().execute(script, (rc_ok,))
@@ -250,19 +268,25 @@ def test_partial_resolved_clips_raises_for_missing_one() -> None:
 # 4. Fail-closed: duplicate event_id in DirectorScript
 # ---------------------------------------------------------------------------
 
+
 def test_duplicate_event_id_across_scenes_raises() -> None:
     sc1 = _scene_clip("evt_dup")
     sc2 = _scene_clip("evt_dup")
     with pytest.raises(ValueError, match="SceneClip.event_id values must be unique"):
-        _script((
-            _scene(NarrativeArc.HOOK,   (sc1,)),
-            _scene(NarrativeArc.CLIMAX, (sc2,)),
-        ), n_in=2, n_used=2)
+        _script(
+            (
+                _scene(NarrativeArc.HOOK, (sc1,)),
+                _scene(NarrativeArc.CLIMAX, (sc2,)),
+            ),
+            n_in=2,
+            n_used=2,
+        )
 
 
 # ---------------------------------------------------------------------------
 # 5. Fail-closed: source_asset_id mismatch
 # ---------------------------------------------------------------------------
+
 
 def test_asset_id_mismatch_raises() -> None:
     rc = _resolved("evt_001", asset_id="correct-asset")
@@ -277,6 +301,7 @@ def test_asset_id_mismatch_raises() -> None:
 # 6. Fail-closed: source_start_sec mismatch
 # ---------------------------------------------------------------------------
 
+
 def test_start_offset_mismatch_raises() -> None:
     rc = _resolved("evt_001", start_offset_s=10.0, end_offset_s=40.0)
     sc = _scene_clip("evt_001", source_start_sec=15.0, source_end_sec=40.0)  # wrong start
@@ -289,6 +314,7 @@ def test_start_offset_mismatch_raises() -> None:
 # ---------------------------------------------------------------------------
 # 7. Fail-closed: source_end_sec mismatch
 # ---------------------------------------------------------------------------
+
 
 def test_end_offset_mismatch_raises() -> None:
     rc = _resolved("evt_001", start_offset_s=10.0, end_offset_s=40.0)
@@ -303,6 +329,7 @@ def test_end_offset_mismatch_raises() -> None:
 # 8. Floating-point tolerance: near-identical offsets pass
 # ---------------------------------------------------------------------------
 
+
 def test_offsets_within_tolerance_pass() -> None:
     epsilon = 5e-7  # below _OFFSET_TOLERANCE_S (1e-6)
     rc = _resolved("evt_001", start_offset_s=10.0, end_offset_s=40.0)
@@ -314,15 +341,14 @@ def test_offsets_within_tolerance_pass() -> None:
     script = _script((_scene(NarrativeArc.HOOK, (sc,)),))
 
     # Should not raise
-    plan = ScriptExecutor().execute(
-        script, (rc,), visual_evidence_confirmed_event_ids=("evt_001",)
-    )
+    plan = ScriptExecutor().execute(script, (rc,), visual_evidence_confirmed_event_ids=("evt_001",))
     assert plan.status == RenderPlanStatus.READY_FOR_FFMPEG
 
 
 # ---------------------------------------------------------------------------
 # 9. Evidence allow-list is forwarded to build_ffmpeg_render_plan unchanged
 # ---------------------------------------------------------------------------
+
 
 def test_unconfirmed_event_id_produces_needs_human_review() -> None:
     """ScriptExecutor must not bypass the evidence gate."""
@@ -339,14 +365,18 @@ def test_unconfirmed_event_id_produces_needs_human_review() -> None:
 
 def test_partial_confirmation_produces_needs_human_review() -> None:
     """One unconfirmed clip among multiple must block the whole render."""
-    rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=5.0,  end_offset_s=20.0)
+    rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=5.0, end_offset_s=20.0)
     rc2 = _resolved("evt_002", file_name="GX010002.MP4", start_offset_s=25.0, end_offset_s=45.0)
-    sc1 = _scene_clip("evt_001", source_start_sec=5.0,  source_end_sec=20.0)
+    sc1 = _scene_clip("evt_001", source_start_sec=5.0, source_end_sec=20.0)
     sc2 = _scene_clip("evt_002", source_start_sec=25.0, source_end_sec=45.0)
-    script = _script((
-        _scene(NarrativeArc.HOOK,    (sc1,)),
-        _scene(NarrativeArc.CLIMAX,  (sc2,)),
-    ), n_in=2, n_used=2)
+    script = _script(
+        (
+            _scene(NarrativeArc.HOOK, (sc1,)),
+            _scene(NarrativeArc.CLIMAX, (sc2,)),
+        ),
+        n_in=2,
+        n_used=2,
+    )
 
     # Only evt_001 confirmed
     plan = ScriptExecutor().execute(
@@ -360,14 +390,18 @@ def test_partial_confirmation_produces_needs_human_review() -> None:
 
 
 def test_all_confirmed_produces_ready_for_ffmpeg() -> None:
-    rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=5.0,  end_offset_s=20.0)
+    rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=5.0, end_offset_s=20.0)
     rc2 = _resolved("evt_002", file_name="GX010002.MP4", start_offset_s=25.0, end_offset_s=45.0)
-    sc1 = _scene_clip("evt_001", source_start_sec=5.0,  source_end_sec=20.0)
+    sc1 = _scene_clip("evt_001", source_start_sec=5.0, source_end_sec=20.0)
     sc2 = _scene_clip("evt_002", source_start_sec=25.0, source_end_sec=45.0)
-    script = _script((
-        _scene(NarrativeArc.HOOK,    (sc1,)),
-        _scene(NarrativeArc.CLIMAX,  (sc2,)),
-    ), n_in=2, n_used=2)
+    script = _script(
+        (
+            _scene(NarrativeArc.HOOK, (sc1,)),
+            _scene(NarrativeArc.CLIMAX, (sc2,)),
+        ),
+        n_in=2,
+        n_used=2,
+    )
 
     plan = ScriptExecutor().execute(
         script,
@@ -383,15 +417,14 @@ def test_all_confirmed_produces_ready_for_ffmpeg() -> None:
 # 10. ScriptExecutor does not generate FFmpeg commands itself
 # ---------------------------------------------------------------------------
 
+
 def test_executor_does_not_produce_custom_ffmpeg_commands() -> None:
     """FfmpegRenderPlan.command must be produced by build_ffmpeg_render_plan."""
     rc = _resolved("evt_001")
     sc = _scene_clip("evt_001")
     script = _script((_scene(NarrativeArc.HOOK, (sc,)),))
 
-    plan = ScriptExecutor().execute(
-        script, (rc,), visual_evidence_confirmed_event_ids=("evt_001",)
-    )
+    plan = ScriptExecutor().execute(script, (rc,), visual_evidence_confirmed_event_ids=("evt_001",))
 
     # Verify it is the standard ffmpeg invocation, not something custom
     assert plan.command is not None
@@ -404,14 +437,13 @@ def test_executor_does_not_produce_custom_ffmpeg_commands() -> None:
 # 11. Evidence state is not changed
 # ---------------------------------------------------------------------------
 
+
 def test_execute_does_not_modify_resolved_clip_fields() -> None:
     rc = _resolved("evt_001", asset_id="asset-abc", start_offset_s=10.0, end_offset_s=40.0)
     sc = _scene_clip("evt_001")
     script = _script((_scene(NarrativeArc.HOOK, (sc,)),))
 
-    ScriptExecutor().execute(
-        script, (rc,), visual_evidence_confirmed_event_ids=("evt_001",)
-    )
+    ScriptExecutor().execute(script, (rc,), visual_evidence_confirmed_event_ids=("evt_001",))
 
     # ResolvedCandidateClip is frozen; assert fields unchanged
     assert rc.asset_id == "asset-abc"
@@ -424,17 +456,22 @@ def test_execute_does_not_modify_resolved_clip_fields() -> None:
 # 12. clip_count in returned plan matches number of flattened clips
 # ---------------------------------------------------------------------------
 
+
 def test_clip_count_matches_flattened_script_clips() -> None:
-    rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=5.0,  end_offset_s=15.0)
+    rc1 = _resolved("evt_001", file_name="GX010001.MP4", start_offset_s=5.0, end_offset_s=15.0)
     rc2 = _resolved("evt_002", file_name="GX010002.MP4", start_offset_s=20.0, end_offset_s=35.0)
     rc3 = _resolved("evt_003", file_name="GX010003.MP4", start_offset_s=40.0, end_offset_s=55.0)
-    sc1 = _scene_clip("evt_001", source_start_sec=5.0,  source_end_sec=15.0)
+    sc1 = _scene_clip("evt_001", source_start_sec=5.0, source_end_sec=15.0)
     sc2 = _scene_clip("evt_002", source_start_sec=20.0, source_end_sec=35.0)
     sc3 = _scene_clip("evt_003", source_start_sec=40.0, source_end_sec=55.0)
-    script = _script((
-        _scene(NarrativeArc.HOOK,       (sc1, sc2)),
-        _scene(NarrativeArc.RESOLUTION, (sc3,)),
-    ), n_in=3, n_used=3)
+    script = _script(
+        (
+            _scene(NarrativeArc.HOOK, (sc1, sc2)),
+            _scene(NarrativeArc.RESOLUTION, (sc3,)),
+        ),
+        n_in=3,
+        n_used=3,
+    )
 
     plan = ScriptExecutor().execute(
         script,
@@ -449,6 +486,7 @@ def test_clip_count_matches_flattened_script_clips() -> None:
 # 13. Two-defence-line contract: first line (Director) and second line (gate)
 # ---------------------------------------------------------------------------
 
+
 def test_two_defence_lines_both_active() -> None:
     """Passing confirmed UniversalEvents to Director (line 1) and confirmed
     event_ids to execute() (line 2) are both required to reach READY_FOR_FFMPEG.
@@ -458,9 +496,7 @@ def test_two_defence_lines_both_active() -> None:
     script = _script((_scene(NarrativeArc.HOOK, (sc,)),))
 
     # Line 1 only (Director received confirmed events) — Line 2 missing
-    plan_no_line2 = ScriptExecutor().execute(
-        script, (rc,), visual_evidence_confirmed_event_ids=()
-    )
+    plan_no_line2 = ScriptExecutor().execute(script, (rc,), visual_evidence_confirmed_event_ids=())
     assert plan_no_line2.status == RenderPlanStatus.NEEDS_HUMAN_REVIEW
     assert plan_no_line2.command is None
 

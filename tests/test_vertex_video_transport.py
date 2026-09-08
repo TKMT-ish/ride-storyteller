@@ -143,3 +143,85 @@ def test_vertex_transport_integrates_with_stable_video_analysis_contract() -> No
     assert analysis.asset_id == "synthetic-asset"
     assert analysis.analysis_provider == "gemini"
     assert analysis.story_relevance_score == 0.8
+
+
+# --- a dropped connection is asked again; a refusal is not ----------------------
+
+
+def _flaky(failures: list[BaseException], answer: object) -> tuple[object, list[float]]:
+    """A client that fails with each listed error in turn, then answers."""
+    pauses: list[float] = []
+
+    class FlakyModels:
+        calls = 0
+
+        def generate_content(self, **_kwargs: object) -> object:
+            FlakyModels.calls += 1
+            if failures:
+                raise failures.pop(0)
+            return answer
+
+    transport = VertexAIGeminiVideoTransport(
+        SimpleNamespace(models=FlakyModels()), model="gemini-test", pause=pauses.append
+    )
+    return transport, pauses, FlakyModels
+
+
+def test_a_connection_reset_is_asked_again_and_the_answer_kept() -> None:
+    import httpx
+
+    transport, pauses, models = _flaky(
+        [httpx.ReadError("reset"), ConnectionResetError()],
+        SimpleNamespace(parsed=_analysis(), text=None),
+    )
+
+    result = transport.analyze_clip(
+        source_uri="gs://bucket/clip.mp4",
+        mime_type="video/mp4",
+        start_s=0.0,
+        end_s=12.0,
+        prompt="describe",
+    )
+
+    assert result["visual_description"] == _analysis()["visual_description"]
+    assert models.calls == 3
+    assert pauses == [2.0, 6.0]
+
+
+def test_a_refusal_is_not_asked_again() -> None:
+    transport, pauses, models = _flaky(
+        [RuntimeError("sensitive provider detail")], SimpleNamespace(parsed=_analysis(), text=None)
+    )
+
+    with pytest.raises(GeminiVideoAnalysisError, match="request failed"):
+        transport.analyze_clip(
+            source_uri="gs://bucket/clip.mp4",
+            mime_type="video/mp4",
+            start_s=0.0,
+            end_s=12.0,
+            prompt="describe",
+        )
+
+    assert models.calls == 1
+    assert pauses == []
+
+
+def test_a_connection_that_never_comes_back_is_given_up_on() -> None:
+    import httpx
+
+    transport, pauses, models = _flaky(
+        [httpx.ConnectError("down")] * 5, SimpleNamespace(parsed=_analysis(), text=None)
+    )
+
+    with pytest.raises(GeminiVideoAnalysisError, match="request failed") as caught:
+        transport.analyze_clip(
+            source_uri="gs://bucket/clip.mp4",
+            mime_type="video/mp4",
+            start_s=0.0,
+            end_s=12.0,
+            prompt="describe",
+        )
+
+    assert models.calls == 3
+    assert len(pauses) == 2
+    assert "down" not in str(caught.value)

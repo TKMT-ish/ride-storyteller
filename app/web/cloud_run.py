@@ -37,6 +37,7 @@ class CloudRunPublicDemoPlan:
     timeout_s: int = 30
     health_path: str = "/health"
     source_repository_url: str | None = None
+    basic_auth_configured: bool = False
 
     def __post_init__(self) -> None:
         if not _PROJECT_ID.fullmatch(self.project_id):
@@ -106,6 +107,7 @@ class CloudRunPublicDemoPlan:
             "timeout_s": self.timeout_s,
             "health_path": self.health_path,
             "source_repository_configured": self.source_repository_url is not None,
+            "basic_auth_configured": self.basic_auth_configured,
             "ingress": "all",
             "environment": dict(self.environment),
             "deployment_approved": False,
@@ -122,20 +124,22 @@ class CloudRunPublicDemoPlan:
         """Return arguments only after the resource-creation gate is explicit.
 
         Building these arguments still performs no external action.  Public IAM
-        access is a separate gate from creating the private service.
+        access is a separate gate from creating the private service.  The
+        actual judge credential never passes through this credential-free
+        plan: `basic_auth_configured` is only a confirmation that the operator
+        has set `RIDE_PUBLIC_DEMO_BASIC_AUTH_USER` and
+        `RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD` on the real deploy command
+        (ideally via `--set-secrets` against Secret Manager, not plain
+        `--set-env-vars`), separately from this plan.
         """
 
         if not deployment_approved:
             raise PermissionError("Cloud Run resource creation is not approved")
         if public_access_approved and self.source_repository_url is None:
-            raise PermissionError(
-                "public access requires a validated public source repository URL"
-            )
-        invoker_flag = (
-            "--no-invoker-iam-check"
-            if public_access_approved
-            else "--invoker-iam-check"
-        )
+            raise PermissionError("public access requires a validated public source repository URL")
+        if public_access_approved and not self.basic_auth_configured:
+            raise PermissionError("public access requires a configured judge basic-auth credential")
+        invoker_flag = "--no-invoker-iam-check" if public_access_approved else "--invoker-iam-check"
         environment = ",".join(f"{name}={value}" for name, value in self.environment)
         return (
             "gcloud",

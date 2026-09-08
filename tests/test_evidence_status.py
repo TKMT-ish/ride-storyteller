@@ -17,6 +17,7 @@ from app.video import ResolvedCandidateClip, VideoMatchStatus
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _awaiting_clip(event_id: str = "evt_001", duration_s: float = 30.0) -> CandidateClip:
     return CandidateClip(
         chapter_id="chapter_01",
@@ -58,6 +59,7 @@ def _resolved_clip(event_id: str = "evt_001") -> ResolvedCandidateClip:
 # 1. confirm_clip_evidence — happy paths
 # ---------------------------------------------------------------------------
 
+
 def test_confirm_clip_sets_status_and_stores_source() -> None:
     clip = _awaiting_clip()
     result = confirm_clip_evidence(clip, confirmed=True, source="human_review")
@@ -91,6 +93,7 @@ def test_new_clip_has_no_evidence_source() -> None:
 # 2. confirm_clip_evidence — guard rails
 # ---------------------------------------------------------------------------
 
+
 def test_confirm_already_confirmed_raises() -> None:
     confirmed = confirm_clip_evidence(_awaiting_clip(), confirmed=True, source="human_review")
 
@@ -123,6 +126,7 @@ def test_confirm_rejects_whitespace_only_source() -> None:
 # 3. confirmed_event_ids
 # ---------------------------------------------------------------------------
 
+
 def test_confirmed_event_ids_returns_only_confirmed() -> None:
     confirmed = confirm_clip_evidence(
         _awaiting_clip("evt_001"), confirmed=True, source="human_review"
@@ -141,6 +145,7 @@ def test_confirmed_event_ids_returns_only_confirmed() -> None:
 # ---------------------------------------------------------------------------
 # 4. review_candidate_edit_plan — evidence-status separation
 # ---------------------------------------------------------------------------
+
 
 def test_review_separates_awaiting_from_rejected_reasons() -> None:
     awaiting = _awaiting_clip("evt_awaiting")
@@ -237,6 +242,7 @@ def test_review_to_dict_includes_rejected_event_ids() -> None:
 # 5. Render-plan integration via confirmed_event_ids()
 # ---------------------------------------------------------------------------
 
+
 def test_render_plan_blocked_by_rejected_evidence() -> None:
     rejected = confirm_clip_evidence(
         _awaiting_clip("evt_001"), confirmed=False, source="video_analysis"
@@ -271,6 +277,7 @@ def test_render_plan_ready_when_all_confirmed() -> None:
 # ---------------------------------------------------------------------------
 # 6. CandidateClip.__post_init__ direct-construction validation
 # ---------------------------------------------------------------------------
+
 
 def test_direct_construction_confirmed_without_source_raises() -> None:
     with pytest.raises(ValueError, match="non-empty, non-whitespace"):

@@ -106,9 +106,7 @@ class VertexAIGeminiDirectorTransport:
         story_payload: Mapping[str, object],
     ) -> Mapping[str, object]:
         if not prompt.strip() or not story_payload:
-            raise GeminiDirectorError(
-                "director transport: prompt and payload must be non-empty"
-            )
+            raise GeminiDirectorError("director transport: prompt and payload must be non-empty")
         config = types.GenerateContentConfig(
             temperature=0,
             response_mime_type="application/json",
@@ -125,9 +123,7 @@ class VertexAIGeminiDirectorTransport:
                 config=config,
             )
         except Exception as error:
-            raise GeminiDirectorError(
-                "Vertex AI Gemini director request failed"
-            ) from error
+            raise GeminiDirectorError("Vertex AI Gemini director request failed") from error
         return _response_mapping(response)
 
 

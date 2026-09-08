@@ -67,6 +67,7 @@ from app.scout import UniversalEvent
 # Arc ordering
 # ---------------------------------------------------------------------------
 
+
 class NarrativeArc(StrEnum):
     HOOK = "hook"
     BUILD_UP = "build_up"
@@ -104,6 +105,7 @@ _ARC_ORDER: tuple[NarrativeArc, ...] = (
 # ---------------------------------------------------------------------------
 # Data contracts
 # ---------------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class SceneClip:
@@ -207,9 +209,7 @@ class DirectorScript:
             raise ValueError("DirectorScript SceneClip.event_id values must be unique")
         clip_count = len(scene_clips)
         if self.metadata.event_count_used != clip_count:
-            raise ValueError(
-                "DirectorScript.metadata.event_count_used must match clip count"
-            )
+            raise ValueError("DirectorScript.metadata.event_count_used must match clip count")
 
 
 def browser_safe_script_view(
@@ -247,6 +247,7 @@ def browser_safe_script_view(
 # Director protocol (shared by RuleBasedDirector and GeminiDirector)
 # ---------------------------------------------------------------------------
 
+
 @runtime_checkable
 class Director(Protocol):
     """Compose a DirectorScript from a sequence of confirmed UniversalEvents."""
@@ -257,6 +258,7 @@ class Director(Protocol):
 # ---------------------------------------------------------------------------
 # RuleBasedDirector
 # ---------------------------------------------------------------------------
+
 
 class RuleBasedDirector:
     """Deterministic fallback Director; no external calls.
@@ -323,23 +325,20 @@ class RuleBasedDirector:
 # Arc assignment helpers (module-private)
 # ---------------------------------------------------------------------------
 
+
 def _rank_key(event: UniversalEvent) -> tuple[float, float]:
     """Higher ranking_score / intensity → sorted first (descending)."""
     score = event.ranking_score if event.ranking_score is not None else event.intensity
     return (-score, -event.intensity)
 
 
-def _validate_director_events(
-    events: tuple[UniversalEvent, ...], director_name: str
-) -> None:
+def _validate_director_events(events: tuple[UniversalEvent, ...], director_name: str) -> None:
     """Reject ambiguous or unconfirmed Director inputs before any composition."""
     if not events:
         raise ValueError(f"{director_name}.compose requires at least one event")
     event_ids = tuple(event.event_id for event in events)
     if len(event_ids) != len(set(event_ids)):
-        raise ValueError(
-            f"{director_name}.compose requires unique event_id values"
-        )
+        raise ValueError(f"{director_name}.compose requires unique event_id values")
     for event in events:
         if not event.evidence_confirmed:
             raise ValueError(
@@ -348,9 +347,7 @@ def _validate_director_events(
             )
 
 
-def _assign_arcs(
-    events: tuple[UniversalEvent, ...]
-) -> dict[NarrativeArc, list[UniversalEvent]]:
+def _assign_arcs(events: tuple[UniversalEvent, ...]) -> dict[NarrativeArc, list[UniversalEvent]]:
     """Assign events to arcs without duplication.
 
     Strategy (fail-soft for small event counts):
@@ -483,6 +480,7 @@ def _scene_clip(event: UniversalEvent) -> SceneClip:
 # GeminiDirector transport protocol and error
 # ---------------------------------------------------------------------------
 
+
 class GeminiDirectorTransport(Protocol):
     """Thin boundary between GeminiDirector and a concrete Gemini SDK adapter.
 
@@ -572,9 +570,7 @@ class GeminiDirector:
         except GeminiDirectorError:
             raise
         except (KeyError, TypeError, ValueError) as error:
-            raise GeminiDirectorError(
-                "Gemini returned an invalid director script"
-            ) from error
+            raise GeminiDirectorError("Gemini returned an invalid director script") from error
         except Exception as error:
             raise GeminiDirectorError("Gemini director was unavailable") from error
 
@@ -582,6 +578,7 @@ class GeminiDirector:
 # ---------------------------------------------------------------------------
 # FallbackDirector
 # ---------------------------------------------------------------------------
+
 
 class FallbackDirector:
     """Wraps GeminiDirector with automatic RuleBasedDirector fallback.
@@ -614,9 +611,8 @@ class FallbackDirector:
 # Payload sanitization (module-private)
 # ---------------------------------------------------------------------------
 
-def _sanitize_payload(
-    events: tuple[UniversalEvent, ...]
-) -> dict[str, object]:
+
+def _sanitize_payload(events: tuple[UniversalEvent, ...]) -> dict[str, object]:
     """Build a Gemini-safe payload; never include coordinates or source paths."""
     return {
         "events": [_sanitize_event(e) for e in events],
@@ -651,6 +647,7 @@ def _sanitize_event(event: UniversalEvent) -> dict[str, object]:
 # Prompt (module-private)
 # ---------------------------------------------------------------------------
 
+
 def _gemini_director_prompt(event_count: int) -> str:
     return (
         "You are the Director for Ride Storyteller, a motorcycle travel-story generator. "
@@ -679,6 +676,7 @@ def _gemini_director_prompt(event_count: int) -> str:
 # ---------------------------------------------------------------------------
 # Response validation and script assembly (module-private)
 # ---------------------------------------------------------------------------
+
 
 def _validated_gemini_script(
     response: Mapping[str, object],
@@ -714,9 +712,7 @@ def _validated_gemini_script(
         # Reject unknown fields
         extra = set(raw.keys()) - _SCENE_KEYS
         if extra:
-            raise GeminiDirectorError(
-                f"scene[{i}] has unexpected fields: {sorted(extra)}"
-            )
+            raise GeminiDirectorError(f"scene[{i}] has unexpected fields: {sorted(extra)}")
 
         # scene_type
         scene_type_raw = raw.get("scene_type")
@@ -726,9 +722,7 @@ def _validated_gemini_script(
             )
         scene_type = NarrativeArc(scene_type_raw)
         if scene_type in seen_scene_types:
-            raise GeminiDirectorError(
-                f"scene[{i}] repeats scene_type {scene_type.value!r}"
-            )
+            raise GeminiDirectorError(f"scene[{i}] repeats scene_type {scene_type.value!r}")
         arc_index = _ARC_ORDER.index(scene_type)
         if arc_index <= previous_arc_index:
             raise GeminiDirectorError(
@@ -745,17 +739,12 @@ def _validated_gemini_script(
         # overlay_text
         overlay = raw.get("overlay_text")
         if overlay is not None and (not isinstance(overlay, str) or not overlay.strip()):
-            raise GeminiDirectorError(
-                f"scene[{i}] overlay_text must be a non-empty string or null"
-            )
+            raise GeminiDirectorError(f"scene[{i}] overlay_text must be a non-empty string or null")
         overlay_text: str | None = overlay if overlay else None
 
         # event_ids
         event_ids_raw = raw.get("event_ids")
-        if (
-            isinstance(event_ids_raw, (str, bytes))
-            or not isinstance(event_ids_raw, (list, tuple))
-        ):
+        if isinstance(event_ids_raw, (str, bytes)) or not isinstance(event_ids_raw, (list, tuple)):
             raise GeminiDirectorError(f"scene[{i}] event_ids must be a list")
         if not event_ids_raw:
             raise GeminiDirectorError(f"scene[{i}] event_ids must not be empty")
@@ -763,22 +752,16 @@ def _validated_gemini_script(
         clips: list[SceneClip] = []
         for eid in event_ids_raw:
             if not isinstance(eid, str):
-                raise GeminiDirectorError(
-                    f"scene[{i}] event_ids contains non-string value {eid!r}"
-                )
+                raise GeminiDirectorError(f"scene[{i}] event_ids contains non-string value {eid!r}")
             if eid not in events_by_id:
-                raise GeminiDirectorError(
-                    f"scene[{i}] references unknown event_id {eid!r}"
-                )
+                raise GeminiDirectorError(f"scene[{i}] references unknown event_id {eid!r}")
             if eid in seen_event_ids:
                 raise GeminiDirectorError(
                     f"scene[{i}] event_id {eid!r} is used in more than one scene"
                 )
             event = events_by_id[eid]
             if not event.evidence_confirmed:
-                raise GeminiDirectorError(
-                    f"scene[{i}] references unconfirmed event {eid!r}"
-                )
+                raise GeminiDirectorError(f"scene[{i}] references unconfirmed event {eid!r}")
             seen_event_ids.add(eid)
             clips.append(_scene_clip(event))
 

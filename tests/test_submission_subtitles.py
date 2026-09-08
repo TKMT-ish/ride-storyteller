@@ -53,13 +53,36 @@ def test_submission_subtitles_cover_three_minutes_without_overlap() -> None:
         assert cue.text.strip()
 
 
-def test_submission_subtitles_keep_unverified_real_media_explicitly_gated() -> None:
+def test_submission_subtitles_never_claim_what_has_not_been_done() -> None:
+    """The captions are shown to judges, so they must not overclaim.
+
+    An earlier version of this test required the captions to carry a "REAL
+    MEDIA GATE" placeholder, because no film from real material existed yet.
+    One does now, so demanding that placeholder would force a false
+    disclaimer into the submission. What still needs guarding is the same as
+    it always was, stated against what is actually unverified: real footage
+    has never been sent to Gemini, per-clip visual evidence is no longer a
+    human step (2026-09-01), and no real material has reached the cloud.
+    """
+    text = " ".join(cue.text for cue in _load_cues()).lower()
+
+    for unrun_claim in (
+        "gemini analyses the footage",
+        "gemini analyzes the footage",
+        "gemini reviews the footage",
+        "a reviewer confirms each clip",
+        "we review every clip",
+        "uploaded to the cloud",
+        "processed in the cloud",
+    ):
+        assert unrun_claim not in text
+
+
+def test_submission_subtitles_leak_nothing_and_stay_playable() -> None:
     text = "\n".join(cue.text for cue in _load_cues())
 
-    assert "REAL MEDIA GATE" in text
-    assert "not available in this draft" in text
-    assert "approved clip analysis" in text
     assert "/Users/" not in text
     assert "gs://" not in text
     assert "AIza" not in text
+    # Some players mangle non-ASCII in SubRip; the captions are English anyway.
     assert all(ord(character) < 128 for character in text)

@@ -25,9 +25,17 @@ that interval, and the Story Agent accepts, rejects, or escalates the candidate.
 The edit remains blocked until every selected clip is timestamp-matched and its
 visual evidence is explicitly confirmed with an attributed source.
 
-The intended output is a five-to-ten-minute travel film with no voice narration
-and existing copyright-free music. The public three-minute hackathon video will
-demonstrate the functioning agent workflow rather than substitute a cinematic
+The track then gives the film its shape: a day is cut into legs, halt to halt,
+and every leg is a chapter titled with where it went from and where it went to.
+Moments the track proves — setting off, each stop's arrival and re-departure,
+joining and leaving a highway, riding off a ferry, arriving — are always shown,
+and the model's own answers choose which neighbouring window actually shows the
+moment. The turns of the day are said in the lower third with the local time.
+
+The output is a three-to-seven-minute film per riding day with no voice
+narration and existing copyright-free music. Twelve consecutive days of one
+tour have been cut this way. The public three-minute hackathon video
+demonstrates the functioning workflow rather than substituting a cinematic
 trailer for the product demo.
 
 ## Why This Matters
@@ -39,6 +47,13 @@ what can honestly enter the story.
 
 ## How We Used AI
 
+- Gemini 2.5 Flash watches every candidate window of a real ride's own footage
+  (small local proxies, never the 4K source) and answers a fixed schema: road,
+  scenery, interest, story relevance, how much of the rider is in frame, whether
+  the bike moved, what the road is doing, how photogenic the frame is and of
+  what, and what kind of place the bike is standing at. Across twelve riding
+  days that is 4,039 stored judgements for about ¥764 in total — some windows
+  were bought a second time as the questions asked of the model grew.
 - A Google ADK agent receives one fixed synthetic event, invokes a typed evidence
   tool, and produces a structured final response with Gemini 2.5 Flash.
 - A synthetic-only Google Cloud Agent Platform Runtime in Tokyo verifies the
@@ -52,15 +67,19 @@ what can honestly enter the story.
 - An optional Gemini Story-copy boundary rewrites only fixed synthetic chapter
   copy while preserving chapter IDs, order, and count.
 
-## How We Used Codex
+## How We Built It With AI Assistants
 
-Codex was used as the primary implementation and verification partner. It turned
-the product constraints into frozen data contracts, deterministic GPS and story
-planning, explicit evidence-state transitions, Google ADK and Agent Platform
-adapters, the bilingual local/public-safe UI, Cloud Run deployment safeguards,
-tests, and submission documentation. It also ran regression and secret/private-
-media checks, exercised the browser demo, and kept the Japanese Notion design,
-ADR, history, and test records synchronized with the repository.
+Two coding assistants were used, in two phases. Until 2026-09-02 Codex was the
+primary implementation partner: it turned the product constraints into frozen
+data contracts, deterministic GPS and story planning, explicit evidence-state
+transitions, Google ADK and Agent Platform adapters, the bilingual
+local/public-safe UI, Cloud Run deployment safeguards, tests, and submission
+documentation. From 2026-09-02 Claude Code took over core implementation,
+review, and the design record, with Codex handling small scoped tasks; the
+story structure, the judged-film pipeline, the reference layer, and the film's
+own rules were built in that phase. Both ran regression and secret/private-media
+checks and kept the Japanese design, decision, history, and test records
+synchronized with the repository.
 
 IBM Bob was used separately during development to review the earlier codebase.
 Its findings about missing ADK wiring, evidence transitions, video transport, and
@@ -72,8 +91,22 @@ boundary tests were then implemented and mapped to focused regression tests.
 - Agentic evidence loop: decide, search, analyze, update, or escalate.
 - Explicit `awaiting`, `confirmed`, and `rejected` evidence states with source
   attribution.
-- Half-open source intervals and camera/GPS clock correction.
-- Inspectable multi-clip FFmpeg command planning that never auto-executes.
+- Half-open source intervals and camera/GPS clock correction, read from the
+  cameras' own GPS where present so that no one is asked at all.
+- A day cut into legs, halt to halt, each a chapter card titled from → to, with
+  "Day N" on a multi-day trip detected from sibling packages.
+- Moments the track proves are always shown, and the model's answers pick the
+  window that shows them.
+- Lower thirds with the local time for towns, scenic routes, named roads,
+  passes, highways, ferries, and each stop by what kind of place it was.
+- An opening of four one-second highlights chosen by a photogenic score, of
+  distinct subjects, spread across the day.
+- Offline map references (touring routes, highways, ferry lines, towns, passes)
+  fetched once per country from OpenStreetMap.
+- Fail-closed privacy rules in the cut itself: no window that could identify a
+  private home, and no window where the rider fills the frame.
+- Inspectable multi-clip FFmpeg planning, and a single normalised render pass
+  that leaves no half-written film.
 - Japanese/English UI with invariant status and domain contracts.
 - Synthetic-only Google cloud path separated from private local media workflows.
 - Public-demo mode that removes cloud, GPX, Maps, and private-media controls.
@@ -100,6 +133,31 @@ Google SDK or credentials. IBM Bob is evidenced as a development-process tool,
 not falsely presented as a runtime integration.
 
 ## Testing Instructions
+
+**Cut a film from a real ride, on your own machine.** One day of the tour is
+published as a portable package: one small clip per window the film uses, the
+judgement Gemini returned for them, the track, and the music. Its number plates
+are blurred and every clip in which a face appeared was removed, both by this
+repository.
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -e '.[dev]'
+# unpack the package under private-media/portable/ first
+python -m app.portable_package private-media/portable/day-7 --install
+python -m app.private_journey_film private-media/portable/day-7 \
+  --music wandering --music-directory private-media/portable/day-7/music
+```
+
+The package is 1.61 GiB and carries 53 clips; the film it produces runs six
+minutes and eight seconds, with subtitles and music. Read at every frame, it
+shows no legible number plate and no face.
+
+That is the product, not a demo of it: it reads the track, cuts the day into
+legs, places the moments the track proves, lays the lower thirds, draws the
+cards, cuts the film, writes the subtitles and mixes the music. `ffmpeg` and
+`ffprobe` must be on the path; on Linux the cards are drawn by headless
+`chromium`.
 
 Python 3.11 or later is required.
 
@@ -134,15 +192,32 @@ re-verified.
 
 ## Public Repository Link
 
-`PENDING` — no Git remote is configured. A reviewed public repository must include
-all public source and instructions while excluding `.env`, credentials, GPX,
-route JSON, video, private catalogs, and private file paths.
+<https://github.com/TKMT-ish/ride-storyteller> — **exists but is behind.** Its
+`main` is at the 2026-08-25 commit; everything since, including the whole
+real-ride story layer, is only in the private mirror. Bringing it up to date is
+one of the four remaining owner actions, and **how** to bring it up to date is a
+decision: the working tree carries no place name from the rider's route, but the
+417 commits between the public commit and here do. Both ways out, with their
+commands, are in
+[`docs/submission/public-repository-preflight-ja.md`](docs/submission/public-repository-preflight-ja.md).
 
 ## Demo Video
 
 `PENDING` — publish a maximum three-minute YouTube or Vimeo demonstration in
-English or with complete English subtitles. The timing-matched draft is in
-`docs/submission/demo-script-en.md` and `docs/submission/demo-subtitles-en.srt`.
+English or with complete English subtitles. **The demo is assembled by the
+repository**, not recorded by hand:
+
+```bash
+python -m app.submission.demo_assembly private-media/work/<package> \
+  --excerpt-start-s <seconds> --overwrite
+```
+
+It writes the video and its subtitle file, the subtitles generated from the same
+timeline the video is cut to. One is already assembled and measured at 177.02 s,
+from the day whose opening minutes are open country. What remains is a person's: watch the five footage
+stretches for identifiable faces and number plates, re-assemble from a different
+start if either appears, then upload. The timeline and that check are described
+in [`docs/submission/demo-script-en.md`](docs/submission/demo-script-en.md).
 
 ## Screenshot Shot List
 
@@ -157,6 +232,11 @@ Captured local synthetic-only candidates:
 4. [Candidate plan blocked by unresolved evidence](docs/submission/assets/04-candidate-evidence-blocked-en.jpg).
 5. [Synthetic Story Plan](docs/submission/assets/05-story-plan-synthetic-en.jpg).
 
+7. [Local console with one real day complete](docs/submission/assets/07-console-stages-en.png)
+   — windows planned, megabytes to send, the yen figure against its ceiling,
+   copies made, judgement bought, story planned, film cut, music added. Cropped
+   above the chapter titles, which name the towns the ride went through.
+
 Captured partner-development evidence:
 
 6. [IBM Bob review of the video-evidence gate](docs/submission/assets/06-ibm-bob-video-evidence-gate.png),
@@ -165,11 +245,9 @@ Captured partner-development evidence:
 
 Still required as distinct evidence:
 
-7. Synthetic-only hosted ADK result with `private_data_used=false` and no model
+8. Synthetic-only hosted ADK result with `private_data_used=false` and no model
    response text.
-8. Architecture and automated-test evidence.
-9. One real source-to-confirmed-output sequence only after explicit real-media
-   approval and successful human review.
+9. Architecture and automated-test evidence.
 
 ## Submission Readiness Notes
 
@@ -191,9 +269,9 @@ Still required as distinct evidence:
   sanitized project-specific screenshot are present. Its rendered-gate finding
   was checked against the current source and focused test.
 - Google Cloud synthetic agent use is verified. Real-media cloud use is not.
-- The 2026-08-24 regression run passed 229 tests, Ruff, `pip check`, the
-  dependency-free Day 1 checks, and `git diff --check`. All offline preparation
-  checks, including the AGPL-3.0 license and IBM Bob evidence image, pass.
+- The 2026-09-07 regression run passed 2,246 tests and Ruff check and format.
+  All offline preparation checks, including the AGPL-3.0 license and IBM Bob
+  evidence image, pass.
 - Devpost registration and the explicit rules/eligibility agreements are
   complete and were verified live. The registration identifier is intentionally
   not stored in this repository.
@@ -201,14 +279,19 @@ Still required as distinct evidence:
 
 ## Known Limitations
 
-- No real GPX or GoPro footage has been sent to Google; real-video end-to-end
-  evidence is not yet available.
+- Real footage reaches Gemini only as small local proxies (one frame a second,
+  480 lines, no audio). The 4K source never leaves the rider's machine, and the
+  hosted agent has still only received synthetic events.
 - The public Cloud Run service, public source repository, and public video do not
   yet exist.
-- The FFmpeg layer creates a human-inspectable command plan but does not render
-  automatically.
-- Final music selection, rights attribution, English subtitle alignment, and
-  visual quality review remain pending.
+- The demo video is assembled locally but has not been reviewed frame by frame
+  for identifiable faces and number plates, which is a precondition of
+  publishing it.
+- Place names come from a Google Geocoding request per rounded coordinate; a
+  film cut with that service disabled keeps the titles the track alone allows.
+- Stop kinds and ferry crossings are read partly from the model's words about
+  older judgements; windows bought before those questions existed answer
+  "unknown" and fall back to word matching.
 - Box is optional future media infrastructure and is not a valid contest track.
 
 ## TODO Official Form Fields
@@ -230,12 +313,22 @@ Still required as distinct evidence:
 
 ### Links and assets
 
-- **Open-source repository URL:** `PENDING`
-- **Hosted project URL:** `PENDING`
+- **Open-source repository URL:** <https://github.com/TKMT-ish/ride-storyteller>
+  — exists; must be brought up to date first (see above)
+- **Hosted project URL:** `PENDING`. Cloud Run IAM will be unauthenticated
+  (`--no-invoker-iam-check`) gated by an application-level HTTP Basic
+  credential; remember to fill the judge username/password into the
+  submission form's **Testing instructions** field once the credential is
+  set and the service is redeployed. See
+  [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md).
 - **Public YouTube/Vimeo demo URL:** `PENDING`
 - **OSI-approved root license:** `AGPL-3.0-only`; full text is in the repository-root
   `LICENSE` file
-- **Music title, creator, license, and source URL:** `PENDING`
+- **Music title, creator, license, and source URL:** *Wandering* by Numall Fix
+  (https://soundcloud.com/numall-fix), royalty free music by
+  https://www.free-stock-music.com, licensed CC BY 3.0 Unported
+  (https://creativecommons.org/licenses/by/3.0/). Every track the repository
+  carries is credited in [`docs/music-credits.md`](docs/music-credits.md)
 
 ### Product lists
 

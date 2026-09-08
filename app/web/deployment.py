@@ -58,6 +58,8 @@ class WebDeploymentSettings:
     host: str
     port: int
     source_repository_url: str | None = None
+    basic_auth_username: str | None = None
+    basic_auth_password: str | None = None
 
     @classmethod
     def from_environment(cls) -> "WebDeploymentSettings":
@@ -89,6 +91,8 @@ class WebDeploymentSettings:
             host=host,
             port=port,
             source_repository_url=source_repository_url,
+            basic_auth_username=value("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER") or None,
+            basic_auth_password=value("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD") or None,
         )
 
     def __post_init__(self) -> None:
@@ -102,6 +106,13 @@ class WebDeploymentSettings:
             raise ValueError("web port must be between 1 and 65535")
         if self.source_repository_url is not None:
             validate_source_repository_url(self.source_repository_url)
+        has_username = self.basic_auth_username is not None
+        has_password = self.basic_auth_password is not None
+        if has_username != has_password:
+            raise ValueError(
+                "RIDE_PUBLIC_DEMO_BASIC_AUTH_USER and "
+                "RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD must be set together"
+            )
 
     @property
     def public_demo(self) -> bool:
@@ -115,10 +126,24 @@ class WebDeploymentSettings:
     def private_gpx_enabled(self) -> bool:
         return not self.public_demo
 
+    @property
+    def basic_auth_required(self) -> bool:
+        """Whether every non-health request must carry the judge credential.
+
+        Local mode is never gated -- it only ever binds to a loopback address,
+        so there is no remote visitor to authenticate. Public demo mode is
+        gated only when both halves of the credential are configured; leaving
+        both blank keeps public demo mode usable for unauthenticated local
+        testing before a judge credential is chosen.
+        """
+
+        return self.public_demo and self.basic_auth_username is not None
+
     def to_dict(self) -> dict[str, object]:
         return {
             "mode": self.mode.value,
             "external_actions_enabled": self.external_actions_enabled,
             "private_gpx_enabled": self.private_gpx_enabled,
             "source_repository_configured": self.source_repository_url is not None,
+            "basic_auth_configured": self.basic_auth_username is not None,
         }

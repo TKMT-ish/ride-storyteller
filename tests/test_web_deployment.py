@@ -38,11 +38,13 @@ def test_public_demo_defaults_to_wildcard_and_disables_sensitive_actions(
 
     assert settings.host == "0.0.0.0"
     assert settings.port == 8080
+    assert settings.basic_auth_required is False
     assert settings.to_dict() == {
         "mode": "public_demo",
         "external_actions_enabled": False,
         "private_gpx_enabled": False,
         "source_repository_configured": False,
+        "basic_auth_configured": False,
     }
 
 
@@ -125,4 +127,66 @@ def test_direct_source_repository_url_rejects_surrounding_whitespace() -> None:
             "127.0.0.1",
             8765,
             " https://github.com/owner/repository",
+        )
+
+
+def test_public_demo_is_not_gated_without_a_configured_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    for name in ("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD"):
+        monkeypatch.delenv(name, raising=False)
+
+    settings = WebDeploymentSettings.from_environment()
+
+    assert settings.basic_auth_required is False
+    assert settings.to_dict()["basic_auth_configured"] is False
+
+
+def test_public_demo_is_gated_once_both_credential_halves_are_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    settings = WebDeploymentSettings.from_environment()
+
+    assert settings.basic_auth_required is True
+    assert settings.to_dict()["basic_auth_configured"] is True
+
+
+def test_local_mode_is_never_gated_even_with_a_configured_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "local")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    settings = WebDeploymentSettings.from_environment()
+
+    assert settings.basic_auth_required is False
+
+
+@pytest.mark.parametrize(
+    ("username", "password"),
+    (
+        ("judge", None),
+        (None, "correct-horse"),
+    ),
+)
+def test_basic_auth_credential_halves_must_be_set_together(
+    username: str | None, password: str | None
+) -> None:
+    with pytest.raises(ValueError, match="must be set together"):
+        WebDeploymentSettings(
+            WebDeploymentMode.PUBLIC_DEMO,
+            "0.0.0.0",
+            8765,
+            None,
+            username,
+            password,
         )

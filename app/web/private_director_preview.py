@@ -66,9 +66,7 @@ class PrivateDirectorPreview:
             raise PrivateDirectorPreviewError("private DirectorScript has invalid event counts")
         try:
             journey_coverage = JourneyCoverage(
-                metadata.get(
-                    "journey_coverage", JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY.value
-                )
+                metadata.get("journey_coverage", JourneyCoverage.MIDDLE_OF_JOURNEY_ONLY.value)
             )
         except (TypeError, ValueError) as error:
             raise PrivateDirectorPreviewError(

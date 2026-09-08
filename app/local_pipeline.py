@@ -34,8 +34,15 @@ from app.video import (
     write_local_video_catalog,
 )
 from app.video.highlight_story_bridge import (
+    HighlightBridgeCandidate,
+    HighlightBridgeCandidateSet,
+    HighlightReinforcementSelectionSet,
     build_highlight_gps_events,
     load_highlight_bridge_candidates,
+    load_highlight_reinforcement_selections,
+    reinforce_resolved_clips_with_highlights,
+    write_highlight_bridge_candidates,
+    write_highlight_reinforcement_selections,
 )
 
 if TYPE_CHECKING:
@@ -49,6 +56,13 @@ _PRIVATE_REPOSITORY_OUTPUT_ROOTS = (
     Path("media/private"),
 )
 _DERIVED_PRIVATE_MEDIA_ROOT = Path("private-media/work")
+# Snapshot file names inside an output package. Chosen to match the private
+# highlight-reinforcement review directory's own file names (see
+# app.web.private_highlight_reinforcement_review), so a package's own output
+# directory can be reused as its own reinforcement review directory on
+# --resume-output without any extra plumbing.
+_HIGHLIGHT_BRIDGE_CANDIDATES_FILE_NAME = "highlight-bridge-candidates.json"
+_HIGHLIGHT_REINFORCEMENT_SELECTIONS_FILE_NAME = "highlight-reinforcement-selections.json"
 
 
 @dataclass(frozen=True)
@@ -70,6 +84,7 @@ class LocalPipelineResult:
 
     def to_dict(self) -> dict[str, object]:
         from app.director_pipeline import DirectorPipelineResult
+
         payload: dict[str, object] = {
             "schema_version": LOCAL_PIPELINE_SUMMARY_SCHEMA_VERSION,
             "privacy": {
@@ -146,6 +161,7 @@ def prepare_local_review_package(
     gemini_transport: GeminiDirectorTransport | None = None,
     allow_external_director: bool = False,
     highlight_bridge_candidates_path: Path | None = None,
+    highlight_reinforcement_review_directory: Path | None = None,
 ) -> LocalPipelineResult:
     """Prepare private catalogs, candidate exports, and optional review proxies.
 
@@ -167,14 +183,47 @@ def prepare_local_review_package(
 
     Pass ``highlight_bridge_candidates_path`` to additionally load a
     ``highlight-bridge-candidates.json`` written by
-    ``app.video.highlight_research`` and merge its review-approved,
-    non-overlapping candidates into the GPS event pool before Story Planning
-    (see docs/highlight-story-bridge-design-ja.md). This is a fresh,
-    per-invocation input: it is not remembered in ``local-pipeline-inputs.json``
-    and is not replayed by ``--resume-output``.
+    ``app.video.highlight_research``. Its review-approved candidates are used
+    two ways (see docs/highlight-story-bridge-design-ja.md): one whose
+    absolute time window does not overlap any GPS event is merged into the
+    event pool before Story Planning as a new event; one that does overlap an
+    already-*resolved, matched* clip instead narrows that clip's interval
+    when the candidate's window is a strictly tighter, same-asset subset
+    (``reinforce_resolved_clips_with_highlights``, fail-closed on any
+    ambiguous or cross-asset case). This is a fresh, per-invocation input: it
+    is not remembered in ``local-pipeline-inputs.json`` and is not replayed
+    by ``--resume-output``.
+
+    Pass ``highlight_reinforcement_review_directory`` instead to additionally
+    load a human's explicit ``HighlightReinforcementSelectionSet`` alongside
+    the bridge candidates, both from one private local directory (the same
+    layout ``app.web.private_highlight_reinforcement_review`` reads and
+    writes). This directory is validated and read once, only from the exact
+    path given -- no parent or sibling directory is scanned or inferred.
+    Giving both this and ``highlight_bridge_candidates_path`` in the same
+    call is rejected before any GPX or video probing, as is an unsafe
+    (symlinked) or malformed directory, candidates file, or selections file.
+    A missing selections file is treated as an empty selection set; it is not
+    required to exist.
+
+    Unlike ``highlight_bridge_candidates_path``, this path's effective
+    candidates and selections are snapshotted into this output package as
+    ``highlight-bridge-candidates.json`` and
+    ``highlight-reinforcement-selections.json`` so that
+    ``rerun_local_director_from_package``/``--resume-output`` can reproduce
+    the exact same reinforcement deterministically from the package alone,
+    without ever reading the original review directory again -- a selection
+    saved or changed there later never silently changes an already-prepared
+    package on resume.
     """
     _validate_private_output_directory(output_directory)
     _validate_source_video_directory(video_root)
+    highlight_bridge_candidates, highlight_reinforcement_selections = (
+        _resolve_highlight_reinforcement_inputs(
+            highlight_bridge_candidates_path=highlight_bridge_candidates_path,
+            highlight_reinforcement_review_directory=highlight_reinforcement_review_directory,
+        )
+    )
     expected_outputs = (
         output_directory / "local-pipeline-inputs.json",
         output_directory / "local-video-catalog.json",
@@ -183,10 +232,26 @@ def prepare_local_review_package(
         output_directory / "local-pipeline-summary.json",
         output_directory / "evidence-review.json",
         output_directory / "review-clip-manifest.json",
+        output_directory / _HIGHLIGHT_BRIDGE_CANDIDATES_FILE_NAME,
+        output_directory / _HIGHLIGHT_REINFORCEMENT_SELECTIONS_FILE_NAME,
     )
-    if not overwrite and any(path.exists() for path in expected_outputs):
+    if not overwrite and any(_exists_or_is_symlink(path) for path in expected_outputs):
         raise FileExistsError(
             "local pipeline output already exists; choose a new directory or pass overwrite=True"
+        )
+    snapshot_paths = (
+        output_directory / _HIGHLIGHT_BRIDGE_CANDIDATES_FILE_NAME,
+        output_directory / _HIGHLIGHT_REINFORCEMENT_SELECTIONS_FILE_NAME,
+    )
+    if (
+        overwrite
+        and highlight_reinforcement_review_directory is None
+        and any(_exists_or_is_symlink(path) for path in snapshot_paths)
+    ):
+        raise FileExistsError(
+            "local pipeline output holds a highlight-reinforcement snapshot; "
+            "use --resume-output to replay it, provide an explicit review directory "
+            "to replace it, or choose a new output directory"
         )
     inputs_path = output_directory / "local-pipeline-inputs.json"
     inputs = LocalPipelineInputs(
@@ -215,18 +280,24 @@ def prepare_local_review_package(
 
     route = parse_gpx(gpx_path)
     events = consolidate_events(extract_events(route, asset_name_hint="local_catalog"))
-    if highlight_bridge_candidates_path is not None:
-        bridge_candidates = load_highlight_bridge_candidates(
-            highlight_bridge_candidates_path
-        ).candidates
-        events = events + build_highlight_gps_events(bridge_candidates, events)
+    if highlight_bridge_candidates is not None:
+        events = events + build_highlight_gps_events(highlight_bridge_candidates, events)
     video_backed_events = select_video_backed_events(
         events,
         catalog_build.catalog,
         target_duration_s=target_duration_s,
     )
     if not video_backed_events:
-        raise ValueError("no GPS events have local timestamp-matched video coverage")
+        # Say what was on each side of the failed match. Without these counts
+        # the message cannot distinguish a ride the camera never filmed from
+        # a clock offset that put the footage on the wrong part of the ride,
+        # and those need opposite responses.
+        raise ValueError(
+            "no GPS events have local timestamp-matched video coverage: "
+            f"{len(events)} events and {len(catalog_build.catalog.entries)} recordings, "
+            "none overlapping. Check the confirmed clock offset first "
+            "(python -m app.clock_offset)"
+        )
     story_plan = RuleBasedStoryPlanner().plan_selected_events(
         route.summary,
         video_backed_events,
@@ -235,6 +306,13 @@ def prepare_local_review_package(
     )
     candidate_plan = build_candidate_edit_plan(story_plan, events)
     resolved_clips = resolve_candidate_clips(candidate_plan, events, catalog_build.catalog)
+    if highlight_bridge_candidates is not None:
+        resolved_clips = reinforce_resolved_clips_with_highlights(
+            resolved_clips,
+            highlight_bridge_candidates,
+            catalog_build.catalog,
+            selections=highlight_reinforcement_selections,
+        )
     matched_clips = tuple(clip for clip in resolved_clips if clip.status.value == "matched")
 
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -245,10 +323,23 @@ def prepare_local_review_package(
         overwrite=overwrite,
     )
     write_candidate_exports(output_directory, resolved_clips)
+    if highlight_reinforcement_review_directory is not None:
+        # Snapshot exactly what was used, so a rerun can reproduce this same
+        # reinforcement from the package alone (see docstring above).
+        assert highlight_bridge_candidates is not None
+        assert highlight_reinforcement_selections is not None
+        write_highlight_bridge_candidates(
+            output_directory / _HIGHLIGHT_BRIDGE_CANDIDATES_FILE_NAME,
+            HighlightBridgeCandidateSet(highlight_bridge_candidates),
+            overwrite=True,
+        )
+        write_highlight_reinforcement_selections(
+            output_directory / _HIGHLIGHT_REINFORCEMENT_SELECTIONS_FILE_NAME,
+            highlight_reinforcement_selections,
+            overwrite=True,
+        )
     evidence_review_path = output_directory / "evidence-review.json"
-    evidence_review = load_or_autodecide_local_evidence_review(
-        evidence_review_path, resolved_clips
-    )
+    evidence_review = load_or_autodecide_local_evidence_review(evidence_review_path, resolved_clips)
     review_eval = evaluate_local_evidence_review(resolved_clips, evidence_review)
     reviewed_candidate_clips = _apply_evidence_review_to_candidate_clips(
         candidate_plan.clips,
@@ -330,6 +421,17 @@ def rerun_local_director_from_package(
 
     The private input manifest prevents an automation from guessing source
     folders or silently pairing human evidence decisions with a different ride.
+
+    If this package holds a highlight-reinforcement snapshot (from an earlier
+    ``prepare_local_review_package`` call given
+    ``highlight_reinforcement_review_directory``), the rerun reproduces that
+    same reinforcement from the snapshot alone. It never re-reads the
+    original review directory, so a selection saved or changed there after
+    this package was prepared cannot silently change this rerun. A present
+    but unsafe (symlinked) or malformed snapshot fails closed before any GPX
+    or video probing, via the same validation ``prepare_local_review_package``
+    always applies. A package with no snapshot at all reruns exactly as
+    before this feature existed.
     """
     inputs = load_local_pipeline_inputs(output_directory / "local-pipeline-inputs.json")
     review = load_local_evidence_review(output_directory / "evidence-review.json")
@@ -337,17 +439,39 @@ def rerun_local_director_from_package(
     # or unmatched event simply drops out of the story; it no longer has to be
     # confirmed too. An outstanding awaiting decision, or nothing confirmed at
     # all, still blocks the rerun.
-    if not review.decisions or any(
-        decision.evidence_status is CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
-        for decision in review.decisions
-    ) or not any(
-        decision.evidence_status is CandidateEvidenceStatus.CONFIRMED
-        for decision in review.decisions
+    if (
+        not review.decisions
+        or any(
+            decision.evidence_status is CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
+            for decision in review.decisions
+        )
+        or not any(
+            decision.evidence_status is CandidateEvidenceStatus.CONFIRMED
+            for decision in review.decisions
+        )
     ):
         raise ValueError(
             "local visual evidence review must have at least one confirmed decision "
             "and no decision left awaiting before rerunning Director"
         )
+    snapshot_candidates_path = output_directory / _HIGHLIGHT_BRIDGE_CANDIDATES_FILE_NAME
+    snapshot_selections_path = output_directory / _HIGHLIGHT_REINFORCEMENT_SELECTIONS_FILE_NAME
+    has_snapshot_candidates = _exists_or_is_symlink(snapshot_candidates_path)
+    has_snapshot_selections = _exists_or_is_symlink(snapshot_selections_path)
+    if snapshot_candidates_path.is_symlink() or snapshot_selections_path.is_symlink():
+        raise ValueError("private highlight reinforcement review data is unavailable")
+    if has_snapshot_candidates != has_snapshot_selections:
+        raise ValueError(
+            "private highlight-reinforcement snapshot is incomplete; "
+            "both candidates and selections are required for replay"
+        )
+    reinforcement_kwargs: dict[str, Path] = {}
+    if has_snapshot_candidates:
+        # Reuse this package's own output directory as the reinforcement
+        # review directory: it already holds exactly the snapshot written by
+        # the original prepare, so this replays that reinforcement without
+        # ever touching the original external review directory again.
+        reinforcement_kwargs["highlight_reinforcement_review_directory"] = output_directory
     return prepare_local_review_package(
         inputs.gpx_path,
         inputs.video_root,
@@ -360,6 +484,7 @@ def rerun_local_director_from_package(
         probe=probe,
         clip_runner=clip_runner,
         director_mode=True,
+        **reinforcement_kwargs,
     )
 
 
@@ -402,9 +527,7 @@ def load_local_pipeline_inputs(path: Path) -> LocalPipelineInputs:
     )
 
 
-def _write_or_validate_local_pipeline_inputs(
-    path: Path, inputs: LocalPipelineInputs
-) -> None:
+def _write_or_validate_local_pipeline_inputs(path: Path, inputs: LocalPipelineInputs) -> None:
     if path.exists():
         if load_local_pipeline_inputs(path) != inputs:
             raise ValueError("private local pipeline inputs do not match the existing package")
@@ -445,9 +568,7 @@ def _apply_evidence_review_to_candidate_clips(
     decisions = {decision.event_id: decision for decision in review.decisions}
     candidate_event_ids = tuple(clip.event_id for clip in candidate_clips)
     if set(candidate_event_ids) != set(decisions):
-        raise ValueError(
-            "evidence review must contain exactly one decision per candidate clip"
-        )
+        raise ValueError("evidence review must contain exactly one decision per candidate clip")
 
     reviewed_clips: list[CandidateClip] = []
     for clip in candidate_clips:
@@ -501,8 +622,7 @@ def _validate_private_output_directory(output_directory: Path) -> None:
     except ValueError:
         return
     is_private_output = any(
-        relative == root or root in relative.parents
-        for root in _PRIVATE_REPOSITORY_OUTPUT_ROOTS
+        relative == root or root in relative.parents for root in _PRIVATE_REPOSITORY_OUTPUT_ROOTS
     )
     if not is_private_output:
         raise ValueError(
@@ -521,6 +641,62 @@ def _validate_source_video_directory(video_root: Path) -> None:
         raise ValueError(
             "source video directory must not be inside private-media/work derived output"
         )
+
+
+def _resolve_highlight_reinforcement_inputs(
+    *,
+    highlight_bridge_candidates_path: Path | None,
+    highlight_reinforcement_review_directory: Path | None,
+) -> tuple[
+    tuple[HighlightBridgeCandidate, ...] | None,
+    HighlightReinforcementSelectionSet | None,
+]:
+    """Load an optional highlight-reinforcement input, failing closed early.
+
+    Called before any GPX or video probing. Exactly one of the two
+    mechanisms may be used per call; requesting both is rejected rather than
+    guessing which one wins. Only the directory mechanism reads a companion
+    ``HighlightReinforcementSelectionSet``; the older single-file mechanism
+    is unchanged and always returns ``None`` selections (meaning: use
+    ``reinforce_resolved_clips_with_highlights``'s automatic priority only).
+    No parent or sibling directory is scanned or inferred: only the exact
+    given directory, and exactly the two file names it is expected to
+    contain, are read.
+    """
+    if (
+        highlight_bridge_candidates_path is not None
+        and highlight_reinforcement_review_directory is not None
+    ):
+        raise ValueError(
+            "highlight_bridge_candidates_path and highlight_reinforcement_review_directory "
+            "cannot both be given; choose one highlight reinforcement input"
+        )
+    if highlight_reinforcement_review_directory is not None:
+        directory = highlight_reinforcement_review_directory
+        if directory.is_symlink() or not directory.is_dir():
+            raise ValueError("private highlight reinforcement review directory is unavailable")
+        candidates_path = directory / _HIGHLIGHT_BRIDGE_CANDIDATES_FILE_NAME
+        if candidates_path.is_symlink() or not candidates_path.is_file():
+            raise ValueError("private highlight reinforcement review data is unavailable")
+        candidates = load_highlight_bridge_candidates(candidates_path).candidates
+        selections_path = directory / _HIGHLIGHT_REINFORCEMENT_SELECTIONS_FILE_NAME
+        if selections_path.is_symlink():
+            raise ValueError("private highlight reinforcement review data is unavailable")
+        selections = (
+            load_highlight_reinforcement_selections(selections_path)
+            if selections_path.is_file()
+            else HighlightReinforcementSelectionSet(())
+        )
+        return candidates, selections
+    if highlight_bridge_candidates_path is not None:
+        candidates = load_highlight_bridge_candidates(highlight_bridge_candidates_path).candidates
+        return candidates, None
+    return None, None
+
+
+def _exists_or_is_symlink(path: Path) -> bool:
+    """Treat dangling symlinks as occupied paths for fail-closed checks."""
+    return path.exists() or path.is_symlink()
 
 
 def main() -> None:
@@ -559,13 +735,39 @@ def main() -> None:
         help=(
             "private highlight-bridge-candidates.json (from app.video.highlight_research) "
             "whose review-approved, non-overlapping candidates are merged into the GPS "
-            "event pool before Story Planning; not remembered for --resume-output"
+            "event pool before Story Planning; not remembered for --resume-output. Cannot "
+            "be combined with --highlight-reinforcement-review-directory"
+        ),
+    )
+    parser.add_argument(
+        "--highlight-reinforcement-review-directory",
+        type=Path,
+        help=(
+            "private local directory (same layout "
+            "app.web.private_highlight_reinforcement_review reads/writes) holding "
+            "highlight-bridge-candidates.json and an optional "
+            "highlight-reinforcement-selections.json; used the same way as "
+            "--highlight-bridge-candidates but with an explicit human selection layered on "
+            "top. Read only from this exact path, never a parent or sibling directory. Its "
+            "effective candidates and selections are snapshotted into --output so that "
+            "--resume-output later replays them from the snapshot alone, never from this "
+            "directory or anywhere external again. Cannot be combined with "
+            "--highlight-bridge-candidates"
         ),
     )
     args = parser.parse_args()
     if args.resume_output is not None:
         if args.gpx is not None or args.video_root is not None or args.output is not None:
             parser.error("--resume-output cannot be combined with GPX, video_root, or --output")
+        if (
+            args.highlight_bridge_candidates is not None
+            or args.highlight_reinforcement_review_directory is not None
+        ):
+            parser.error(
+                "--resume-output replays a package's own highlight-reinforcement snapshot "
+                "automatically; it cannot be combined with --highlight-bridge-candidates or "
+                "--highlight-reinforcement-review-directory"
+            )
         result = rerun_local_director_from_package(args.resume_output)
         print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
         return
@@ -573,6 +775,14 @@ def main() -> None:
         parser.error("GPX, video_root, and --output are required unless --resume-output is used")
     if args.clock_offset_s is None:
         parser.error("--clock-offset-s is required unless --resume-output is used")
+    if (
+        args.highlight_bridge_candidates is not None
+        and args.highlight_reinforcement_review_directory is not None
+    ):
+        parser.error(
+            "--highlight-bridge-candidates and --highlight-reinforcement-review-directory "
+            "cannot both be given; choose one highlight reinforcement input"
+        )
     result = prepare_local_review_package(
         args.gpx,
         args.video_root,
@@ -585,6 +795,7 @@ def main() -> None:
         overwrite=args.overwrite,
         director_mode=args.director_mode,
         highlight_bridge_candidates_path=args.highlight_bridge_candidates,
+        highlight_reinforcement_review_directory=args.highlight_reinforcement_review_directory,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
 

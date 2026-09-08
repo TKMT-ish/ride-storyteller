@@ -3,6 +3,30 @@
 > Verified through the authenticated Devpost workflow on 2026-08-24. This is a
 > working compliance record, not a substitute for the official rules.
 
+## Hosted-project access decision on 2026-09-08
+
+A direct fetch of the live official rules page confirmed the exact hosted
+deliverable text: "Include a URL to the hosted Project for judging and
+testing." It also requires the project to "function as depicted in the
+video." Neither clause requires the hosted URL to be reachable by the general
+public with no credential; the rules only require that judges themselves can
+reach and test it. Devpost support was not separately contacted for this
+narrower question.
+
+Given that reading, and to keep Cloud Run cost risk controlled before the
+2026-09-09 21:00 UTC / 2026-09-10 06:00 JST deadline, the decision is:
+Cloud Run IAM moves to unauthenticated (`--no-invoker-iam-check`, avoiding the
+operational cost of pre-registering every judge's Google account for
+IAM-private access), gated by an application-level HTTP Basic credential
+shared with judges only through the Devpost submission form's
+testing-instructions field. `public_demo` mode's existing fail-closed design
+(no billable calls, request-shape guard, 60 req/min limiter, one instance,
+budget alerts) remains the primary cost control; Basic Auth is an additional
+access gate, not a replacement. See
+[`../public-demo-hosting.md`](../public-demo-hosting.md) for the
+implementation and current deployment status, which as of this entry is
+decided and tested but not yet redeployed.
+
 ## Live submission-preparation refresh on 2026-08-24
 
 The authenticated Devpost workflow returned complete submission requirements,

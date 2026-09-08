@@ -132,8 +132,7 @@ def evaluate_local_evidence_review(
     awaiting = tuple(
         event_id
         for event_id in clip_event_ids
-        if decisions[event_id].evidence_status
-        is CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
+        if decisions[event_id].evidence_status is CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
     )
     rejected = tuple(
         event_id

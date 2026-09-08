@@ -10,6 +10,88 @@ from app.web.rate_limit import FixedWindowRateLimiter
 from app.web.server import _page, application
 
 
+def _journey_status_package(root: Path) -> Path:
+    """The smallest package the status view will read, built from real writers."""
+    import json as _json
+    from datetime import UTC, datetime
+
+    from app.agents import StoryOutputLanguage
+    from app.edit import CandidateEvidenceStatus
+    from app.local_pipeline import LocalPipelineInputs
+    from app.video import (
+        LocalEvidenceDecision,
+        LocalEvidenceReview,
+        ResolvedCandidateClip,
+        VideoCatalog,
+        VideoCatalogEntry,
+        VideoMatchStatus,
+        export_candidate_json,
+        write_local_evidence_review,
+    )
+
+    root.mkdir(parents=True, exist_ok=True)
+    (root / "ride.gpx").write_text(
+        '<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1" creator="t" '
+        'xmlns="http://www.topografix.com/GPX/1/1"><trk><trkseg></trkseg></trk></gpx>',
+        encoding="utf-8",
+    )
+    started = datetime(2026, 5, 1, 9, 0, 0, tzinfo=UTC)
+    inputs = LocalPipelineInputs(
+        gpx_path=(root / "ride.gpx").resolve(),
+        video_root=root.resolve(),
+        video_to_gps_offset_s=0.0,
+        target_duration_s=60.0,
+        output_language=StoryOutputLanguage.JAPANESE,
+    )
+    (root / "local-pipeline-inputs.json").write_text(
+        _json.dumps(inputs.to_dict(), ensure_ascii=False), encoding="utf-8"
+    )
+    (root / "local-video-catalog.json").write_text(
+        _json.dumps(
+            VideoCatalog(
+                entries=(
+                    VideoCatalogEntry(
+                        asset_id="asset-synthetic-1",
+                        file_name="synthetic.mp4",
+                        recorded_start_time=started,
+                        duration_s=600.0,
+                    ),
+                ),
+                video_to_gps_offset_s=0.0,
+            ).to_dict(),
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    clip = ResolvedCandidateClip(
+        chapter_id="chapter_a",
+        event_id="evt_a",
+        status=VideoMatchStatus.MATCHED,
+        asset_id="asset-synthetic-1",
+        file_name="synthetic.mp4",
+        start_offset_s=0.0,
+        end_offset_s=30.0,
+        reason="synthetic",
+    )
+    (root / "ride-storyteller-candidates.json").write_text(
+        export_candidate_json((clip,)), encoding="utf-8"
+    )
+    write_local_evidence_review(
+        root / "evidence-review.json",
+        LocalEvidenceReview(
+            (
+                LocalEvidenceDecision(
+                    event_id="evt_a",
+                    evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                    evidence_source="synthetic_decision",
+                ),
+            )
+        ),
+        overwrite=True,
+    )
+    return root
+
+
 @pytest.fixture(autouse=True)
 def _reset_public_demo_rate_limiter(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
@@ -20,7 +102,11 @@ def _reset_public_demo_rate_limiter(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def _request(
-    path: str, query_string: str = "", body: bytes = b"", method: str = "GET"
+    path: str,
+    query_string: str = "",
+    body: bytes = b"",
+    method: str = "GET",
+    authorization: str | None = None,
 ) -> tuple[str, dict[str, str], bytes]:
     captured: dict[str, object] = {}
 
@@ -28,18 +114,16 @@ def _request(
         captured["status"] = status
         captured["headers"] = dict(headers)
 
-    body = b"".join(
-        application(
-            {
-                "PATH_INFO": path,
-                "QUERY_STRING": query_string,
-                "REQUEST_METHOD": method,
-                "CONTENT_LENGTH": str(len(body)),
-                "wsgi.input": BytesIO(body),
-            },
-            start_response,
-        )
-    )
+    environ: dict[str, object] = {
+        "PATH_INFO": path,
+        "QUERY_STRING": query_string,
+        "REQUEST_METHOD": method,
+        "CONTENT_LENGTH": str(len(body)),
+        "wsgi.input": BytesIO(body),
+    }
+    if authorization is not None:
+        environ["HTTP_AUTHORIZATION"] = authorization
+    body = b"".join(application(environ, start_response))
     return captured["status"], captured["headers"], body  # type: ignore[return-value]
 
 
@@ -410,11 +494,20 @@ def test_synthetic_director_transport_failure_uses_safe_rule_based_fallback() ->
     assert script["composer"] == "rule_based"
     assert script["fallback_used"] is True
     assert [scene["role"] for scene in script["scenes"]] == [
-        "hook", "build_up", "climax", "resolution"
+        "hook",
+        "build_up",
+        "climax",
+        "resolution",
     ]
     for forbidden in (
-        "event_id", "source_asset_id", "source_start_sec", "source_end_sec",
-        "file_name", "latitude", "longitude", "path",
+        "event_id",
+        "source_asset_id",
+        "source_start_sec",
+        "source_end_sec",
+        "file_name",
+        "latitude",
+        "longitude",
+        "path",
     ):
         assert forbidden not in serialized
 
@@ -508,6 +601,8 @@ def test_public_demo_disables_private_and_billable_endpoints(
         "/api/private-gpx-summary",
         "/private-director-preview",
         "/api/private-director-preview",
+        "/private-journey-status",
+        "/api/private-journey-status",
     ):
         status, _, body = _request(path, method="POST")
         assert status == "403 Forbidden"
@@ -579,7 +674,7 @@ def test_public_demo_keeps_deterministic_views_and_health_check_available(
     assert health_body.decode() == (
         '{"status": "ok", "mode": "public_demo", '
         '"external_actions_enabled": false, "private_gpx_enabled": false, '
-        '"source_repository_configured": false}'
+        '"source_repository_configured": false, "basic_auth_configured": false}'
     )
     assert health_headers["Cache-Control"] == "no-store"
     assert health_headers["Permissions-Policy"] == "camera=(), microphone=(), geolocation=()"
@@ -629,6 +724,111 @@ def test_public_demo_rate_limit_returns_retry_after_but_exempts_health(
     assert health_status == "200 OK"
 
 
+def _basic_auth_header(username: str, password: str) -> str:
+    import base64
+
+    token = base64.b64encode(f"{username}:{password}".encode()).decode()
+    return f"Basic {token}"
+
+
+def test_public_demo_requires_basic_auth_once_a_judge_credential_is_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    missing_status, missing_headers, missing_body = _request("/")
+    health_status, _, _ = _request("/health")
+
+    assert missing_status == "401 Unauthorized"
+    assert missing_body == b'{"error":"authentication required"}'
+    assert missing_headers["WWW-Authenticate"].startswith("Basic realm=")
+    assert health_status == "200 OK"
+
+
+def test_public_demo_accepts_the_correct_basic_auth_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    status, _, _ = _request("/api/demo", authorization=_basic_auth_header("judge", "correct-horse"))
+
+    assert status == "200 OK"
+
+
+@pytest.mark.parametrize(
+    "authorization",
+    (
+        None,
+        "Basic not-base64!!",
+        "Bearer sometoken",
+        "",
+    ),
+)
+def test_public_demo_rejects_malformed_or_missing_authorization_headers(
+    authorization: str | None, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    status, _, body = _request("/api/demo", authorization=authorization)
+
+    assert status == "401 Unauthorized"
+    assert body == b'{"error":"authentication required"}'
+
+
+def test_public_demo_rejects_the_wrong_basic_auth_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    wrong_password, _, _ = _request(
+        "/api/demo", authorization=_basic_auth_header("judge", "wrong-guess")
+    )
+    wrong_username, _, _ = _request(
+        "/api/demo", authorization=_basic_auth_header("someone-else", "correct-horse")
+    )
+
+    assert wrong_password == "401 Unauthorized"
+    assert wrong_username == "401 Unauthorized"
+
+
+def test_public_demo_without_a_configured_credential_stays_open(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "public_demo")
+    for name in ("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD"):
+        monkeypatch.delenv(name, raising=False)
+
+    status, _, _ = _request("/api/demo")
+
+    assert status == "200 OK"
+
+
+def test_local_mode_ignores_a_configured_judge_credential(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_WEB_MODE", "local")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_USER", "judge")
+    monkeypatch.setenv("RIDE_PUBLIC_DEMO_BASIC_AUTH_PASSWORD", "correct-horse")
+
+    status, _, _ = _request("/api/demo")
+
+    assert status == "200 OK"
+
+
 def test_local_mode_does_not_apply_public_request_shape_or_rate_limit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -645,3 +845,77 @@ def test_local_mode_does_not_apply_public_request_shape_or_rate_limit(
 
     assert first_status == "200 OK"
     assert second_status == "200 OK"
+
+
+def test_private_journey_status_is_unavailable_until_configured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY", raising=False)
+
+    for path in ("/private-journey-status", "/api/private-journey-status"):
+        status, _, body = _request(path)
+        assert status == "503 Service Unavailable"
+        assert b"private journey status is unavailable" in body
+
+
+def test_private_journey_status_serves_a_page_and_its_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    package = _journey_status_package(tmp_path / "package")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY", str(package))
+
+    status, headers, body = _request("/private-journey-status")
+    assert status == "200 OK"
+    assert headers["Content-Type"] == "text/html; charset=utf-8"
+    # The page fetches its own data; the path is never written into the HTML.
+    assert b"/api/private-journey-status" in body
+    assert str(package).encode() not in body
+
+    status, headers, body = _request("/api/private-journey-status")
+    assert status == "200 OK"
+    assert headers["Content-Type"] == "application/json; charset=utf-8"
+    payload = json.loads(body)
+    assert payload["local_only"] is True
+    assert payload["external_data_sent"] is False
+    assert [stage["key"] for stage in payload["stages"]] == [
+        "inputs_checked",
+        "story_planned",
+        "film_cut",
+        "film_scored",
+    ]
+
+
+def test_private_journey_status_unavailable_notice_links_to_the_intake_console(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The status page has no intake control; its 'no day yet' notice must not
+    claim one is "below" — it must link to the console page that has it."""
+    package = _journey_status_package(tmp_path / "package")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY", str(package))
+
+    japanese_status, _, japanese_body = _request("/private-journey-status")
+    english_status, _, english_body = _request("/private-journey-status", "lang=en")
+
+    assert japanese_status == english_status == "200 OK"
+    japanese = japanese_body.decode()
+    english = english_body.decode()
+    assert '\\u003ca href=\\"/private-journey?lang=ja\\"' in japanese
+    assert '\\u003ca href=\\"/private-journey?lang=en\\"' in english
+    assert "下の" not in japanese
+    assert "below" not in english
+
+
+def test_private_journey_status_rejects_anything_but_a_read(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The page starts nothing: rendering is a deliberate command elsewhere."""
+    package = _journey_status_package(tmp_path / "package")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY", str(package))
+
+    for path in ("/private-journey-status", "/api/private-journey-status"):
+        status, _, _ = _request(path, method="POST")
+        assert status == "405 Method Not Allowed"

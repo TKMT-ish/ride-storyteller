@@ -14,10 +14,22 @@ resource names, private paths, GPX contents, or video file names.
 
 ## Latest result
 
-2026-08-30: **325 pytest tests passed**, Ruff was clean, and
-`git diff --check` passed. Seven warnings came from external Google／Vertex／Agent
-Platform SDK deprecations and were not project-code failures. The run did not
-upload media or GPX and did not create or modify a cloud resource.
+2026-09-07: **2,329 pytest tests passed**, Ruff check and format were clean,
+`git diff --check` passed, and `python -m app.submission` reported
+`offline_preparation_complete=true` on all six local checks. Seven warnings came
+from external Google／Vertex／Agent Platform SDK deprecations and were not
+project-code failures. The run did not upload media or GPX and did not create or
+modify a cloud resource.
+
+Every test is built from synthetic fixtures. No test reads a real ride, reaches
+Google, or opens a network connection: the map-reference fetcher is exercised
+through an injected sender, the place service through an injected fetcher, and
+the video transports through mock analyzers.
+
+2026-08-30: 325 tests passed. The growth since is mostly the story layer — legs
+and chapters, the moments the track proves, sections, place names, map
+references, stop kinds, the picture of a place, ferries, highlights — each with
+its boundaries and failure paths covered.
 
 The earlier 2026-08-25 submission-preflight run passed the document, required
 Devpost-draft headings, AGPL-3.0-license, private-ignore, private-file, and secret

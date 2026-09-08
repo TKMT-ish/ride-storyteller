@@ -105,6 +105,7 @@ def test_deploy_synthetic_agent_runtime_stages_only_the_app_package(monkeypatch)
         "app.agent_runtime.agent_platform.vertexai.init",
         lambda **_kwargs: None,
     )
+
     class FakeAgentEngines:
         def create(self, **kwargs):
             captured.update(kwargs)
@@ -198,9 +199,7 @@ def test_get_verification_agent_rejects_missing_resource_name() -> None:
 
 def test_runtime_reference_reports_presence_without_exposing_resource_name() -> None:
     reference = AgentPlatformRuntimeSettings(
-        resource_name=(
-            "projects/123456/locations/asia-northeast1/reasoningEngines/runtime-1"
-        )
+        resource_name=("projects/123456/locations/asia-northeast1/reasoningEngines/runtime-1")
     )
 
     payload = reference.to_dict()
@@ -235,9 +234,7 @@ def test_get_configured_runtime_requires_expected_synthetic_agent(monkeypatch) -
         staging_bucket="gs://ride-storyteller-staging",
     )
     reference = AgentPlatformRuntimeSettings(
-        resource_name=(
-            "projects/123456/locations/asia-northeast1/reasoningEngines/runtime-1"
-        )
+        resource_name=("projects/123456/locations/asia-northeast1/reasoningEngines/runtime-1")
     )
     api_resource = type(
         "Resource",

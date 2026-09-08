@@ -14,6 +14,32 @@
 9. Synthetic Gemini Story copy success metadata only; do not show generated
    model text or credentials.
 
+## Captured from a real ride — 2026-09-07
+
+7. [`07-console-stages-en.png`](assets/07-console-stages-en.png) — the local
+   console with every stage of one real riding day complete: what judging would
+   send and cost (187 windows, 136 MB, ¥27.63 against a ¥500 ceiling), the
+   copies made, the judgement bought, the story planned, the film cut, the music
+   added.
+
+   **Deliberately cropped.** The page continues below with the film's chapter
+   titles, which are the towns the ride actually went through. Place names from
+   the rider's own material do not go into the repository, so the capture ends
+   at the stage table. Nothing in the visible area is a file name, a path, a
+   coordinate or a capture time.
+
+   Reproduce it with:
+
+   ```bash
+   RIDE_WEB_PORT=8791 RIDE_UI_DEFAULT_LANGUAGE=en \
+     RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY="$(pwd)/private-media/work/<package>" \
+     .venv/bin/python -m app.web.server &
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new \
+     --hide-scrollbars --virtual-time-budget=6000 --window-size=1400,625 \
+     --screenshot=07-console-stages-en.png \
+     "http://127.0.0.1:8791/private-journey?lang=en"
+   ```
+
 ## Captured synthetic-only assets — 2026-08-20
 
 The following English screenshots were captured from the loopback-only local

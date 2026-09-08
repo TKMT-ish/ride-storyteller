@@ -22,6 +22,7 @@ from app.video.catalog import ResolvedCandidateClip, VideoMatchStatus
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _gps_event(
     event_id: str = "evt_001",
     event_type: str = "elevation_change",
@@ -150,9 +151,7 @@ class _FakeScoredWindow:
         scenic_score: float = 0.75,
         balanced_score: float = 0.77,
     ) -> None:
-        self.evidence = _FakeEvidence(
-            _FakeWindowEvidence(asset_id, window_start, window_duration)
-        )
+        self.evidence = _FakeEvidence(_FakeWindowEvidence(asset_id, window_start, window_duration))
         self.quality_score = quality_score
         self.scenic_score = scenic_score
         self.balanced_score = balanced_score
@@ -161,6 +160,7 @@ class _FakeScoredWindow:
 # ---------------------------------------------------------------------------
 # 1. GPS-only (no CandidateClip, no resolved clip, no scored window)
 # ---------------------------------------------------------------------------
+
 
 def test_gps_only_source_is_unresolved() -> None:
     """Without a resolved clip, source identity must be None."""
@@ -193,6 +193,7 @@ def test_gps_only_scores_are_none() -> None:
 # 2. CandidateClip alone does NOT resolve source identity
 # ---------------------------------------------------------------------------
 
+
 def test_candidate_clip_alone_does_not_set_source_identity() -> None:
     """CandidateClip carries evidence_status only; it is not a resolved source."""
     event = to_universal_event(_gps_event(), candidate_clip=_confirmed_clip())
@@ -212,6 +213,7 @@ def test_candidate_clip_alone_does_not_confirm_evidence() -> None:
 # ---------------------------------------------------------------------------
 # 3. ResolvedCandidateClip as source
 # ---------------------------------------------------------------------------
+
 
 def test_matched_resolved_clip_provides_source_identity() -> None:
     resolved = _matched_resolved(asset_id="asset-abc", start_offset_s=10.0, end_offset_s=40.0)
@@ -276,6 +278,7 @@ def test_requested_interval_is_from_gps_query_not_resolved_clip() -> None:
 # 4. Location context
 # ---------------------------------------------------------------------------
 
+
 def test_location_context_is_populated() -> None:
     ctx = UniversalEventLocationContext(
         place_name="Lindis Pass",
@@ -317,6 +320,7 @@ def test_elevation_evidence_false_without_elevation() -> None:
 # 5. Sub-category
 # ---------------------------------------------------------------------------
 
+
 def test_sub_category_is_passed_through() -> None:
     event = to_universal_event(_gps_event(), sub_category="mountain_pass")
 
@@ -326,6 +330,7 @@ def test_sub_category_is_passed_through() -> None:
 # ---------------------------------------------------------------------------
 # 6. Privacy (required test #16)
 # ---------------------------------------------------------------------------
+
 
 def test_universal_event_contains_no_latitude_or_longitude() -> None:
     """Raw GPS coordinates must never appear in UniversalEvent."""
@@ -356,8 +361,10 @@ def test_universal_event_contains_no_file_name_or_path() -> None:
 
 def test_location_context_contains_no_raw_coordinates() -> None:
     ctx = UniversalEventLocationContext(
-        place_name="Roys Peak", poi_type="summit",
-        road_context="gravel_track", elevation_m=1578.0,
+        place_name="Roys Peak",
+        poi_type="summit",
+        road_context="gravel_track",
+        elevation_m=1578.0,
     )
     fields = {f.name for f in dataclasses.fields(ctx)}
     assert "latitude" not in fields
@@ -367,6 +374,7 @@ def test_location_context_contains_no_raw_coordinates() -> None:
 # ---------------------------------------------------------------------------
 # 7. UniversalEvent.__post_init__ invariants
 # ---------------------------------------------------------------------------
+
 
 def _valid_unresolved_event(**overrides: object) -> UniversalEvent:
     defaults: dict[str, object] = dict(
@@ -509,6 +517,7 @@ def test_rejects_ranking_score_without_video_evidence() -> None:
 # 8. Cross-event ID rejection
 # ---------------------------------------------------------------------------
 
+
 def test_mismatched_candidate_clip_event_id_raises() -> None:
     gps = _gps_event("evt_001")
     clip = _confirmed_clip("evt_002")
@@ -545,6 +554,7 @@ def test_matching_event_ids_confirmed_succeeds() -> None:
 # 9. NOT_FOUND resolved clip rejected as source (required test #2)
 # ---------------------------------------------------------------------------
 
+
 def test_not_found_resolved_clip_raises_as_source() -> None:
     """Required test #2: NOT_FOUND resolved clip must not provide source identity."""
     gps = _gps_event("evt_001")
@@ -556,6 +566,7 @@ def test_not_found_resolved_clip_raises_as_source() -> None:
 # ---------------------------------------------------------------------------
 # 10. scored_window prerequisite failures (required tests #3, #4)
 # ---------------------------------------------------------------------------
+
 
 def test_scored_window_without_candidate_clip_raises() -> None:
     """Required test #3: scored_window without candidate_clip must raise."""
@@ -590,6 +601,7 @@ def test_scored_window_asset_id_mismatch_raises() -> None:
 # ---------------------------------------------------------------------------
 # 11. scored_window interval containment (required tests #5, #6, #7, #8)
 # ---------------------------------------------------------------------------
+
 
 def test_scored_window_starting_before_resolved_raises() -> None:
     """Required test #5: window starting before resolved clip start must raise."""
@@ -627,7 +639,10 @@ def test_scored_window_contained_within_resolved_is_accepted() -> None:
     # window 15.0–27.0, fully inside 10.0–40.0
     window = _FakeScoredWindow(asset_id="asset-abc", window_start=15.0, window_duration=12.0)
     event = to_universal_event(  # type: ignore[call-arg]
-        gps, candidate_clip=clip, resolved_clip=resolved, scored_window=window,
+        gps,
+        candidate_clip=clip,
+        resolved_clip=resolved,
+        scored_window=window,
     )
     assert event.source_asset_id == "asset-abc"
     assert event.source_start_sec == pytest.approx(15.0)
@@ -644,7 +659,10 @@ def test_scored_window_becomes_source_interval() -> None:
     window = _FakeScoredWindow(asset_id="asset-abc", window_start=18.0, window_duration=12.0)
 
     event = to_universal_event(  # type: ignore[call-arg]
-        gps, candidate_clip=clip, resolved_clip=resolved, scored_window=window,
+        gps,
+        candidate_clip=clip,
+        resolved_clip=resolved,
+        scored_window=window,
     )
 
     # Source interval is window (18–30), not resolved (10–40)
@@ -659,6 +677,7 @@ def test_scored_window_becomes_source_interval() -> None:
 # 12. scored_window with evidence flags (required tests #12, #13)
 # ---------------------------------------------------------------------------
 
+
 def test_scored_window_sets_video_evidence_true() -> None:
     """Required test #12: accepted scored_window sets evidence.video=True."""
     gps = _gps_event("evt_001")
@@ -669,7 +688,10 @@ def test_scored_window_sets_video_evidence_true() -> None:
     window = _FakeScoredWindow(asset_id="asset-abc", window_start=15.0, window_duration=12.0)
 
     event = to_universal_event(  # type: ignore[call-arg]
-        gps, candidate_clip=clip, resolved_clip=resolved, scored_window=window,
+        gps,
+        candidate_clip=clip,
+        resolved_clip=resolved,
+        scored_window=window,
     )
 
     assert event.evidence.video is True
@@ -684,12 +706,19 @@ def test_scored_window_alone_does_not_confirm_evidence() -> None:
         "evt_001", asset_id="asset-abc", start_offset_s=10.0, end_offset_s=40.0
     )
     window = _FakeScoredWindow(
-        asset_id="asset-abc", window_start=15.0, window_duration=12.0,
-        quality_score=0.99, scenic_score=0.99, balanced_score=0.99,
+        asset_id="asset-abc",
+        window_start=15.0,
+        window_duration=12.0,
+        quality_score=0.99,
+        scenic_score=0.99,
+        balanced_score=0.99,
     )
 
     event = to_universal_event(  # type: ignore[call-arg]
-        gps, candidate_clip=clip, resolved_clip=resolved, scored_window=window,
+        gps,
+        candidate_clip=clip,
+        resolved_clip=resolved,
+        scored_window=window,
     )
 
     assert event.evidence_confirmed is False
@@ -704,12 +733,19 @@ def test_confirmed_clip_matched_resolved_and_window_all_confirmed() -> None:
         "evt_001", asset_id="asset-abc", start_offset_s=10.0, end_offset_s=40.0
     )
     window = _FakeScoredWindow(
-        asset_id="asset-abc", window_start=15.0, window_duration=12.0,
-        quality_score=0.85, scenic_score=0.80, balanced_score=0.82,
+        asset_id="asset-abc",
+        window_start=15.0,
+        window_duration=12.0,
+        quality_score=0.85,
+        scenic_score=0.80,
+        balanced_score=0.82,
     )
 
     event = to_universal_event(  # type: ignore[call-arg]
-        gps, candidate_clip=clip, resolved_clip=resolved, scored_window=window,
+        gps,
+        candidate_clip=clip,
+        resolved_clip=resolved,
+        scored_window=window,
     )
 
     assert event.evidence_confirmed is True
@@ -722,6 +758,7 @@ def test_confirmed_clip_matched_resolved_and_window_all_confirmed() -> None:
 # ---------------------------------------------------------------------------
 # 13. Director input contract: only confirmed events
 # ---------------------------------------------------------------------------
+
 
 def test_only_confirmed_events_are_director_ready() -> None:
     """Director input must be filtered to evidence_confirmed=True only."""
@@ -756,6 +793,7 @@ def test_only_confirmed_events_are_director_ready() -> None:
 # 14. ranking_score field name
 # ---------------------------------------------------------------------------
 
+
 def test_ranking_score_field_exists_not_confidence() -> None:
     fields = {f.name for f in dataclasses.fields(UniversalEvent)}
     assert "ranking_score" in fields
@@ -765,6 +803,7 @@ def test_ranking_score_field_exists_not_confidence() -> None:
 # ---------------------------------------------------------------------------
 # 15. NEW invariants: confirmed/score require resolved source (required tests #1-4)
 # ---------------------------------------------------------------------------
+
 
 def test_visual_score_with_video_but_no_source_raises() -> None:
     """Required test #2: visual_score + evidence.video=True + source None → ValueError."""
@@ -823,12 +862,13 @@ def test_visual_score_with_resolved_source_succeeds() -> None:
 # 16. NEW: chapter_id consistency check (required tests #5, #6)
 # ---------------------------------------------------------------------------
 
+
 def test_candidate_and_resolved_same_event_different_chapter_raises() -> None:
     """Required test #5: same event_id but different chapter_id must raise."""
     gps = _gps_event("evt_001")
     clip = _confirmed_clip("evt_001")  # chapter_id = "chapter_01"
     resolved = ResolvedCandidateClip(
-        chapter_id="chapter_02",         # different chapter
+        chapter_id="chapter_02",  # different chapter
         event_id="evt_001",
         status=VideoMatchStatus.MATCHED,
         asset_id="asset-abc",
@@ -844,8 +884,8 @@ def test_candidate_and_resolved_same_event_different_chapter_raises() -> None:
 def test_candidate_and_resolved_same_event_same_chapter_succeeds() -> None:
     """Required test #6: same event_id and same chapter_id must succeed."""
     gps = _gps_event("evt_001")
-    clip = _confirmed_clip("evt_001")   # chapter_id = "chapter_01"
-    resolved = _matched_resolved("evt_001")   # chapter_id = "chapter_01"
+    clip = _confirmed_clip("evt_001")  # chapter_id = "chapter_01"
+    resolved = _matched_resolved("evt_001")  # chapter_id = "chapter_01"
     event = to_universal_event(gps, candidate_clip=clip, resolved_clip=resolved)
     assert event.evidence_confirmed is True
 
@@ -853,6 +893,7 @@ def test_candidate_and_resolved_same_event_same_chapter_succeeds() -> None:
 # ---------------------------------------------------------------------------
 # 17. NEW: source_asset_id content validation (required tests #7, #8)
 # ---------------------------------------------------------------------------
+
 
 def test_source_asset_id_empty_string_raises() -> None:
     """Required test #7: source_asset_id="" must raise."""
@@ -880,6 +921,7 @@ def test_source_asset_id_whitespace_only_raises() -> None:
 # 18. NEW: source_start_sec non-negative (required test #9)
 # ---------------------------------------------------------------------------
 
+
 def test_source_start_sec_negative_raises() -> None:
     """Required test #9: source_start_sec < 0 must raise."""
     with pytest.raises(ValueError, match="source_start_sec must be non-negative"):
@@ -894,6 +936,7 @@ def test_source_start_sec_negative_raises() -> None:
 # ---------------------------------------------------------------------------
 # 19. NEW: requested_start_sec non-negative (required test #10)
 # ---------------------------------------------------------------------------
+
 
 def test_requested_start_sec_negative_raises() -> None:
     """Required test #10: requested_start_sec < 0 must raise."""

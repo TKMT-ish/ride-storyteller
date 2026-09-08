@@ -1,14 +1,28 @@
 # Ride Storyteller
 
-Ride Storyteller turns motorcycle-touring footage and GPS context into an
-evidence-based travel story. The repository contains a tested synthetic Agent
-loop, a private local GPX/video workflow, fail-closed edit gates, a bilingual
-demo UI, and synthetic-only Google ADK / Agent Platform integration.
+Ride Storyteller turns one day of motorcycle touring into one short film,
+locally, from evidence. It reads the GPS track to find events it can explain,
+matches them against footage by time, and cuts a film. What was never filmed
+is not invented: each uncovered stretch of the ride becomes a chapter card
+carrying only what the track proves, over a drawing of the route.
 
 ```
-GPS event -> Story Agent decides video evidence is needed
-          -> media search tool -> video analyser -> Story Agent updates decision
+GPX + footage -> clock offset (one human answer) -> footage windows
+              -> local copies (95 MB, not 68 GiB) -> spend gate -> Gemini judges every window
+              -> selection -> journey gaps -> one chronological story -> chapter text
+              -> cards, cut, subtitles, music -> a film
 ```
+
+**Exactly one question needs a person**: whether the camera's clock agreed
+with the GPS. The system proposes that offset with its evidence; everything
+else is decided from evidence. On one real ride it recovered -46,800 s from 49
+recordings, unambiguously; Gemini then judged 173 windows of that ride for
+¥25.6, and the film cut from its judgement runs 320.8 s: twenty judged windows
+and twenty-one chapter cards.
+
+The repository also contains a synthetic-only Google Cloud Agent Builder
+integration (Agent Development Kit on Gemini 2.5 Flash, hosted on Agent
+Engine), a bilingual demo UI, and fail-closed gates throughout.
 
 The current implementation baseline and the open system-design questions are
 summarized in
@@ -28,30 +42,136 @@ summarized in
   boundaries. A Vertex video transport exists only for an already-approved
   `gs://` object and does not upload local files.
 - Real GoPro media, Garmin logs, OAuth tokens, and API keys must never be committed. `.env` and private media/GPS formats are ignored.
-- A hosted synthetic-only Agent Platform Runtime has been validated separately.
-  This does not authorize real GPX, route coordinates, or video transfer and
-  does not establish Google Cloud Agent Builder compatibility by itself.
-- Visual evidence remains `awaiting_video_evidence` until a human explicitly
-  confirms or rejects it. Local candidate generation never auto-confirms a clip.
+- A hosted synthetic-only Agent Engine runtime has been validated separately.
+  This does not authorize real GPX, route coordinates, or video transfer. Which
+  Agent Builder components this uses -- and which it deliberately does not --
+  is set out in
+  [`docs/submission/agent-builder-conformance.md`](docs/submission/agent-builder-conformance.md).
+- Per-clip visual evidence follows from timestamp matching (2026-09-01
+  decision): a clip whose interval resolves against a catalogued source is
+  confirmed, and one that does not simply drops out of the story. The single
+  human confirmation is the camera-to-GPS clock offset, which the system
+  proposes with its evidence. An earlier design left every clip
+  `awaiting_video_evidence` pending a person; that queue is gone.
 
 ## Current real-media status
 
-On 2026-08-30, the local v4a research run processed 14 physical MP4 files as
-10 logical recordings. It analyzed 2,385 twelve-second windows, retained 202 at
-the strict movement/interest gate, retained 21 at the final evidence gate, and
-generated four eight-clip review sets. Content hashes reduced the 32 outputs to
-15 distinct clips. No media, GPX, coordinate, file name, timestamp, or credential
-was sent externally.
+**Twelve films exist, and Gemini chose what is in them.** Twelve consecutive
+riding days of one tour have been taken from GPX and footage to a finished film
+of three to seven minutes each. Across those days **4,039 twelve-second windows**
+were copied down as small local proxies (**2.3 GiB** in place of some fifty
+hours of 4K), sent through the spend gate, and judged by Gemini 2.5 Flash for
+about **¥764** in total. Each film carries full-screen chapter cards titled
+where the leg went from and to, lower thirds with the local time for the turns
+of the day, four one-second highlights at the front, SRT and WebVTT subtitles,
+and a CC BY 4.0 soundtrack.
 
-The technical E2E passed, but candidate quality is still partial: storyboard
-review found several gentle, straight-looking road segments. Eight clearer
-turn/merge/intersection/traffic-event examples were prepared for private human
-review, but no visual evidence has been confirmed. Highlight discovery now separates
-an intentionally strict strong-turn lane from a non-semantic temporal visual-event
-lane; this is a candidate gate, not proof that an intersection, vehicle, or scenic
-subject is present. The next design must connect that output to Story Plan and
-evidence review. A reusable private metric cache avoids re-scanning unchanged source
-footage while the two lanes are evaluated on real material.
+The measured shape of the problem, from the first of those rides: **68.1 GiB**
+of source video, of which **219 MiB** reaches the screen. Which 219 MiB is
+decided from the **2.56 MiB** GPS track and video metadata alone, before any
+pixel is read.
+
+**What the model is asked.** Beyond the road, the scenery and two scores, each
+window is asked how much of the rider is in the frame, whether the bike moved at
+all, what the road is doing (joining or leaving a highway, entering or leaving a
+town, setting off, pulling in), how much a travel photographer would want the
+frame and of what, and what kind of place the bike is standing at. Those answers
+are what let the film show the moment of setting off rather than the minute that
+scored best nearby, keep the rider's own reflection out, and say at each stop
+what the stop was.
+
+**What the map is asked.** Which road is a designated scenic route, where the
+state highways run, which water a ferry crosses, where the towns and the passes
+are: read from reference files built once per country from OpenStreetMap and
+then used offline. Place names for the chapter titles come from Google's
+Geocoding API, one rounded coordinate per request and nothing else.
+
+Earlier, on 2026-08-30, the local research run processed 14 physical MP4 files
+as 10 logical recordings, analyzed 2,385 twelve-second windows, retained 202 at
+the strict movement/interest gate and 21 at the final evidence gate, and
+generated four eight-clip review sets that content hashes reduced to 15 distinct
+clips.
+
+No media, GPX, file name, timestamp, or credential has been sent externally at
+any point. Two things do leave the machine, both deliberately and both listed in
+[`docs/data-flows-ja.md`](docs/data-flows-ja.md): the judged proxy windows, and a
+single coordinate rounded to four decimals per place name.
+
+## Cut one yourself, from a real ride
+
+You do not need a motorcycle, a camera, or an API key. One day of the tour is
+published as a **portable package**: one small clip per window the film uses,
+the judgement Gemini returned for those windows, the GPS track, and the music.
+The number plates in it are blurred and the footage in which anyone's face
+appeared was removed, both by this repository (`app.plate_blur`,
+`app.portable_package --harden`).
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+python -m pip install -e '.[dev]'
+
+# Unpack the package (the link is in the submission) under private-media/portable/
+python -m app.portable_package private-media/portable/day-7 --install
+python -m app.private_journey_film private-media/portable/day-7   --music wandering --music-directory private-media/portable/day-7/music
+```
+
+The second command is the product: it reads the track, cuts the day into legs,
+places the moments the track proves, lays the lower thirds, draws the chapter
+cards, cuts the film, writes the subtitles and mixes the music. It takes a few
+minutes and writes `ride-storyteller-story-film-scored.mp4` beside the package.
+
+You need `ffmpeg` and `ffprobe` on the path. The chapter cards are HTML drawn by
+the operating system: macOS uses Quick Look, everything else uses headless
+`chromium`, and `--cards` overrides the choice. Without a Google Maps key the
+route is drawn on black instead of over a map, and the film is otherwise the
+same.
+
+**What that package is not.** It carries the windows the finished film uses, so
+the selection has less to choose between than it did here, and the judgement was
+bought once, on this machine, before the package was made. Nothing in it reaches
+Google.
+
+## Making a film
+
+Three commands, all local. The full procedure, including what to look at and
+what each failure means, is in
+[`docs/demo-runbook-ja.md`](docs/demo-runbook-ja.md).
+
+```bash
+# 1. Propose the camera-to-GPS clock offset. This is the one thing a person
+#    confirms; check `is_unambiguous` before using the number it proposes.
+python -m app.clock_offset <ride.gpx> <video-directory>
+
+# 2. Build the package: catalogue, events, timestamp matching, review clips.
+python -m app.local_pipeline <ride.gpx> <video-directory>   --output private-media/work/<name>   --clock-offset-s <the confirmed number> --clock-offset-confirmed   --target-duration-s 300
+
+# 3. Make the film: check, plan, draw cards, cut, subtitle, score.
+python -m app.private_journey_film private-media/work/<name> --music wandering
+```
+
+Trying a different track does not re-encode the picture:
+
+```bash
+python -m app.private_journey_film private-media/work/<name>   --music <track-id> --music-only --overwrite
+```
+
+To run the whole path from a page, point the local server at a package and
+open `/private-journey`: intake, copies, the spend gate, and the film, one job
+at a time. Buying the judgement starts only when the figure shown is typed back.
+
+```bash
+export RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY="$(pwd)/private-media/work/<name>"
+python -m app.web.server
+```
+
+Clip quality is now judged by watching the films. Six rounds of the owner's own
+viewing notes drove the story structure that exists today: legs as chapters,
+fixed shots for the moments the track proves, a picture of each stop's place,
+lower thirds that say the turns of the day, and an opening of four photogenic
+one-second cuts. What remains open is written up in
+[`docs/research-touring-video-editing-ja.md`](docs/research-touring-video-editing-ja.md)
+§11: an image-quality gate, subject variety inside the body of the film, sensor
+change points as candidate windows, and the ordering of shots within a chapter.
 
 ## Run
 
@@ -166,9 +286,9 @@ Public demo mode continues to reject this endpoint entirely.
 ## Day 11: candidate edit planning and quality gate
 
 `app.edit` maps the selected Story Plan events to requested source intervals. This
-is deliberately a **candidate plan**, not a rendered edit list: every clip stays
-`awaiting_video_evidence` until the real source clip has been retrieved and
-reviewed. The quality gate fails closed when either the requested duration is
+is deliberately a **candidate plan**, not a rendered edit list: a clip carries no
+evidence until its interval has actually been resolved against a catalogued
+source. The quality gate fails closed when either the requested duration is
 short of the story target or any candidate lacks video evidence. The local UI's
 **候補クリップ計画を見る** button shows this state using synthetic data only.
 
@@ -258,9 +378,11 @@ remains blocked until every candidate is timestamp-matched and confirmed. You ca
 also set `RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY` in the ignored local `.env` to the
 private output directory and open `/private-evidence-review` on the loopback-only
 server. The page streams only server-owned review clips through opaque review IDs,
-writes a single human `confirmed`, `rejected`, or `awaiting_video_evidence` decision,
-and never exposes or uploads event IDs, source asset IDs, file names, paths, offsets,
-or coordinates. It is disabled in public-demo mode. Evidence decisions are written by
+writes a single human `confirmed`, `rejected`, or `awaiting_video_evidence`
+decision, and never exposes or uploads event IDs, source asset IDs, file names,
+paths, offsets, or coordinates. Since the 2026-09-01 decision this page is an
+**override** rather than the normal path: evidence follows from timestamp
+matching, and this is how a person reopens or rejects one anyway. It is disabled in public-demo mode. Evidence decisions are written by
 an atomic local replacement, so an interrupted save keeps the previous review file.
 The page also shows the next local evidence gate; even after all clips are confirmed,
 it requires an explicit local-pipeline revalidation before the Director may run.
@@ -325,7 +447,8 @@ python -m app.video.highlight_discovery \
 
 The methods cover GPS curvature, moving speed variation, elevation change, visual
 motion, scene variation, sharpness, exposure, color richness, visual complexity, and a
-combined cinematic score. All outputs remain comparison candidates for human review.
+combined cinematic score. Outputs are comparison candidates; they narrow clips
+that timestamp matching has already resolved, and never add unmatched footage.
 See [`docs/highlight-selection-experiments.md`](docs/highlight-selection-experiments.md).
 
 The current local research pass adds fail-closed continuous-speed, centered GPS
@@ -355,8 +478,9 @@ and never confirms evidence automatically. Its `metric-cache/` subdirectory keep
 only derived FFmpeg and GPMF numeric samples. Cache JSON never stores source paths,
 file names, recorded timestamps, coordinates, or frames; changed sources receive a
 new bounded local-content fingerprint and are analyzed again. Apple Vision and clip
-extraction remain local work on each research run. The final accept/reject decision
-remains human review.
+extraction remain local work on each research run. Selection narrows clips that
+timestamp matching has already resolved; it cannot introduce footage the ride's
+own timing does not support.
 
 The local UI also has a **私用GPXのローカル検証** section. It parses a selected GPX in
 memory, returns aggregate values only, and neither saves the GPX nor contacts an external
@@ -404,7 +528,8 @@ feature only for GPS data you are comfortable sharing with Google for map displa
 
 ## Current hackathon runtime direction
 
-The runtime target is Gemini plus Google ADK / Google Cloud Agent Builder.
+The runtime target is Gemini plus Google Cloud Agent Builder (Agent
+Development Kit and Agent Engine).
 `app.agent_runtime` now includes a minimal Vertex AI/Gemini connection probe that
 uses local Application Default Credentials (ADC) and a fixed synthetic prompt; it
 does not read GPX or media. It also produces a credential-free structured handoff
@@ -420,7 +545,7 @@ exist; it is not an authentication or Gemini-call success. The synthetic probe i
 the separate live check for basic Gemini reachability. See
 [`docs/google-cloud-runtime-setup.md`](docs/google-cloud-runtime-setup.md).
 
-The local ADK app is also wrapped as the official Agent Platform `AdkApp` type.
+The local ADK app is also wrapped as Agent Engine's `AdkApp` type.
 One approved synthetic-only Runtime is now deployed through the object-style
 `AdkApp` path in `asia-northeast1` (Tokyo), with 4 CPU / 4 GiB, minimum zero and
 maximum one instance. The dedicated Tokyo staging bucket and Runtime resource

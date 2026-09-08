@@ -146,9 +146,7 @@ def build_local_video_catalog(
 
     logical_recording_count = 0
     adjusted_chapter_count = 0
-    grouped_items: dict[
-        tuple[str, str, str], list[tuple[int, LocalVideoInventoryEntry]]
-    ] = {}
+    grouped_items: dict[tuple[str, str, str], list[tuple[int, LocalVideoInventoryEntry]]] = {}
     independent_items: list[LocalVideoInventoryEntry] = []
     for item in source_items:
         identity = _gopro_chapter_identity(item.file_name)
@@ -201,8 +199,7 @@ def build_local_video_catalog(
                     asset_id=item.asset_id,
                     file_name=item.file_name,
                     recorded_start_time=(
-                        metadata.recorded_start_time
-                        + timedelta(seconds=cumulative_duration_s)
+                        metadata.recorded_start_time + timedelta(seconds=cumulative_duration_s)
                     ),
                     duration_s=metadata.duration_s,
                 )

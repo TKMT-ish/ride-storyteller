@@ -79,17 +79,12 @@ class PrivateEvidenceReviewSession:
 
     @property
     def review_ids(self) -> tuple[str, ...]:
-        return tuple(
-            _review_id(index)
-            for index, _clip in enumerate(self._manifest(), start=1)
-        )
+        return tuple(_review_id(index) for index, _clip in enumerate(self._manifest(), start=1))
 
     def payload(self) -> dict[str, object]:
         _clips, review, manifest = self._validated_state()
         decisions = {decision.event_id: decision for decision in review.decisions}
-        status_counts = Counter(
-            decisions[item.event_id].evidence_status.value for item in manifest
-        )
+        status_counts = Counter(decisions[item.event_id].evidence_status.value for item in manifest)
         return {
             "local_only": True,
             "external_data_sent": False,
@@ -173,9 +168,9 @@ class PrivateEvidenceReviewSession:
         manifest = self._manifest()
         evaluate_local_evidence_review(clips, review)
         clip_by_event = {clip.event_id: clip for clip in clips}
-        if len(manifest) != len(clip_by_event) or {
-            item.event_id for item in manifest
-        } != set(clip_by_event):
+        if len(manifest) != len(clip_by_event) or {item.event_id for item in manifest} != set(
+            clip_by_event
+        ):
             raise PrivateEvidenceReviewError("private evidence review manifest is incomplete")
         if any(clip_by_event[item.event_id].asset_id != item.asset_id for item in manifest):
             raise PrivateEvidenceReviewError("private evidence review manifest is inconsistent")

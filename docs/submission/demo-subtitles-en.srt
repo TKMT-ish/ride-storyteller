@@ -1,75 +1,125 @@
 1
-00:00:00,000 --> 00:00:08,000
-A motorcycle trip can produce hundreds of gigabytes of footage.
+00:00:00,000 --> 00:00:07,000
+One day of motorcycle touring leaves
+68 gigabytes of video.
 
 2
-00:00:08,000 --> 00:00:16,000
-The memorable story is buried across GPS timestamps and long video files.
+00:00:07,000 --> 00:00:13,500
+Somewhere in it is a story worth watching.
 
 3
-00:00:16,000 --> 00:00:20,000
-Ride Storyteller uses an evidence-seeking agent to find moments worth reviewing.
+00:00:13,500 --> 00:00:20,000
+Finding it by hand means scrubbing
+through hours of road.
 
 4
-00:00:20,000 --> 00:00:30,000
-The system parses the route locally and extracts explainable GPS events.
+00:00:20,000 --> 00:00:28,000
+Ride Storyteller reads the GPS track
+first - two and a half megabytes.
 
 5
-00:00:30,000 --> 00:00:42,000
-These include departure, stops, elevation and direction changes, and arrival.
+00:00:28,000 --> 00:00:36,500
+It extracts events it can explain:
+departure, climbs, turns, arrival.
 
 6
-00:00:42,000 --> 00:00:50,000
-GPS proposes where to look. It never claims what the camera saw.
+00:00:36,500 --> 00:00:45,000
+GPS says where to look.
+It never says what the camera saw.
 
 7
-00:00:50,000 --> 00:01:03,000
-For a high-interest event, the Story Agent requests video evidence.
+00:00:45,000 --> 00:00:53,000
+One thing cannot be decided from the data:
+did the camera's clock agree with the GPS?
 
 8
-00:01:03,000 --> 00:01:16,000
-It searches for matching media and analyzes only the requested interval.
+00:00:53,000 --> 00:01:00,000
+The system proposes the offset with its
+evidence; a person confirms one number.
 
 9
-00:01:16,000 --> 00:01:25,000
-Missing media or invalid analysis fails safely to human review.
+00:01:00,000 --> 00:01:05,000
+Everything else is decided from evidence.
 
 10
-00:01:25,000 --> 00:01:36,000
-A GPS match is not enough. Every candidate starts as awaiting evidence.
+00:01:05,000 --> 00:01:13,000
+Most of a ride is never filmed, and the
+gaps are not filled with invented footage.
 
 11
-00:01:36,000 --> 00:01:48,000
-Evidence can be confirmed or rejected with an attributed source.
+00:01:13,000 --> 00:01:22,000
+Each uncovered stretch becomes a chapter
+card carrying only what the track proves:
 
 12
-00:01:48,000 --> 00:01:50,000
-Only confirmed candidates can enter the render plan.
+00:01:22,000 --> 00:01:30,000
+how long, how far, how much climb -
+and the route with that stretch marked.
 
 13
-00:01:50,000 --> 00:02:02,000
-The same private-data boundary runs as a synthetic-only Google ADK agent in Tokyo.
+00:01:30,000 --> 00:01:35,000
+Honest about its own coverage.
 
 14
-00:02:02,000 --> 00:02:15,000
-It sends a fixed synthetic event and returns no model text or private data.
+00:01:35,000 --> 00:01:43,000
+From there it is one page: copies made,
+judgement bought, story planned,
 
 15
-00:02:15,000 --> 00:02:25,000
-IBM Bob reviewed the architecture and identified priority implementation gaps.
+00:01:43,000 --> 00:01:51,500
+cards drawn, film cut, subtitled, scored.
+Buying starts only when the exact figure
 
 16
-00:02:25,000 --> 00:02:35,000
-We implemented those findings and retained before-and-after test evidence.
+00:01:51,500 --> 00:02:00,000
+shown is typed back. A film is never cut
+from a judgement no model was paid for.
 
 17
-00:02:35,000 --> 00:02:45,000
-REAL MEDIA GATE: final footage evidence is not available in this draft.
+00:02:00,000 --> 00:02:08,000
+Gemini decides what the film shows. Each
+window is copied down on the rider's machine
 
 18
-00:02:45,000 --> 00:02:55,000
-Replace this cue only after approved clip analysis and human evidence review.
+00:02:08,000 --> 00:02:15,000
+to a few hundred kilobytes: 95 megabytes for
+a day, not 68 gigabytes. Only those are sent.
 
 19
+00:02:15,000 --> 00:02:22,000
+Gemini 2.5 Flash judges every one. This ride
+cost 26 yen; the 4K source never left.
+
+20
+00:02:22,000 --> 00:02:25,000
+The hosted agent: Agent Builder ADK and
+Agent Engine, synthetic events only.
+
+21
+00:02:25,000 --> 00:02:33,000
+IBM Bob reviewed the architecture and
+found missing ADK wiring,
+
+22
+00:02:33,000 --> 00:02:40,000
+missing evidence transitions, and gaps in
+the boundary tests. We implemented them.
+
+23
+00:02:40,000 --> 00:02:47,000
+This is one ride, start to finish: it
+opens on the departure card,
+
+24
+00:02:47,000 --> 00:02:52,000
+crosses the stretches nobody filmed,
+and closes on arrival.
+
+25
+00:02:52,000 --> 00:02:55,000
+No narration. Every second evidenced.
+
+26
 00:02:55,000 --> 00:03:00,000
-Ride Storyteller turns telemetry into questions, video into evidence, and evidence into story.
+Telemetry becomes questions. Video becomes
+evidence. The source stays on your machine.

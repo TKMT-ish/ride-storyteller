@@ -43,8 +43,8 @@ from app.video.review import (
 # ---------------------------------------------------------------------------
 
 _UTC_START = datetime(2026, 8, 10, 1, 42, 15, tzinfo=UTC)
-_UTC_END   = datetime(2026, 8, 10, 1, 42, 45, tzinfo=UTC)
-_LOC       = Location(latitude=-45.03, longitude=168.66)
+_UTC_END = datetime(2026, 8, 10, 1, 42, 45, tzinfo=UTC)
+_LOC = Location(latitude=-45.03, longitude=168.66)
 
 
 def _gps(
@@ -141,12 +141,14 @@ class _OkTransport:
         scenes = []
         arc_order = ["hook", "build_up", "climax", "resolution"]
         for i, eid in enumerate(self._ids[:4]):
-            scenes.append({
-                "scene_type": arc_order[i % 4],
-                "event_ids": [eid],
-                "transition_type": "cut",
-                "overlay_text": None,
-            })
+            scenes.append(
+                {
+                    "scene_type": arc_order[i % 4],
+                    "event_ids": [eid],
+                    "transition_type": "cut",
+                    "overlay_text": None,
+                }
+            )
         return {"scenes": scenes}
 
     @property
@@ -174,12 +176,14 @@ class _CapturingTransport:
         scenes = []
         arc_order = ["hook", "build_up", "climax", "resolution"]
         for i, eid in enumerate(self._ids[:4]):
-            scenes.append({
-                "scene_type": arc_order[i % 4],
-                "event_ids": [eid],
-                "transition_type": "cut",
-                "overlay_text": None,
-            })
+            scenes.append(
+                {
+                    "scene_type": arc_order[i % 4],
+                    "event_ids": [eid],
+                    "transition_type": "cut",
+                    "overlay_text": None,
+                }
+            )
         return {"scenes": scenes}
 
 
@@ -195,6 +199,7 @@ class _FailTransport:
 # ---------------------------------------------------------------------------
 # B. Normal path
 # ---------------------------------------------------------------------------
+
 
 def test_normal_path_produces_valid_director_pipeline_result() -> None:
     evt = _gps("evt_001")
@@ -298,6 +303,7 @@ def test_normal_path_confirmed_events_produce_ready_for_ffmpeg() -> None:
 # C. Gemini fallback
 # ---------------------------------------------------------------------------
 
+
 def test_fallback_to_rule_based_on_gemini_director_error() -> None:
     evt = _gps("evt_001")
     cc = _confirmed_candidate("evt_001")
@@ -342,6 +348,7 @@ def test_fallback_produces_valid_script() -> None:
 # D. Evidence safety
 # ---------------------------------------------------------------------------
 
+
 def test_zero_confirmed_events_raises_before_calling_director() -> None:
     """Fail-closed: no confirmed events → ValueError, Gemini never called."""
     evt = _gps("evt_001")
@@ -364,10 +371,12 @@ def test_unconfirmed_events_excluded_from_director_input() -> None:
     evt_bad = _gps("evt_bad")
     cc_ok = _confirmed_candidate("evt_ok")
     cc_bad = _awaiting_candidate("evt_bad")
-    rc_ok = _matched_rc("evt_ok",  asset_id="asset-a",
-                         file_name="GX010001.MP4", start=10.0, end=40.0)
-    rc_bad = _matched_rc("evt_bad", asset_id="asset-b",
-                          file_name="GX010002.MP4", start=5.0, end=25.0)
+    rc_ok = _matched_rc(
+        "evt_ok", asset_id="asset-a", file_name="GX010001.MP4", start=10.0, end=40.0
+    )
+    rc_bad = _matched_rc(
+        "evt_bad", asset_id="asset-b", file_name="GX010002.MP4", start=5.0, end=25.0
+    )
     review = _review_result(
         confirmed_ids=("evt_ok",),
         awaiting_ids=("evt_bad",),
@@ -398,7 +407,7 @@ def test_downstream_evidence_gate_fires_when_allow_list_empty() -> None:
     # We simulate the edge case by manually overriding confirmed_event_ids.
     review_no_ids = LocalEvidenceReviewResult(
         ready_for_render=False,
-        confirmed_event_ids=(),       # <— empty allow-list
+        confirmed_event_ids=(),  # <— empty allow-list
         awaiting_event_ids=("evt_001",),
         rejected_event_ids=(),
         unmatched_event_ids=(),
@@ -486,6 +495,7 @@ def test_duplicate_event_ids_are_rejected_before_director_join(
 # E. Privacy
 # ---------------------------------------------------------------------------
 
+
 def test_gemini_payload_excludes_latitude_longitude() -> None:
     evt = _gps("evt_001")
     cc = _confirmed_candidate("evt_001")
@@ -536,6 +546,7 @@ def test_gemini_payload_excludes_source_asset_id_and_paths() -> None:
 # ---------------------------------------------------------------------------
 # F. Artifact
 # ---------------------------------------------------------------------------
+
 
 def test_artifact_is_written_to_output_directory(tmp_path: Path) -> None:
     evt = _gps("evt_001")
@@ -639,9 +650,7 @@ def test_private_director_artifact_loader_round_trips_a_valid_script(
         output_directory=tmp_path,
     )
 
-    assert load_private_director_script_artifact(
-        tmp_path / "local-director-script.json"
-    ) == script
+    assert load_private_director_script_artifact(tmp_path / "local-director-script.json") == script
 
 
 def test_private_director_artifact_loader_rejects_unknown_fields(tmp_path: Path) -> None:
@@ -703,8 +712,10 @@ def test_artifact_rejects_a_nonprivate_repository_directory() -> None:
 # G. Integration with local_pipeline (director_mode)
 # ---------------------------------------------------------------------------
 
+
 def _metadata(path: Path) -> object:
     from app.video import LocalVideoMetadata
+
     return LocalVideoMetadata(
         file_name=path.name,
         duration_s=3_600.0,
@@ -717,10 +728,9 @@ def _metadata(path: Path) -> object:
     )
 
 
-def _runner(
-    command: tuple[str, ...], **_kwargs: object
-) -> object:
+def _runner(command: tuple[str, ...], **_kwargs: object) -> object:
     import subprocess
+
     Path(command[-1]).write_bytes(b"review")
     return subprocess.CompletedProcess(command, 0, "", "")
 
@@ -842,14 +852,16 @@ def test_director_mode_true_with_confirmed_events_writes_artifact(
     # Read which event_ids are in the candidate export and confirm them all
     candidates = json.loads((out / "ride-storyteller-candidates.json").read_text())
     event_ids = [c["event_id"] for c in candidates["clips"]]
-    confirmed_review = LocalEvidenceReview(tuple(
-        LocalEvidenceDecision(
-            event_id=eid,
-            evidence_status=CandidateEvidenceStatus.CONFIRMED,
-            evidence_source="test",
+    confirmed_review = LocalEvidenceReview(
+        tuple(
+            LocalEvidenceDecision(
+                event_id=eid,
+                evidence_status=CandidateEvidenceStatus.CONFIRMED,
+                evidence_source="test",
+            )
+            for eid in event_ids
         )
-        for eid in event_ids
-    ))
+    )
     write_local_evidence_review(
         out / "evidence-review.json",
         confirmed_review,

@@ -29,7 +29,7 @@ def test_example_has_no_secret_values() -> None:
         "RIDE_WEB_HOST",
         "RIDE_WEB_MODE",
         "RIDE_WEB_PORT",
-        }
+    }
     for line in Path(".env.example").read_text().splitlines():
         if "=" in line and line.split("=", 1)[0] not in safe_defaults:
             assert line.endswith("="), f"unexpected value in {line.split('=', 1)[0]}"

@@ -37,6 +37,7 @@ deployment or IAM mutation.
 | Port | Cloud Run supplied `PORT` / container default 8080 |
 | UI language | English |
 | Source repository | Required, validated public repository root before public IAM |
+| Judge credential | Required: `RIDE_PUBLIC_DEMO_BASIC_AUTH_USER` / `_PASSWORD`, set on the real deploy command (not in this credential-free plan), before `--no-invoker-iam-check` |
 
 Cloud Run currently reports a service-level maximum of 1 and a revision-level
 maximum of 20. Google documents that the effective maximum is the lower of the
@@ -192,11 +193,20 @@ into one unattended command.
    behavior were verified. This does not provide distributed DDoS protection.
 8. Separately approve unauthenticated public access. Following Google's current
    recommended method, the command plan refuses to produce
-   `--no-invoker-iam-check` unless both approval and a validated Source URL are
-   present; private deployment explicitly uses `--invoker-iam-check`.
+   `--no-invoker-iam-check` unless approval, a validated Source URL, and
+   `basic_auth_configured=True` are all present; private deployment explicitly
+   uses `--invoker-iam-check`.
 9. Budget alerts are verified. Verify the unauthenticated public URL, bilingual
    Source link, response headers, and abuse/cost controls before treating public
    hosting as complete.
+10. **Decided, not yet executed (2026-09-08):** public IAM access is gated by
+    an application-level judge Basic Auth credential
+    (`RIDE_PUBLIC_DEMO_BASIC_AUTH_USER` / `_PASSWORD`), shared with judges only
+    through the Devpost submission form, never committed to the repository or
+    passed through `CloudRunPublicDemoPlan.to_dict()`. Prefer `--set-secrets`
+    against Secret Manager over plain `--set-env-vars` for these two values on
+    the actual deploy command, since they are real (if low-value) credentials.
+    See [`public-demo-hosting.md`](public-demo-hosting.md).
 
 ## Budget-monitoring gate
 

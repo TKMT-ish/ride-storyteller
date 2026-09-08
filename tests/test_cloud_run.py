@@ -13,8 +13,7 @@ def test_cloud_run_plan_uses_approved_safe_defaults() -> None:
     assert plan.project_id == "ride-storyteller"
     assert plan.region == "asia-northeast1"
     assert plan.image_uri == (
-        "asia-northeast1-docker.pkg.dev/ride-storyteller/"
-        "ride-storyteller/public-demo:64adfed"
+        "asia-northeast1-docker.pkg.dev/ride-storyteller/ride-storyteller/public-demo:64adfed"
     )
     assert plan.cpu == 1
     assert plan.memory == "512Mi"
@@ -67,7 +66,8 @@ def test_private_first_arguments_do_not_allow_unauthenticated_access() -> None:
 
 def test_public_access_is_a_separate_explicit_argument() -> None:
     arguments = CloudRunPublicDemoPlan(
-        source_repository_url="https://github.com/owner/ride-storyteller"
+        source_repository_url="https://github.com/owner/ride-storyteller",
+        basic_auth_configured=True,
     ).gcloud_deploy_arguments(
         deployment_approved=True,
         public_access_approved=True,
@@ -83,10 +83,27 @@ def test_public_access_is_a_separate_explicit_argument() -> None:
 
 def test_public_access_requires_validated_source_repository_url() -> None:
     with pytest.raises(PermissionError, match="public source repository URL"):
-        CloudRunPublicDemoPlan().gcloud_deploy_arguments(
+        CloudRunPublicDemoPlan(basic_auth_configured=True).gcloud_deploy_arguments(
             deployment_approved=True,
             public_access_approved=True,
         )
+
+
+def test_public_access_requires_a_configured_judge_basic_auth_credential() -> None:
+    with pytest.raises(PermissionError, match="judge basic-auth credential"):
+        CloudRunPublicDemoPlan(
+            source_repository_url="https://github.com/owner/ride-storyteller"
+        ).gcloud_deploy_arguments(
+            deployment_approved=True,
+            public_access_approved=True,
+        )
+
+
+def test_cloud_run_plan_never_carries_the_actual_judge_credential() -> None:
+    payload = CloudRunPublicDemoPlan(basic_auth_configured=True).to_dict()
+
+    assert payload["basic_auth_configured"] is True
+    assert not any("BASIC_AUTH" in name or "PASSWORD" in name for name in payload["environment"])
 
 
 @pytest.mark.parametrize(

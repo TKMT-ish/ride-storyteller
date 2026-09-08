@@ -199,9 +199,7 @@ def build_agent_platform_adk_app(
     remains a separate explicit-approval step.
     """
     _initialize_agent_platform(runtime_settings, deployment_settings)
-    return agent_engines.AdkApp(
-        agent=build_synthetic_deployment_agent(runtime_settings.model)
-    )
+    return agent_engines.AdkApp(agent=build_synthetic_deployment_agent(runtime_settings.model))
 
 
 def deploy_synthetic_agent_runtime(
@@ -287,9 +285,7 @@ def get_configured_synthetic_agent_runtime(
     """Retrieve the configured existing Runtime through the compatibility client."""
     reference = runtime_settings or AgentPlatformRuntimeSettings.from_environment()
     if reference.missing_configuration:
-        raise AgentPlatformPreparationError(
-            "Synthetic Agent Runtime reference is not configured"
-        )
+        raise AgentPlatformPreparationError("Synthetic Agent Runtime reference is not configured")
     reference.validate_for(deployment_settings)
 
     try:
@@ -347,13 +343,9 @@ async def verify_synthetic_agent_runtime(remote_agent: Any) -> SyntheticAgentRun
             async for event in events:
                 event_tool_called, event_response_received = _synthetic_event_flags(event)
                 tool_called = tool_called or event_tool_called
-                final_response_received = (
-                    final_response_received or event_response_received
-                )
+                final_response_received = final_response_received or event_response_received
             any_tool_called = any_tool_called or tool_called
-            any_final_response_received = (
-                any_final_response_received or final_response_received
-            )
+            any_final_response_received = any_final_response_received or final_response_received
             if tool_called and final_response_received:
                 return SyntheticAgentRuntimeVerification(
                     tool_called=True,
@@ -369,9 +361,7 @@ async def verify_synthetic_agent_runtime(remote_agent: Any) -> SyntheticAgentRun
             "Synthetic Agent Runtime did not call its required synthetic tool"
         )
     if not any_final_response_received:
-        raise AgentPlatformDeploymentError(
-            "Synthetic Agent Runtime returned no final response"
-        )
+        raise AgentPlatformDeploymentError("Synthetic Agent Runtime returned no final response")
     raise AgentPlatformDeploymentError(
         "Synthetic Agent Runtime did not complete tool use and a final response "
         "within the same verification attempt"
@@ -438,9 +428,10 @@ def _synthetic_event_flags(event: Any) -> tuple[bool, bool]:
     tool_called = False
     final_response_received = False
     for part in parts:
-        if _event_value(part, "function_call") is not None or _event_value(
-            part, "functionCall"
-        ) is not None:
+        if (
+            _event_value(part, "function_call") is not None
+            or _event_value(part, "functionCall") is not None
+        ):
             tool_called = True
         text = _event_value(part, "text")
         if isinstance(text, str) and text.strip():

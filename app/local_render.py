@@ -50,9 +50,7 @@ def render_local_review_film(
 ) -> LocalRenderResult:
     """Render confirmed review clips, optionally in DirectorScript story order."""
     _safe_file_name(output_file_name)
-    clips = load_resolved_candidate_export(
-        package_directory / "ride-storyteller-candidates.json"
-    )
+    clips = load_resolved_candidate_export(package_directory / "ride-storyteller-candidates.json")
     review = load_local_evidence_review(package_directory / "evidence-review.json")
     review_result = evaluate_local_evidence_review(clips, review)
     if not review_result.ready_for_render:
@@ -60,9 +58,7 @@ def render_local_review_film(
             "local render is blocked: " + ", ".join(review_result.reasons)
         )
 
-    review_clips = load_local_review_clip_manifest(
-        package_directory / "review-clip-manifest.json"
-    )
+    review_clips = load_local_review_clip_manifest(package_directory / "review-clip-manifest.json")
     review_by_event = {clip.event_id: clip for clip in review_clips}
     ordered_clips = clips
     story_order_applied = director_script_path is not None

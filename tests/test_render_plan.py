@@ -26,9 +26,7 @@ def test_render_plan_requires_explicit_visual_evidence_confirmation() -> None:
 
 
 def test_render_plan_creates_an_inspectable_ffmpeg_command_after_confirmation() -> None:
-    plan = build_ffmpeg_render_plan(
-        (_clip(),), visual_evidence_confirmed_event_ids=("event_001",)
-    )
+    plan = build_ffmpeg_render_plan((_clip(),), visual_evidence_confirmed_event_ids=("event_001",))
 
     assert plan.status.value == "ready_for_ffmpeg"
     assert plan.command is not None

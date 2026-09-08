@@ -210,14 +210,10 @@ def load_resolved_candidate_export(path: Path) -> tuple[ResolvedCandidateClip, .
             asset_id=item.get("asset_id"),
             file_name=item.get("file_name"),
             start_offset_s=(
-                float(item["start_offset_s"])
-                if item.get("start_offset_s") is not None
-                else None
+                float(item["start_offset_s"]) if item.get("start_offset_s") is not None else None
             ),
             end_offset_s=(
-                float(item["end_offset_s"])
-                if item.get("end_offset_s") is not None
-                else None
+                float(item["end_offset_s"]) if item.get("end_offset_s") is not None else None
             ),
             reason=item["reason"],
         )

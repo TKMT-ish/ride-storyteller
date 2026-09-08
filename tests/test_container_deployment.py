@@ -65,9 +65,7 @@ def test_deploy_extra_pins_current_major_gunicorn() -> None:
     pyproject = tomllib.loads(_text("pyproject.toml"))
 
     assert pyproject["project"]["dependencies"] == []
-    assert pyproject["project"]["optional-dependencies"]["deploy"] == [
-        "gunicorn>=26.0.0,<27.0.0"
-    ]
+    assert pyproject["project"]["optional-dependencies"]["deploy"] == ["gunicorn>=26.0.0,<27.0.0"]
     cloud = pyproject["project"]["optional-dependencies"]["cloud"]
     assert any(requirement.startswith("google-adk") for requirement in cloud)
     assert any(requirement.startswith("google-cloud-aiplatform") for requirement in cloud)

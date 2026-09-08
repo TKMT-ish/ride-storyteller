@@ -116,11 +116,14 @@ def probe_local_video_metadata(
 
 def export_local_video_metadata(metadata: LocalVideoMetadata) -> str:
     """Serialize metadata for an explicit private output file."""
-    return json.dumps(
-        {"schema_version": "local-video-metadata-v1", "metadata": metadata.to_dict()},
-        ensure_ascii=False,
-        indent=2,
-    ) + "\n"
+    return (
+        json.dumps(
+            {"schema_version": "local-video-metadata-v1", "metadata": metadata.to_dict()},
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n"
+    )
 
 
 def write_local_video_metadata(

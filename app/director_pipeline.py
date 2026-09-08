@@ -90,7 +90,7 @@ class DirectorPipelineResult:
 
     universal_event_count: int
     confirmed_event_count: int
-    composer: str          # "gemini" or "rule_based"
+    composer: str  # "gemini" or "rule_based"
     fallback_used: bool
     scene_count: int
     used_event_count: int
@@ -163,28 +163,16 @@ def run_director_pipeline(
     # Input collections are joined by event_id below.  Reject duplicates
     # before building lookup dictionaries so a later item cannot silently
     # overwrite an earlier evidence decision or source identity.
-    _require_unique_event_ids(
-        "gps_events", tuple(event.event_id for event in gps_events)
-    )
-    _require_unique_event_ids(
-        "resolved_clips", tuple(clip.event_id for clip in resolved_clips)
-    )
-    _require_unique_event_ids(
-        "candidate_clips", tuple(clip.event_id for clip in candidate_clips)
-    )
+    _require_unique_event_ids("gps_events", tuple(event.event_id for event in gps_events))
+    _require_unique_event_ids("resolved_clips", tuple(clip.event_id for clip in resolved_clips))
+    _require_unique_event_ids("candidate_clips", tuple(clip.event_id for clip in candidate_clips))
 
     # ------------------------------------------------------------------
     # 1. Scout: build UniversalEvent for every matched, evidence-decided clip
     # ------------------------------------------------------------------
-    candidate_by_event: dict[str, CandidateClip] = {
-        cc.event_id: cc for cc in candidate_clips
-    }
-    resolved_by_event: dict[str, ResolvedCandidateClip] = {
-        rc.event_id: rc for rc in resolved_clips
-    }
-    gps_by_event: dict[str, GpsEvent] = {
-        e.event_id: e for e in gps_events
-    }
+    candidate_by_event: dict[str, CandidateClip] = {cc.event_id: cc for cc in candidate_clips}
+    resolved_by_event: dict[str, ResolvedCandidateClip] = {rc.event_id: rc for rc in resolved_clips}
+    gps_by_event: dict[str, GpsEvent] = {e.event_id: e for e in gps_events}
 
     universal_events: list[UniversalEvent] = []
     for rc in resolved_clips:
@@ -215,8 +203,7 @@ def run_director_pipeline(
 
     if gemini_transport is not None and not allow_external_director:
         raise ValueError(
-            "Director pipeline: external Gemini use requires "
-            "allow_external_director=True"
+            "Director pipeline: external Gemini use requires allow_external_director=True"
         )
     if gemini_transport is not None:
         gemini_dir = GeminiDirector(gemini_transport)
@@ -243,7 +230,8 @@ def run_director_pipeline(
                 _script_to_dict(script, resolved_by_event),
                 ensure_ascii=False,
                 indent=2,
-            ) + "\n",
+            )
+            + "\n",
             encoding="utf-8",
         )
 
@@ -273,9 +261,7 @@ def run_director_pipeline(
 def _require_unique_event_ids(collection_name: str, event_ids: tuple[str, ...]) -> None:
     """Reject ambiguous event joins before any Director or artifact work."""
     if len(event_ids) != len(set(event_ids)):
-        raise ValueError(
-            f"Director pipeline: {collection_name} contains duplicate event_id values"
-        )
+        raise ValueError(f"Director pipeline: {collection_name} contains duplicate event_id values")
 
 
 def _validate_private_artifact_directory(output_directory: Path) -> None:
@@ -287,18 +273,17 @@ def _validate_private_artifact_directory(output_directory: Path) -> None:
     except ValueError:
         return
     if not any(
-        relative == root or root in relative.parents
-        for root in _PRIVATE_REPOSITORY_OUTPUT_ROOTS
+        relative == root or root in relative.parents for root in _PRIVATE_REPOSITORY_OUTPUT_ROOTS
     ):
         raise ValueError(
-            "director artifacts inside the repository must use an ignored "
-            "private-media directory"
+            "director artifacts inside the repository must use an ignored private-media directory"
         )
 
 
 # ---------------------------------------------------------------------------
 # Artifact serialization
 # ---------------------------------------------------------------------------
+
 
 def _script_to_dict(
     script: DirectorScript,
@@ -315,20 +300,24 @@ def _script_to_dict(
         clips_data = []
         for clip in scene.clips:
             rc = resolved_by_event.get(clip.event_id)
-            clips_data.append({
-                "event_id": clip.event_id,
-                "source_asset_id": clip.source_asset_id,
-                "source_start_sec": clip.source_start_sec,
-                "source_end_sec": clip.source_end_sec,
-                "file_name": rc.file_name if rc else None,
-            })
-        scenes_data.append({
-            "scene_id": scene.scene_id,
-            "scene_type": scene.scene_type.value,
-            "transition_type": scene.transition_type,
-            "overlay_text": scene.overlay_text,
-            "clips": clips_data,
-        })
+            clips_data.append(
+                {
+                    "event_id": clip.event_id,
+                    "source_asset_id": clip.source_asset_id,
+                    "source_start_sec": clip.source_start_sec,
+                    "source_end_sec": clip.source_end_sec,
+                    "file_name": rc.file_name if rc else None,
+                }
+            )
+        scenes_data.append(
+            {
+                "scene_id": scene.scene_id,
+                "scene_type": scene.scene_type.value,
+                "transition_type": scene.transition_type,
+                "overlay_text": scene.overlay_text,
+                "clips": clips_data,
+            }
+        )
     return {
         "schema_version": DIRECTOR_SCRIPT_SCHEMA_VERSION,
         "metadata": {
@@ -386,9 +375,7 @@ def load_private_director_script_artifact(path: Path) -> DirectorScript:
         ) from error
     metadata = DirectorMetadata(
         composer=_artifact_non_empty_string(raw_metadata["composer"], "composer"),
-        event_count_in=_artifact_non_negative_int(
-            raw_metadata["event_count_in"], "event_count_in"
-        ),
+        event_count_in=_artifact_non_negative_int(raw_metadata["event_count_in"], "event_count_in"),
         event_count_used=_artifact_non_negative_int(
             raw_metadata["event_count_used"], "event_count_used"
         ),
@@ -408,9 +395,7 @@ def load_private_director_script_artifact(path: Path) -> DirectorScript:
             f"artifact.scenes[{scene_index}]",
         )
         try:
-            scene_type = NarrativeArc(
-                _artifact_non_empty_string(scene["scene_type"], "scene_type")
-            )
+            scene_type = NarrativeArc(_artifact_non_empty_string(scene["scene_type"], "scene_type"))
         except ValueError as error:
             raise ValueError("private DirectorScript artifact has an invalid scene_type") from error
         overlay_text = scene["overlay_text"]
@@ -452,9 +437,7 @@ def load_private_director_script_artifact(path: Path) -> DirectorScript:
                     ),
                 )
             )
-        transition_type = _artifact_non_empty_string(
-            scene["transition_type"], "transition_type"
-        )
+        transition_type = _artifact_non_empty_string(scene["transition_type"], "transition_type")
         if transition_type not in _SUPPORTED_DIRECTOR_TRANSITIONS:
             raise ValueError("private DirectorScript artifact has an invalid transition_type")
         scenes.append(
@@ -475,9 +458,7 @@ def _artifact_mapping(value: object, field_name: str) -> dict[str, object]:
     return value
 
 
-def _artifact_exact_keys(
-    value: dict[str, object], expected: set[str], field_name: str
-) -> None:
+def _artifact_exact_keys(value: dict[str, object], expected: set[str], field_name: str) -> None:
     if set(value) != expected:
         raise ValueError(f"private DirectorScript artifact has an invalid {field_name}")
 

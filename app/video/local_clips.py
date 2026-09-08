@@ -43,14 +43,17 @@ class LocalReviewClip:
 
 
 def export_local_review_clip_manifest(clips: tuple[LocalReviewClip, ...]) -> str:
-    return json.dumps(
-        {
-            "schema_version": LOCAL_REVIEW_CLIP_MANIFEST_SCHEMA_VERSION,
-            "clips": [clip.to_dict() for clip in clips],
-        },
-        ensure_ascii=False,
-        indent=2,
-    ) + "\n"
+    return (
+        json.dumps(
+            {
+                "schema_version": LOCAL_REVIEW_CLIP_MANIFEST_SCHEMA_VERSION,
+                "clips": [clip.to_dict() for clip in clips],
+            },
+            ensure_ascii=False,
+            indent=2,
+        )
+        + "\n"
+    )
 
 
 def load_local_review_clip_manifest(path: Path) -> tuple[LocalReviewClip, ...]:

@@ -68,9 +68,7 @@ def preflight_box_mcp(settings: BoxMcpSettings) -> BoxMcpPreflight:
         errors.append("BOX_MCP_NAME must be box-remote-mcp")
     redirect = urlparse(settings.redirect_uri)
     local_redirect_hosts = {"localhost", "127.0.0.1", "::1"}
-    is_local_http_redirect = (
-        redirect.scheme == "http" and redirect.hostname in local_redirect_hosts
-    )
+    is_local_http_redirect = redirect.scheme == "http" and redirect.hostname in local_redirect_hosts
     if settings.redirect_uri and redirect.scheme != "https" and not is_local_http_redirect:
         errors.append(
             "BOX_OAUTH_REDIRECT_URI must use HTTPS, except for localhost or loopback HTTP "

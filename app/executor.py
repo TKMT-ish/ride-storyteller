@@ -133,8 +133,7 @@ class ScriptExecutor:
                 # Fail-closed: source_start_sec mismatch
                 if (
                     rc.start_offset_s is None
-                    or abs(rc.start_offset_s - scene_clip.source_start_sec)
-                    > _OFFSET_TOLERANCE_S
+                    or abs(rc.start_offset_s - scene_clip.source_start_sec) > _OFFSET_TOLERANCE_S
                 ):
                     raise ValueError(
                         f"event_id {eid!r}: ResolvedCandidateClip.start_offset_s "
@@ -145,8 +144,7 @@ class ScriptExecutor:
                 # Fail-closed: source_end_sec mismatch
                 if (
                     rc.end_offset_s is None
-                    or abs(rc.end_offset_s - scene_clip.source_end_sec)
-                    > _OFFSET_TOLERANCE_S
+                    or abs(rc.end_offset_s - scene_clip.source_end_sec) > _OFFSET_TOLERANCE_S
                 ):
                     raise ValueError(
                         f"event_id {eid!r}: ResolvedCandidateClip.end_offset_s "

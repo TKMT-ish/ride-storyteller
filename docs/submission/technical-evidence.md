@@ -85,6 +85,41 @@
   actual 50/80/100%, forecast 100%, role-based email, and no Pub/Sub were
   created and re-read on 2026-08-27. The budget is not a hard cap.
 
+## Proven on real rides (2026-09-03 → 2026-09-07)
+
+- **Twelve consecutive riding days of one tour taken from GPX and footage to a
+  finished film**, one command per day. 4,039 twelve-second judgements stored,
+  bought from Gemini 2.5 Flash on small local proxies (2.3 GiB) for about ¥764
+  in total, a figure that also covers windows bought a second time as the
+  questions asked of the model grew.
+- Camera-to-GPS clock offset read from the cameras' own GPS where present, and
+  otherwise proposed from the recordings that lie wholly inside the ride. The
+  containment method alone was fooled by a folder holding every day of the tour;
+  the GPS clock is read first because of it.
+- A day cut into legs, halt to halt, each a chapter card titled from → to from
+  the Geocoding API, with "Day N" detected from sibling packages' dates. Few
+  cuts promote the day's longest short stops; too many fold the shortest legs
+  together.
+- Moments the track proves — setting off, each stop's two ends, joining and
+  leaving a highway, riding off a ferry, arriving — bought as their own windows
+  and kept whatever they scored, with the model's answers choosing which window
+  of a small fan actually shows the moment.
+- One picture of each stop's place, and the lodging at the day's two ends where
+  the camera saw it, so a film can end at the reception the rider arrived at.
+- Lower thirds with the local time for towns, scenic routes, named roads,
+  passes, highway entries and exits, the ferry's two ends, and each stop by what
+  kind of place it was.
+- Reference files fetched once per country from OpenStreetMap through Overpass
+  (touring routes, state highways, ferry lines, towns, passes, named roads) and
+  matched offline against the track.
+- A ferry crossing claimed only on three-way agreement — charted line, the
+  track's pace and distance, and the camera having seen a deck or a bow — with
+  the hours afloat excluded from the day's kilometres.
+- An opening of four one-second highlights chosen by the model's photogenic
+  score, of distinct subjects, spread across the day, preferring a moving frame.
+- A privacy rule inside the cut: any window that could identify a private home
+  is refused, even as the day's own departure.
+
 ## Proven with synthetic Google calls
 
 - Vertex AI text connection probe: project `ride-storyteller`, Gemini inference

@@ -339,29 +339,30 @@ event集合とのovlerap判定を経て`build_highlight_gps_events`で合流さ�
 
 ## 7-5. 実素材検証｜「重なれば新規追加しない」設計が実データでは価値ゼロ（2026-09-02）
 
-ユーザー承認のもと、実データ（GoPro 49ファイル・68 GiB、実GPX）で本橋渡しを
-末端まで実行した。結果は技術的には成功だが、設計上の重要な限界が判明した。
+ユーザー承認のもと、実データ（実GoPro動画一式・実GPX）で本橋渡しを末端まで
+実行した。結果は技術的には成功だが、設計上の重要な限界が判明した。実素材由来の
+具体的な数量・識別子はこの節でも記録しない。
 
 ### 実行結果
 
-- `highlight_research`: 797窓解析→strict gate 603→最終品質gate 59→
-  4方式×8本=32件が**自動承認32、awaiting 0、rejected 0**（境界事例ログ12件）。
-  コード変更なしで完走。
-- `app.local_pipeline --highlight-bridge-candidates`: GPS由来event 24件と
-  highlight由来候補32件（重複統合前）を合流させたところ、**新規追加された
-  eventは0件**だった。32件全てが既存のGPS由来eventの時間窓と重なっていたため
-  （本設計書§3の「重なれば新規追加しない、重ならなければ追加する」方針の
-  「重ならない」側にどの候補も該当しなかった）。
-- 最終的に選ばれた7 chapter・7 matched clipは全てGPS由来eventのみで、
-  highlight由来のものは1件も含まれない。
+- `highlight_research`: 解析対象窓がstrict gate・最終品質gateを経て絞り込まれ、
+  選定された候補は**全件自動承認、awaiting／rejectedともに0件**（境界事例ログ
+  にも記録あり）。コード変更なしで完走。
+- `app.local_pipeline --highlight-bridge-candidates`: GPS由来eventとhighlight
+  由来候補を合流させたところ、**新規追加されたeventは0件**だった。候補が
+  全て既存のGPS由来eventの時間窓と重なっていたため（本設計書§3の「重なれば
+  新規追加しない、重ならなければ追加する」方針の「重ならない」側にどの候補も
+  該当しなかった）。
+- 最終的に選ばれたchapter・matched clipは全てGPS由来eventのみで、highlight
+  由来のものは1件も含まれない。
 
 ### 分かったこと
 
 strong_turn laneは方位変化・経路効率というGPS由来の信号を使っており、
 GPS側の`direction_change`検出と本質的に同種の信号を見ている。そのため
 「強い旋回」候補は、GPSが既に検出済みの方向転換eventと高確率で時間的に
-重なる。今回の実ライド（約4.2時間・24 event）では、strong_turn・
-visual_eventの両laneを合わせた32候補が**すべて**既存eventと重なった。
+重なる。今回の実ライドでは、strong_turn・visual_eventの両laneの候補が
+**すべて**既存eventと重なった。
 
 つまり現在実装済みの「重ならなければ新規追加」機構（§3.2、§7-2〜7-4）は、
 この実データでは**実質的に何も追加しない**。橋渡しが実際に価値を持つのは、
@@ -378,6 +379,374 @@ visual_eventの両laneを合わせた32候補が**すべて**既存eventと重�
 セットでは検証できていない。次の実装候補は、既存`ResolvedCandidateClip`の
 区間を、重なるhighlight候補のより狭く精度の高い区間で置き換える（人手確認は
 引き続き自動判定に委ねる）処理である。
+
+## 7-6. 実装済み｜既存event区間補強（reinforcement）経路（2026-09-02）
+
+§4項目3・§7-5「今後への示唆」を実装した。合成fixtureのみで検証し、実素材の
+再処理は行っていない。
+
+### 実装内容
+
+- `app/video/highlight_story_bridge.py`に`reinforce_resolved_clips_with_highlights`
+  （公開API）と`_reinforce_one_clip`（内部）を追加した。既存型
+  （`ResolvedCandidateClip`、`VideoCatalog`、`HighlightBridgeCandidate`）だけを
+  使い、新しい永続化・新しいcontractは追加していない。
+- 判定順序: ①`status`が`MATCHED`でなければ何もしない（`NOT_FOUND`など未対応は
+  元のまま） ②候補のcatalog上の絶対時刻区間と、解決済み区間の絶対時刻区間が
+  重なる候補をすべて集め、ちょうど1件でなければ（0件または複数件は曖昧）元の
+  ままにする ③その1件の絶対時刻区間が、解決済み区間と同じcatalog entry
+  （＝同一asset）の記録区間に完全に収まっていなければ（asset identity不一致）
+  元のままにする ④候補区間と解決済み区間の交差（intersection）を計算し、
+  区間が不正（幅0以下）なら元のままにする ⑤交差が元の区間より狭くなければ
+  （＝補強にならない）元のままにする ⑥それ以外の場合だけ、`start_offset_s`／
+  `end_offset_s`をその交差区間へ狭め、`reason`を補強理由の定型文へ更新する。
+  `asset_id`、`status`、`chapter_id`、`event_id`、`file_name`は一切変更しない。
+- `app/local_pipeline.py`の`prepare_local_review_package`に配線した。
+  `highlight_bridge_candidates_path`が渡されたときだけ、`resolve_candidate_clips`
+  の直後に適用する。新規event合流（既存の`build_highlight_gps_events`）と同じ
+  candidate集合を再利用し、追加のファイル読込・実素材再処理は発生しない。
+  自動confirmed方針（evidence自動判定）と時計補正の人手確認
+  （`clock_offset_confirmed`）はどちらも変更していない。
+- synthetic contract testを追加: 補強成功、`NOT_FOUND`clipの不変、重複無し、
+  複数候補の曖昧さ、asset境界外候補の拒否、非狭小候補の不採用、catalogに
+  asset不在時の不変、複数clip中の対象外clip不変、を単体testで検証。
+  `app.local_pipeline`経由の統合testを1件追加し、実際に`prepare_local_review_package`
+  を通してresolved intervalが狭まること、狭まった場合は新規highlight eventが
+  重複して増えないことを確認した。
+- 627件成功、Ruff成功、`git diff --check`成功。実GPX・実動画・座標・
+  ファイル名・absolute path・資格情報は、コード・test・本追記のいずれにも
+  含めていない。実素材は一切読み書きしていない。
+
+### 未対応境界（意図的にfail closedのまま）
+
+- 1つの解決済みclipに対して複数のhighlight候補が重なる場合は補強しない
+  （最有力候補を選ぶロジックは未実装）。
+- 候補区間が解決済み区間と部分的にしか重ならない場合、重なった部分だけを
+  使う（交差を取る）。候補区間全体を採用する拡張的な補強はしない。
+- `--resume-output`経路（`rerun_local_director_from_package`）には配線して
+  いない。既存の`local-pipeline-inputs.json`に`highlight_bridge_candidates_path`
+  を記録しない設計（§7-4）と整合させたまま。
+- 実素材適用・効果測定は次回以降の別作業とする。
+
+## 7-7. 実素材検証｜補強経路のfail-closed動作を確認（2026-09-02）
+
+commit `ad91139`（既存event区間補強）を、既存のprivate入力manifest
+（`local-pipeline-inputs.json`）・既存catalog相当のGPX／video directory・
+既存の`highlight-bridge-candidates.json`（§7-5で生成済みのもの）だけを使い、
+新しいwork用private output（Git管理外）2つ（補強なし／補強ありの比較用）へ
+ローカル検証した。新しいhighlight researchは実行していない。video directory
+は入力manifestの値を`app.local_pipeline.load_local_pipeline_inputs`で読み込み、
+`private-media/input/`配下（元の取り込み場所）であり`private-media/work/`配下
+（派生proxy置き場）でないことをコードで確認してから使用した。
+
+### 安全な集計結果
+
+| 項目 | 補強なし | 補強あり |
+|---|---:|---:|
+| event数 | 24 | 24 |
+| matched clip数 | 7 | 7 |
+| matched clip合計尺 | 210.0秒 | 210.0秒 |
+| evidence confirmed数 | 7 | 7 |
+| next_gate | 変化なし（同一） |  |
+
+**区間が狭まったclipは0件だった。** 内訳：7件のmatched clipのうち、
+highlight候補と絶対時刻で重なるものは1件だけ。その1件には重なる候補が
+2件存在し、fail-closedの「複数候補は曖昧」ルールにより意図的に変更しなかった
+（2件とも同一assetの範囲内にあり、単独なら狭められる候補だったことも確認
+済み）。残り6件は重なる候補が0件だった。
+
+### 結論
+
+**既存コードに問題は見つからなかった。** 今回0件だった理由は、実装済みの
+fail-closed境界（複数候補の曖昧さ）が実データで実際に働いたためであり、
+バグではない。コード変更は行っていない。
+
+### 未実施のまま残る境界（§7-8で一部解消）
+
+- 複数candidateが同一clipに重なる場合の優先順位付け（本検証で実際に1件発生
+  したことを確認したため、優先度は上がったが未実装のまま）。→ §7-8で実装。
+- `--resume-output`との統合。
+- 本検証で使った実素材由来の数値・識別子はこの文書にも記録していない
+  （§7-7表の集計値はcount／秒数のみで、event_id・asset_id・座標・ファイル名・
+  絶対pathは含まない）。
+
+## 7-8. 実装済み｜複数候補時の優先順位付け（2026-09-02）
+
+§7-7で判明した「1つの解決済みclipに複数candidateが重なるとfail-closedで
+常に変更しない」という制約を、意味的に比較可能で一意な優先順位がある場合
+だけ緩和した。合成fixtureのみで検証し、実素材の再処理は行っていない。
+
+### 判断契約
+
+- `HighlightBridgeCandidate.score`は`QualitySelectionMethod`ごとに意味が
+  異なるため、異なるmethod間ではscoreもrankも比較しない。
+- 重なる候補（asset identity検証済みのもの）が全て同一methodで、かつ
+  rankが一意に最小のものだけを選べる場合に限り、その候補で既存の
+  strict narrowing（交差計算・狭小判定）を行う。
+- 最小rankが同率、候補のmethodが複数種類混在、有効な候補が0件の場合は
+  既存のfail-closedのまま（元の`ResolvedCandidateClip`を完全に維持）。
+- asset identity不一致の候補は、優先順位付けの対象から個別に除外するだけで、
+  それ自体が曖昧さの理由にはしない（無効な候補が紛れていても、残りの
+  有効候補群で一意に決まるなら補強する）。
+- 候補が1件だけの場合の既存挙動（そのまま補強判定へ進む）は変更していない。
+
+### 実装内容
+
+- `app/video/highlight_story_bridge.py`に`_select_unambiguous_candidate`
+  （内部helper）を追加した。入力は候補のtuple、出力は選ばれた1候補または
+  `None`（曖昧）。
+- `_reinforce_one_clip`の候補選択順序を変更した: ①絶対時刻で重なる候補を
+  集める ②asset identityを満たす候補だけを残す（`valid`） ③`valid`が空なら
+  変更しない ④`_select_unambiguous_candidate(valid)`が`None`を返せば変更
+  しない ⑤選ばれた1候補で従来どおり交差・狭小判定を行う。asset identity・
+  match status・evidence状態・clock-offset確認・manifestの不変性は変更して
+  いない。candidate_id・path・ファイル名は理由文にもログにも出力しない
+  （既存のまま）。
+- 新規synthetic testを追加: 同一method・rank一意で補強、同一method・rank
+  同率でno-op、method混在でno-op（rank数値が小さくても比較しない）、
+  asset不一致candidateが混在しても残りの有効な1件で補強、を検証した。
+  既存の「複数候補は常に変更しない」testは、rank同率という具体的な
+  fail-closedケースとして名称・内容を明確化した。
+- 630件成功、Ruff成功、`git diff --check`成功。実GPX・実動画・座標・
+  ファイル名・絶対path・識別子・資格情報は、コード・test・本追記の
+  いずれにも含めていない。実素材は一切読み書きしていない。
+
+### 未対応境界（意図的にfail closedのまま）
+
+- 同一method・rank同率の複数候補からの選定は、自動判定としては依然
+  未実装・fail-closedのまま。ただし§7-9の明示選択で人手が個別に解決できる。
+- method間でscoreを正規化して比較する仕組み（意図的に見送り。契約上
+  「異なるmethod間で比較しない」ことが安全側の要件のため）。
+
+## 7-9. 実装済み｜private-only明示選択契約（2026-09-02）
+
+§7-8の「未対応境界」（同一method・rank同率、method混在で自動判定できない
+複数候補）を、将来のprivate UIが人手の選択を安全に保存・適用できるようにする
+土台として、明示選択の契約を追加した。**public webやrenderへの接続、UI自体は
+今回行っていない**（別タスク）。
+
+### 契約
+
+- `HighlightReinforcementSelection`：`(event_id, candidate_id)`のペアだけを
+  持つ。どちらもprivate artifact内だけで使う既存の識別子
+  （`GpsEvent.event_id`、`highlight_review_candidate_id`のhash）であり、自由文・座標・path・
+  ファイル名・映像本文・資格情報は一切持たない。
+- `HighlightReinforcementSelectionSet`：1 event_idにつき選択は最大1件、
+  1 candidate_idにつき選択も最大1件。重複event_idまたはcandidate_idは
+  構築時に`ValueError`で拒否する（同じ候補を複数clipへ重複配置しない
+  fail-closed）。
+- `load_highlight_reinforcement_selections`／`write_highlight_reinforcement_selections`：
+  呼び出し側が明示するprivate pathへのみ読み書きする。schema不一致、
+  トップレベル／要素レベルの未知field、非文字列の識別子、symlink先、
+  壊れたJSONを全て拒否する。書き込みは既定で上書きしない（人手の選択を
+  再実行で黙って消さないため）、atomic write（一時ファイル→rename）。
+
+### `reinforce_resolved_clips_with_highlights`との統合
+
+- 新しいkeyword-only引数`selections: HighlightReinforcementSelectionSet | None = None`
+  を追加した。省略時（既定）は、この契約が存在しなかった場合と完全に同じ
+  挙動になる（既存の自動優先順位付けのみ）。
+- ある clip の event に選択が記録されている場合、その candidate_id を
+  **既存のasset identity・絶対時刻交差・strict narrowingの全チェックに
+  独立に通した上でのみ**優先採用する。自動判定が曖昧かどうかに関わらず
+  優先する。
+- 選択が不正・古い・別clip由来・asset不一致・非狭小のいずれかの場合、
+  自動判定へフォールバックしない。元の`ResolvedCandidateClip`をそのまま
+  維持する（曖昧な自動判定と同じfail-closedの扱い）。
+- 選択が無いeventは、これまでどおり自動優先順位付け
+  （`_select_unambiguous_candidate`）にフォールバックする。
+
+### 実装内容
+
+- `app/video/highlight_story_bridge.py`に上記契約一式と、`_select_candidate`
+  （明示選択を優先しつつ独立検証する内部helper）を追加した。
+  `_reinforce_one_clip`は`_select_unambiguous_candidate`の直接呼び出しから
+  `_select_candidate`経由に変更した。
+- 合成fixtureのみでテストした: 明示選択によるmethod混在・rank同率の解決
+  （正常適用）、選択なし時の完全な既存互換、選択が不明candidate／
+  asset不一致／非狭小／unmatched clip向けの場合はfail-closedで元clipを維持、
+  同一event_idの重複選択を契約レベルで拒否、persistenceのround trip・
+  atomic write・symlink拒否・schema検証一式。
+- 653件成功、Ruff成功、`git diff --check`成功。実GPX・実動画・座標・
+  ファイル名・絶対path・識別子・資格情報は、コード・test・本追記のいずれ
+  にも含めていない。実素材は一切読み書きしていない。外部通信、Gemini／
+  Google／Box、render、pushは行っていない。
+
+### まだ無いもの
+
+- private UI本体（選択を作成・保存する画面）は次の独立タスク。
+- `app.local_pipeline`側で`selections`を受け取るCLI引数・入力経路は未接続
+  （現状は関数を直接呼ぶ場合のみ利用可能）。
+
+## 7-10. 実装済み｜自動選択できない競合の一覧化（2026-09-02）
+
+§7-9の明示選択契約は「人手がどう選ぶか」を扱うが、「どのclipに選択が
+必要か」を安全に一覧化する手段が無かった。この土台として、純粋な
+一覧化契約を追加した。**public web、render、CLI接続は今回も行っていない**
+（引き続き別タスク）。
+
+### 契約
+
+- `HighlightReinforcementConflict`：`event_id`、`candidate_id`、`method`、
+  `rank`だけを持つ。座標・path・素材名・映像本文・絶対時刻・offset・score・
+  資格情報・自由文は一切含めない。
+- `HighlightReinforcementConflictSet`：同一`(event_id, candidate_id)`の
+  重複と、同一candidate_idが複数eventにまたがることの両方を構築時に
+  `ValueError`で拒否する。
+- `find_highlight_reinforcement_conflicts(clips, candidates, catalog)`：
+  `HighlightReinforcementSelectionSet`を一切受け取らない、独立した
+  問い合わせ関数。「どのclipに人手判断が要るか」だけに答え、選択の記録は
+  既存の別契約（§7-9）に委ねる。
+  - 各clipについて、`reinforce_resolved_clips_with_highlights`と同じ
+    asset identity・absolute-time overlap・strict narrowingの3条件を
+    **候補ごとに個別に**適用する（既存関数は最終的に選ばれた1候補にしか
+    narrowing判定をしないが、一覧化では全候補に適用する必要があるため、
+    既存の`_reinforce_one_clip`とは独立した内部helper
+    `_valid_narrowing_candidates`を新設した。既存関数の挙動は変更していない）。
+  - 有効な候補が0件、または1件で`_select_unambiguous_candidate`が一意に
+    決まる場合は一覧に含めない（人手判断が不要なため）。
+  - method混在、または同一methodで最小rankが同率の場合だけ、有効な候補
+    全件を競合項目として返す。
+- `load_highlight_reinforcement_conflicts`／`write_highlight_reinforcement_conflicts`：
+  strict schema（未知field・非文字列識別子・未知method値・rank非正数を拒否）、
+  symlink拒否、atomic write、既定で上書きしない（§7-9の選択persistenceと
+  同じ方針）。呼び出し側が明示するprivate pathへのみ読み書きする。
+
+### 実装内容
+
+- `app/video/highlight_story_bridge.py`に上記契約と`_valid_narrowing_candidates`
+  を追加した。既存の`reinforce_resolved_clips_with_highlights`・
+  `_reinforce_one_clip`・`_select_unambiguous_candidate`・
+  `_select_candidate`は変更していない。
+- 合成fixtureのみでテストした: method混在の一覧化、同一method・rank同率の
+  一覧化、自動選択済み（一意な最小rank、候補1件）の除外、asset不一致・
+  非狭小候補が紛れていても残りが1件なら除外、unmatched clip・catalog不一致
+  clipの除外、複数clipにまたがる出力の決定的な順序、同一event/candidate
+  重複と同一candidateの複数event帰属の拒否、persistenceのround trip・
+  atomic write・symlink拒否・schema検証一式。
+- 680件成功、Ruff成功、`git diff --check`成功。実GPX・実動画・座標・
+  ファイル名・絶対path・識別子・資格情報は、コード・test・本追記のいずれ
+  にも含めていない。実素材は一切読み書きしていない。外部通信、Gemini／
+  Google／Box、render、pushは行っていない。
+
+### まだ無いもの
+
+- private UI本体（一覧を表示し、選択を作成する画面）は次の独立タスク。
+- `app.local_pipeline`・CLIからの呼び出し経路は未接続。
+
+## 7-11. 実装済み｜loopback-only private補強競合reviewUI（2026-09-02）
+
+§7-10の一覧化契約と§7-9の明示選択契約を、既存のprivate review UI群
+（`app/web/private_highlight_review.py`、`app/web/private_evidence_review.py`）
+と同じloopback-onlyパターンで画面化した。**Director・render・CLI・
+local_pipelineへの接続は行っていない**（引き続き別タスク）。
+
+### 設計上の要点
+
+- 新規`app/web/private_highlight_reinforcement_review.py`。設定先は既存の
+  `RIDE_PRIVATE_HIGHLIGHT_REVIEW_DIRECTORY`とは別の環境変数
+  （`RIDE_PRIVATE_HIGHLIGHT_REINFORCEMENT_REVIEW_DIRECTORY`）。設定した1つの
+  directory配下だけを読み書きし、親directoryの走査や別packageへのfallbackは
+  行わない。
+- ブラウザへ渡す内容は`local_only`、`external_data_sent`、schema付きの集計
+  view、**session内だけで意味を持つopaque review token**、`method`、`rank`、
+  server側で組み立てたthumbnail/media URLだけに限定した。event_id・
+  candidate_id・asset_id・offset・時刻・source path・ファイル名・座標・
+  score・資格情報は一切含めない。既存の`private_highlight_review.py`が
+  candidate_idをそのまま公開していたのとは異なり、今回はより厳格な
+  session-scoped tokenだけを公開する。
+- tokenは設定package内の競合一覧（§7-10の出力）における位置だけを表す
+  文字列で、保存要求のたびに一覧を読み直して再検証する。生のevent_id・
+  candidate_idをtokenとして受理することはない。
+- 保存は明示選択契約（§7-9）へそのまま書き込む。同じeventへの2回目の選択は
+  そのeventの選択だけを置き換え、他のeventの既存選択は保持する。
+- 未知token、壊れた／余分なfield、cross-origin request、public demo mode、
+  asset欠損はすべてfail closedで拒否する。未設定時の画面はpath・設定値・
+  内部エラー文言を一切表示せず、設定すべき環境変数名だけを案内する。
+
+### 実装内容
+
+- `app/web/server.py`に4経路（GET `/private-highlight-reinforcement-review`、
+  GET/POST `/api/private-highlight-reinforcement-review`、GET
+  `/api/private-highlight-reinforcement-review/asset`）を追加し、
+  `_PUBLIC_DEMO_DISABLED_PATHS`へ全て登録した。既存のloopback-origin検証
+  helperをそのまま再利用した。
+- 合成fixtureのみでテストした: payloadの非識別性（生ID不在の直接検証）、
+  tokenを生IDとして再利用できないこと、有効tokenでの保存、同一eventへの
+  2回目の選択が他eventの選択を保持したまま置き換わること、未知／
+  cross-origin／public demo／asset欠損のfail-closed、asset取得に
+  path traversalが無いこと、未設定時に画面がpath・設定値を出さないこと。
+- 696件成功、Ruff成功、`git diff --check`成功。実GPX・実動画・座標・
+  ファイル名・絶対path・識別子・資格情報は、コード・test・本追記のいずれ
+  にも含めていない。実素材は一切読み書きしていない。外部通信、Gemini／
+  Google／Box、render、push、公開は行っていない。commitもしていない
+  （指示によりこの回はローカル変更のみ）。
+
+## 7-12. 実装済み｜private補強review directoryとlocal_pipelineの接続（2026-09-02）
+
+§7-11のweb UIが保存するselectionを、`app.local_pipeline`の新規/再準備package
+へ接続し、`--resume-output`が明示的な選択の有無に関わらず決定論的に
+再現できるようにした。**Director判断・render・evidence判定・
+auto-confirmation方針は変更していない**。
+
+### 設計上の要点
+
+- `prepare_local_review_package`に新引数`highlight_reinforcement_review_directory`
+  を追加した。既存の`highlight_bridge_candidates_path`（単一ファイル、
+  selectionなし）とは独立した、別の入力経路として共存する。両方を同時に
+  指定した場合はGPX／動画のprobe前に拒否する。
+- 新引数のdirectoryは、指定された1つのpathだけを読む。親・兄弟directoryの
+  走査や推測は行わない。directory自体・`highlight-bridge-candidates.json`
+  （必須）・`highlight-reinforcement-selections.json`（任意。無ければ
+  空のselection setとして扱う）のsymlink・破損・欠落は、いずれもGPX／動画
+  probe前にfail closedで拒否する。
+- 読み込んだcandidatesとselectionは、既存の`reinforce_resolved_clips_with_highlights`
+  （§7-9で追加済みの`selections`引数）へそのまま渡す。selectionが無い場合の
+  既存挙動（自動優先順位付けのみ）は完全に変わらない。
+- 新引数を使った回だけ、読み込んだ内容をそのまま`output_directory`内へ
+  `highlight-bridge-candidates.json`／`highlight-reinforcement-selections.json`
+  としてsnapshotする（既存の書き込み契約をそのまま再利用）。
+- `rerun_local_director_from_package`／`--resume-output`は、
+  **package自身のoutput directory**を`highlight_reinforcement_review_directory`
+  として再利用する。これにより、rerunは常にpackage内のsnapshotだけを読み、
+  元のreview directoryへは二度とアクセスしない。review directory側で
+  selectionが後から変わっても、既に準備済みのpackageのresumeには影響しない。
+  snapshotが無いpackage（この機能を使わなかったもの）は、従来どおり
+  reinforcementなしでrerunする。snapshotがsymlink・破損・片方だけの不完全な
+  状態の場合はprobe前に拒否する。
+- 既存packageを`overwrite=True`で再準備する際、review directoryを明示せずに
+  古いsnapshotだけを残すことは許可しない。元の選択を再現したい場合は
+  `--resume-output`、新しい選択へ置き換える場合はreview directoryの明示、
+  どちらでもない場合は新しいoutput directoryを使う。これにより、旧選択を
+  意図せず再利用する経路を閉じる。
+
+### 実装内容
+
+- `app/local_pipeline.py`: `_resolve_highlight_reinforcement_inputs`
+  （2つの入力経路を検証・読み込む内部helper。probe前に呼び出す）、
+  snapshot書き込み処理、CLI引数
+  `--highlight-reinforcement-review-directory`（`--highlight-bridge-candidates`
+  と併用不可、`--resume-output`とも併用不可）を追加した。
+- 合成fixtureのみでテストした: method混在で自動選択できない候補を明示選択が
+  解決すること、新旧2つの入力を同時に指定した場合のprobe前拒否、不正な
+  review directory（symlink・破損JSON）のprobe前拒否、selection sidecar
+  欠落時の空set扱い、snapshotのround trip、review directory側の内容が
+  後から変わってもresumeが最初のsnapshotのまま再現すること、package内に
+  symlinkされた不正snapshotまたは片方だけのsnapshotが混入した場合のresume時probe前拒否、
+  snapshotを明示的に置換しない`overwrite=True`再準備のprobe前拒否、
+  出力summary・candidate exportにreview directoryのpathが含まれないこと。
+- 708件成功、Ruff成功、`git diff --check`成功。実GPX・実動画・座標・
+  ファイル名・絶対path・識別子・資格情報は、コード・test・本追記のいずれ
+  にも含めていない。実素材は一切読み書きしていない。外部通信、Gemini／
+  Google／Box、render、push、公開は行っていない。commitもしていない。
+
+### まだ無いもの
+
+- `app.private_story_e2e`専用の追加APIは持たない。既存の`--resume-output`
+  経由でpackage snapshotを再現する最小構成であり、2026-09-02に選択済み
+  reinforcementからoffline Director、silent local renderまでの合成E2E回帰で
+  接続を検証した。
+- この機能に特化したCLIドキュメントの英訳・ヘルプ文言以上の追加説明はまだ無い。
 
 ## 7. 移行の進め方（提案）
 

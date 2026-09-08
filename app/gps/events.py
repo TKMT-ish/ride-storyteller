@@ -100,8 +100,13 @@ def extract_events(
         if speed_mps <= thresholds.stop_speed_mps and elapsed_s >= thresholds.stop_min_duration_s:
             events.append(
                 _event(
-                    f"evt_{index:03d}_stop", "stop", previous, current, 0.45,
-                    ("low_speed", "duration"), asset_name_hint,
+                    f"evt_{index:03d}_stop",
+                    "stop",
+                    previous,
+                    current,
+                    0.45,
+                    ("low_speed", "duration"),
+                    asset_name_hint,
                 )
             )
 
@@ -110,8 +115,13 @@ def extract_events(
             if abs(elevation_change) >= thresholds.elevation_change_m:
                 events.append(
                     _event(
-                        f"evt_{index:03d}_elevation", "elevation_change", previous, current,
-                        0.70, ("elevation_change",), asset_name_hint,
+                        f"evt_{index:03d}_elevation",
+                        "elevation_change",
+                        previous,
+                        current,
+                        0.70,
+                        ("elevation_change",),
+                        asset_name_hint,
                     )
                 )
 
@@ -119,8 +129,13 @@ def extract_events(
         if speed_delta >= thresholds.speed_change_mps:
             events.append(
                 _event(
-                    f"evt_{index:03d}_speed", "speed_change", previous, current,
-                    0.50, ("speed_change",), asset_name_hint,
+                    f"evt_{index:03d}_speed",
+                    "speed_change",
+                    previous,
+                    current,
+                    0.50,
+                    ("speed_change",),
+                    asset_name_hint,
                 )
             )
 
@@ -132,22 +147,37 @@ def extract_events(
             if direction_delta >= thresholds.direction_change_degrees:
                 events.append(
                     _event(
-                        f"evt_{index:03d}_direction", "direction_change", previous, current,
-                        0.65, ("direction_change",), asset_name_hint,
+                        f"evt_{index:03d}_direction",
+                        "direction_change",
+                        previous,
+                        current,
+                        0.65,
+                        ("direction_change",),
+                        asset_name_hint,
                     )
                 )
 
     if route.summary.duration_s >= thresholds.long_ride_min_duration_s:
         events.append(
             _event(
-                "evt_long_ride", "long_ride", points[0], points[-1], 0.60,
-                ("duration", "distance"), asset_name_hint,
+                "evt_long_ride",
+                "long_ride",
+                points[0],
+                points[-1],
+                0.60,
+                ("duration", "distance"),
+                asset_name_hint,
             )
         )
     events.append(
         _event(
-            "evt_arrival_candidate", "arrival_candidate", points[-1], points[-1], 0.75,
-            ("route_end",), asset_name_hint,
+            "evt_arrival_candidate",
+            "arrival_candidate",
+            points[-1],
+            points[-1],
+            0.75,
+            ("route_end",),
+            asset_name_hint,
         )
     )
     return tuple(events)
@@ -176,9 +206,7 @@ def consolidate_events(
     return tuple(sorted(consolidated, key=lambda event: (event.start_time, event.event_id)))
 
 
-def _consolidate_type(
-    candidates: list[GpsEvent], window_s: float
-) -> tuple[GpsEvent, ...]:
+def _consolidate_type(candidates: list[GpsEvent], window_s: float) -> tuple[GpsEvent, ...]:
     clusters: list[list[GpsEvent]] = []
     for event in sorted(candidates, key=lambda item: (item.start_time, item.event_id)):
         if not clusters:

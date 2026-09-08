@@ -558,9 +558,7 @@ def export_quality_research_manifest(
                         "candidate_id": f"candidate-{choice.rank:02d}",
                         "relevance_score": round(choice.relevance_score, 6),
                         "diversity_gain": round(choice.diversity_gain, 6),
-                        "interest_lanes": [
-                            lane.value for lane in choice.scored.interest_lanes
-                        ],
+                        "interest_lanes": [lane.value for lane in choice.scored.interest_lanes],
                         "output_file_name": f"clip-{choice.rank:02d}.mp4",
                     }
                     for choice in values

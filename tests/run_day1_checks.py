@@ -29,8 +29,13 @@ def main() -> None:
     # Contracts reject bad values.
     try:
         GpsEvent(
-            "evt-invalid", "scenery_change", datetime(2026, 8, 10, tzinfo=UTC),
-            datetime(2026, 8, 10, 0, 1, tzinfo=UTC), Location(0, 0), 1.2, (),
+            "evt-invalid",
+            "scenery_change",
+            datetime(2026, 8, 10, tzinfo=UTC),
+            datetime(2026, 8, 10, 0, 1, tzinfo=UTC),
+            Location(0, 0),
+            1.2,
+            (),
             VideoQuery("fixture.mp4", 0, 1),
         )
     except ValueError:

@@ -225,9 +225,7 @@ class UniversalEvent:
                 raise ValueError("source_end_sec must be after source_start_sec")
         # evidence_confirmed=True requires evidence.video=True and resolved source
         if self.evidence_confirmed and not self.evidence.video:
-            raise ValueError(
-                "evidence_confirmed=True requires evidence.video=True"
-            )
+            raise ValueError("evidence_confirmed=True requires evidence.video=True")
         if self.evidence_confirmed and self.source_asset_id is None:
             raise ValueError(
                 "evidence_confirmed=True requires a resolved source "
@@ -426,9 +424,7 @@ def to_universal_event(
         evidence=UniversalEventEvidence(
             gps=True,
             video=has_video_evidence,
-            elevation=(
-                location_context is not None and location_context.elevation_m is not None
-            ),
+            elevation=(location_context is not None and location_context.elevation_m is not None),
         ),
         evidence_confirmed=evidence_confirmed,
     )

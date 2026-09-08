@@ -78,15 +78,9 @@ def test_evidence_review_separates_awaiting_rejected_and_unmatched() -> None:
     )
     review = LocalEvidenceReview(
         (
-            LocalEvidenceDecision(
-                "event_001", CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
-            ),
-            LocalEvidenceDecision(
-                "event_002", CandidateEvidenceStatus.REJECTED, "human_review"
-            ),
-            LocalEvidenceDecision(
-                "event_003", CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
-            ),
+            LocalEvidenceDecision("event_001", CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE),
+            LocalEvidenceDecision("event_002", CandidateEvidenceStatus.REJECTED, "human_review"),
+            LocalEvidenceDecision("event_003", CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE),
         )
     )
 
@@ -113,11 +107,7 @@ def test_evidence_review_rejects_confirmation_for_unmatched_clip() -> None:
         end_offset_s=None,
     )
     review = LocalEvidenceReview(
-        (
-            LocalEvidenceDecision(
-                "event_001", CandidateEvidenceStatus.CONFIRMED, "human_review"
-            ),
-        )
+        (LocalEvidenceDecision("event_001", CandidateEvidenceStatus.CONFIRMED, "human_review"),)
     )
 
     with pytest.raises(ValueError, match="unmatched clip cannot be confirmed"):
@@ -126,11 +116,7 @@ def test_evidence_review_rejects_confirmation_for_unmatched_clip() -> None:
 
 def test_evidence_review_requires_exact_candidate_event_set() -> None:
     review = LocalEvidenceReview(
-        (
-            LocalEvidenceDecision(
-                "other", CandidateEvidenceStatus.CONFIRMED, "human_review"
-            ),
-        )
+        (LocalEvidenceDecision("other", CandidateEvidenceStatus.CONFIRMED, "human_review"),)
     )
 
     with pytest.raises(ValueError, match="exactly one decision"):
@@ -154,11 +140,7 @@ def test_evidence_review_atomic_write_preserves_existing_decision_on_replace_fai
     path = tmp_path / "evidence-review.json"
     original = build_local_evidence_review_template((_clip(),))
     replacement = LocalEvidenceReview(
-        (
-            LocalEvidenceDecision(
-                "event_001", CandidateEvidenceStatus.CONFIRMED, "human_review"
-            ),
-        )
+        (LocalEvidenceDecision("event_001", CandidateEvidenceStatus.CONFIRMED, "human_review"),)
     )
     write_local_evidence_review(path, original)
 
@@ -245,9 +227,7 @@ def test_load_or_autodecide_local_evidence_review_creates_and_preserves_manual_c
 
     corrected = LocalEvidenceReview(
         tuple(
-            LocalEvidenceDecision(
-                "event_001", CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE
-            )
+            LocalEvidenceDecision("event_001", CandidateEvidenceStatus.AWAITING_VIDEO_EVIDENCE)
             if decision.event_id == "event_001"
             else decision
             for decision in created.decisions

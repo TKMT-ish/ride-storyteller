@@ -39,8 +39,7 @@ def _distance_m(a: RoutePoint, latitude: float, longitude: float) -> float:
     d_lat = lat_2 - lat_1
     d_lon = math.radians(longitude - a.longitude)
     haversine = (
-        math.sin(d_lat / 2) ** 2
-        + math.cos(lat_1) * math.cos(lat_2) * math.sin(d_lon / 2) ** 2
+        math.sin(d_lat / 2) ** 2 + math.cos(lat_1) * math.cos(lat_2) * math.sin(d_lon / 2) ** 2
     )
     return 2 * EARTH_RADIUS_M * math.asin(math.sqrt(haversine))
 
@@ -88,8 +87,12 @@ def _parse_root(root: ElementTree.Element) -> ParsedRoute:
                 raise ValueError("GPX track point times must be strictly increasing")
             speed_mps = segment_m / elapsed_s
             point = RoutePoint(
-                timestamp, latitude, longitude, elevation_m,
-                previous.distance_from_start_m + segment_m, speed_mps,
+                timestamp,
+                latitude,
+                longitude,
+                elevation_m,
+                previous.distance_from_start_m + segment_m,
+                speed_mps,
             )
             if elevation_m is not None and previous.elevation_m is not None:
                 change = elevation_m - previous.elevation_m

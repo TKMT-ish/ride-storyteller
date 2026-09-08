@@ -224,6 +224,56 @@ class MediaAsset:
             raise ValueError("duration_s must be positive")
 
 
+RIDER_VISIBLE_VALUES: tuple[str, ...] = ("unknown", "none", "small", "large")
+STATIONARY_VALUES: tuple[str, ...] = ("unknown", "yes", "no")
+# What the road is doing in the window, as the model sees it. The owner's
+# day-1 notes (2026-09-07): the film should show the moment of joining the
+# highway, and never a clip of the bike standing still before it leaves.
+# What the picture is of, when it is worth a highlight (the owner's day-1
+# note, 2026-09-07: the opening's four one-second shots must look good --
+# a cityscape, open country, a view from a stop). Research: picturesque
+# highlights are frames a photographer would keep (composition, light,
+# subject), not the frames that move most.
+HIGHLIGHT_SUBJECT_VALUES: tuple[str, ...] = (
+    "unknown",
+    "none",
+    "vista",
+    "mountains",
+    "water",
+    "cityscape",
+    "landmark",
+    "winding_road",
+    "sky",
+    "rest_stop",
+)
+# What kind of place the bike is at when it stands somewhere (the owner,
+# 2026-09-07: fuel and toilets are short breaks; lunch and sights are
+# stopovers, said differently and shown more).
+PLACE_KIND_VALUES: tuple[str, ...] = (
+    "unknown",
+    "none",
+    "fuel",
+    "eatery",
+    "lodging",
+    "attraction",
+    "lookout",
+    "shop",
+    "ferry",
+    "residential",
+    "other",
+)
+ROAD_EVENT_VALUES: tuple[str, ...] = (
+    "unknown",
+    "none",
+    "joining_highway",
+    "leaving_highway",
+    "entering_town",
+    "leaving_town",
+    "setting_off",
+    "pulling_in",
+)
+
+
 @dataclass(frozen=True)
 class VideoAnalysis:
     asset_id: str
@@ -237,10 +287,35 @@ class VideoAnalysis:
     story_relevance_score: float
     confidence: float
     analysis_provider: str
+    # How much of the rider is in the picture: "none", "small", "large", or
+    # "unknown" for judgements bought before the model was asked.
+    rider_visible: str = "unknown"
+    # Whether the bike stands still through the window, and what the road is
+    # doing; "unknown" for judgements bought before the model was asked.
+    stationary: str = "unknown"
+    road_event: str = "unknown"
+    # How much a travel photographer would want this frame (0-1), and of what.
+    photogenic_score: float | None = None
+    highlight_subject: str = "unknown"
+    # What kind of place the bike stands at, and the name on its sign, if any.
+    place_kind: str = "unknown"
+    place_name: str | None = None
 
     def __post_init__(self) -> None:
         if not self.asset_id or not self.visual_description or not self.analysis_provider:
             raise ValueError("analysis identifiers and description are required")
+        if self.place_kind not in PLACE_KIND_VALUES:
+            raise ValueError("place_kind must be one of the named kinds or unknown")
+        if self.rider_visible not in RIDER_VISIBLE_VALUES:
+            raise ValueError("rider_visible must be one of none, small, large or unknown")
+        if self.stationary not in STATIONARY_VALUES:
+            raise ValueError("stationary must be yes, no or unknown")
+        if self.road_event not in ROAD_EVENT_VALUES:
+            raise ValueError("road_event must be one of the named events or unknown")
+        if self.photogenic_score is not None:
+            _score(self.photogenic_score, "photogenic_score")
+        if self.highlight_subject not in HIGHLIGHT_SUBJECT_VALUES:
+            raise ValueError("highlight_subject must be one of the named subjects or unknown")
         if self.start_offset_s < 0 or self.end_offset_s < self.start_offset_s:
             raise ValueError("analysis offsets must be non-negative and ordered")
         _score(self.visual_interest_score, "visual_interest_score")

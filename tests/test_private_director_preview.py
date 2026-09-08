@@ -91,19 +91,20 @@ def test_payload_contains_only_browser_safe_story_structure(tmp_path: Path) -> N
         ],
     }
     for forbidden in (
-        "event_id", "source_asset_id", "source_start_sec", "source_end_sec",
-        "file_name", "PRIVATE.MP4", "private-asset-id",
+        "event_id",
+        "source_asset_id",
+        "source_start_sec",
+        "source_end_sec",
+        "file_name",
+        "PRIVATE.MP4",
+        "private-asset-id",
     ):
         assert forbidden not in serialized
 
 
 def test_rejects_out_of_order_or_duplicate_roles(tmp_path: Path) -> None:
-    out_of_order = _write_artifact(
-        tmp_path / "out-of-order.json", scene_types=["climax", "hook"]
-    )
-    duplicate_role = _write_artifact(
-        tmp_path / "duplicate.json", scene_types=["hook", "hook"]
-    )
+    out_of_order = _write_artifact(tmp_path / "out-of-order.json", scene_types=["climax", "hook"])
+    duplicate_role = _write_artifact(tmp_path / "duplicate.json", scene_types=["hook", "hook"])
 
     with pytest.raises(PrivateDirectorPreviewError, match="invalid scene order"):
         PrivateDirectorPreview.from_file(out_of_order).payload()
