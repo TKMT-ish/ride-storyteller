@@ -297,11 +297,13 @@ Still required as distinct evidence:
 - Real footage reaches Gemini only as small local proxies (one frame a second,
   480 lines, no audio). The 4K source never leaves the rider's machine, and the
   hosted agent has still only received synthetic events.
-- The public Cloud Run service, public source repository, and public video do not
-  yet exist.
-- The demo video is assembled locally but has not been reviewed frame by frame
-  for identifiable faces and number plates, which is a precondition of
-  publishing it.
+- The hosted service shows the agent's decision loop on synthetic data only;
+  the judged-film pipeline runs on the rider's machine (the judge package cuts
+  one real day there), because real footage cannot be placed on a public server.
+- The demo video was read frame by frame on the owner's machine for faces and
+  number plates before publication and none were found; that reading is
+  sampled on-device OCR and face detection, a reduction of risk rather than a
+  guarantee.
 - Place names come from a Google Geocoding request per rounded coordinate; a
   film cut with that service disabled keeps the titles the track alone allows.
 - Stop kinds and ferry crossings are read partly from the model's words about

@@ -9155,3 +9155,46 @@ Ruff check緑（長い行2件を折り返して解消）、`git diff --check`（
 低カバレッジ順——ただしこれらは`app/analysis_cli.py`等と違う層（`app/web`・`app/video`・
 `app/agent_runtime`）で、着手前に「なぜ薄いか」（未配線か、単に検査が薄いだけか）を
 実測してから選ぶべき。7.5・UI・7.6残り（認証）・E-5・E-7は引き続き別層/オーナー判断待ち。
+
+## 210. `app/video/export.py`のテスト薄さを閉じた——`main`（CLI）が丸ごと未検査だった
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの7件
+（第203・204・206〜209節から変化なし、mtimeは9/9 08:26〜13:19、7.5 Flash-Lite試験の書きかけ）——
+引き続き自分の変更ではないため一切触れず、addの対象からも外した。`git fetch dev`は`cloud/*`
+branch無し。`git stash list`の`other layer ambient (not mine)`も変化なく存在し、
+`app/story_film.py`・`app/private_journey_film.py`のcore描画経路には触れていない。
+`.autonomy/trip/batch.log`は無関係（9/6付）。全3,219件が着手前に成功することを確認済み。
+
+第209節が挙げた次点（`app/video/export.py` 67%・`app/web/journey_workflow_preview.py` 72%・
+`app/video/highlight_research.py` 73%・`app/video/probe.py` 74%・
+`app/agent_runtime/gemini_probe.py` 76%）のうち最も薄い`app/video/export.py`を
+`.venv/bin/pip install coverage`（開発時解析のみ）で実測して選んだ。
+
+**見つけた薄さ**: `export_private_candidates`（コア関数）は`tests/test_video_catalog.py`で検査
+済みだったが、argparseベースの`main`（パーサ組み立て・`--output`必須引数・
+`export_private_candidates`への委譲・成功時の印字、計約10行）に**テストが1件も無かった**。
+
+実装を変更する前に`.venv/bin/python3`でその場で通し（`monkeypatch.setattr(sys, "argv", ...)`で
+`main()`を直接呼ぶ、`app/local_pipeline.py`の`main()`テストと同じ作法）、想定どおりの印字・
+出力ファイルになることを確認してから`tests/test_video_catalog.py`に1件追加した
+（実装は無変更）。importの並びでruffが1件（`export_private_candidates, main as export_main`の
+1行importをsingle-import化）指摘したため2行に分割して解消。
+
+**テスト**: `tests/test_video_catalog.py`単体10→11件。`app/video/export.py`単体の被覆は
+**96%（24中23行）**——残る1行は`if __name__ == "__main__":`の起動ガード本体（plate_blur・
+reference_fetch・portable_packageと同じ扱いで意図的に未検査のまま）。全**3,220件成功**
+（他層の未commit分4テストファイルを含む。`--deselect`/`--ignore`は使わず全件成功）。作業後
+`coverage`は`pip uninstall`、`.coverage`ファイルも削除し、pytest再実行でcoverageパッケージ
+無しでも3,220件成功を確認。Ruff check緑、`git diff --check`（`tests/test_video_catalog.py`
+のみ）問題なし。実素材・GPX・Gemini・GCSには一切触れていない（`tests/fixtures/sample_route.xml`
+は既存の合成fixture）。支出¥0。承認待ちなし。commit: `dd5904a`。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも触れていない。
+
+**次に推奨**: 同じ切り口の次点は`app/web/journey_workflow_preview.py`（72%）・
+`app/video/highlight_research.py`（73%）・`app/video/probe.py`（74%）・
+`app/agent_runtime/gemini_probe.py`（76%）——ただし着手前に「なぜ薄いか」（未配線か、単に検査が
+薄いだけか）を実測してから選ぶこと。7.5・UI・7.6残り（認証）・E-5・E-7は引き続き別層/オーナー
+判断待ち。

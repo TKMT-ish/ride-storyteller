@@ -1,3 +1,4 @@
+import sys
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -17,6 +18,7 @@ from app.video import (
     write_candidate_exports,
 )
 from app.video.export import export_private_candidates
+from app.video.export import main as export_main
 
 
 def _catalog() -> VideoCatalog:
@@ -98,6 +100,37 @@ def test_private_export_uses_explicit_output_directory(tmp_path: Path) -> None:
 
     assert json_path.name == "ride-storyteller-candidates.json"
     assert csv_path.name == "ride-storyteller-candidates.csv"
+
+
+def test_export_main_writes_files_and_prints_their_names(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    catalog_path = tmp_path / "catalog.json"
+    catalog_path.write_text(
+        '{"entries":[{"asset_id":"gopro_001","file_name":"GX010001.MP4",'
+        '"recorded_start_time":"2026-08-10T01:42:00Z","duration_s":3600}]}'
+    )
+    output_directory = tmp_path / "exports"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "export",
+            "tests/fixtures/sample_route.xml",
+            str(catalog_path),
+            "--output",
+            str(output_directory),
+        ],
+    )
+
+    export_main()
+
+    out = capsys.readouterr().out
+    assert "Created local-only exports:" in out
+    assert "ride-storyteller-candidates.json" in out
+    assert "ride-storyteller-candidates.csv" in out
+    assert (output_directory / "ride-storyteller-candidates.json").exists()
+    assert (output_directory / "ride-storyteller-candidates.csv").exists()
 
 
 def test_catalog_uses_half_open_intervals_at_back_to_back_file_boundary() -> None:
