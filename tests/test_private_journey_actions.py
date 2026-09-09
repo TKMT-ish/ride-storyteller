@@ -261,3 +261,23 @@ def test_importing_the_actions_module_reaches_no_google_library() -> None:
         n.module or "" for n in top_level if isinstance(n, ast.ImportFrom)
     ]
     assert not any(name.startswith("google") for name in names)
+
+
+def test_a_package_carrying_its_own_music_is_scored_from_it(tmp_path: Path, monkeypatch) -> None:
+    """The portable package a judge unpacks ships music/; a plain package uses the library."""
+    from app.web.private_journey_actions import DEFAULT_MUSIC_DIRECTORY
+
+    seen: dict[str, object] = {}
+
+    def record(package, **kwargs):
+        seen.update(kwargs)
+
+    jobs = PrivateJourneyJobs(runner=run_inline)
+    monkeypatch.setattr("app.web.private_journey_actions.run_private_journey_film", record)
+
+    jobs.start_film(tmp_path, music_track_id="wandering")
+    assert seen["music_directory"] == DEFAULT_MUSIC_DIRECTORY
+
+    (tmp_path / "music").mkdir()
+    jobs.start_film(tmp_path, music_track_id="wandering")
+    assert seen["music_directory"] == tmp_path / "music"

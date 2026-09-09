@@ -274,9 +274,16 @@ class PrivateJourneyJobs:
         music_track_id: object = DEFAULT_MUSIC_TRACK_ID,
         music_directory: Path = DEFAULT_MUSIC_DIRECTORY,
     ) -> JobState:
-        """Cut the film, silent unless a track was chosen. Local and free."""
+        """Cut the film, silent unless a track was chosen. Local and free.
+
+        A package that carries its own music (the portable one a judge unpacks
+        ships `music/` with the catalogue and the track) is scored from there,
+        so the page works on a machine that has no music library of its own.
+        """
         track = check_music_track(music_track_id)
         scored = track != NO_MUSIC_TRACK_ID
+        if music_directory == DEFAULT_MUSIC_DIRECTORY and (package / "music").is_dir():
+            music_directory = package / "music"
 
         def work() -> dict[str, object]:
             run_private_journey_film(
