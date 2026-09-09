@@ -227,8 +227,8 @@ service can spend money.
 already public. It carries no place name from the rider's route; the private
 development history stays in the private mirror. The owner made the
 repository **public** on 2026-09-09 and published the judge package
-(`ride-storyteller-day-7.zip`, 1,730,095,484 bytes) as release `day-7-package`:
-<https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package> (SHA-256 `d6dedf409fe7c1ea307ba051e8004b5ee6019b9216236f2a45d2e4cde5dc5e1d`).
+(`ride-storyteller-day-7.zip`, 1,730,095,529 bytes) as release `day-7-package`:
+<https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package> (SHA-256 `5554718a554a82f0962c79ea5bb9a83a7d7ec5666b04ca99343c4fbea405bd3d`).
 
 ## Demo Video
 
@@ -354,7 +354,7 @@ Still required as distinct evidence:
 - **Open-source repository URL:** <https://github.com/TKMT-ish/ride-storyteller>
   — public, at the current tree (2026-09-09)
 - **Judge package (GitHub Release):** <https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package>
-  — `ride-storyteller-day-7.zip`, SHA-256 `d6dedf409fe7c1ea307ba051e8004b5ee6019b9216236f2a45d2e4cde5dc5e1d`; the archive's `README.txt`
+  — `ride-storyteller-day-7.zip`, SHA-256 `5554718a554a82f0962c79ea5bb9a83a7d7ec5666b04ca99343c4fbea405bd3d`; the archive's `README.txt`
   says how to cut the film from it
 - **Hosted project URL:** <https://ride-storyteller-public-demo-q53n7masba-an.a.run.app>
   — reachable without a Google account since 2026-09-09 (the invoker IAM

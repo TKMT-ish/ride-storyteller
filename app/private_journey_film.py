@@ -85,7 +85,6 @@ from app.scenic_routes import (
 )
 from app.stop_kinds import StopKind, aboard_a_ferry, at_a_ferry
 from app.story_film import (
-    QUICK_LOOK,
     CardRasteriser,
     FootageSource,
     StoryFilmError,
@@ -921,7 +920,7 @@ def run_private_journey_film(
     *,
     output_file_name: str = DEFAULT_FILM_FILE_NAME,
     overwrite: bool = False,
-    rasteriser: CardRasteriser = QUICK_LOOK,
+    rasteriser: CardRasteriser | None = None,
     music_track_id: str | None = None,
     music_directory: Path | None = None,
     card_runner: Callable[..., subprocess.CompletedProcess[str]] = subprocess.run,
@@ -938,6 +937,10 @@ def run_private_journey_film(
     removed that question: the film's length follows its material. What is
     left is settled evidence, which is true of a package as it stands.
     """
+    # Nobody choosing means the platform chooses (Quick Look here, headless
+    # Chromium elsewhere), the same way the command line does; a caller that
+    # names one -- a test, the command line's --cards -- keeps its choice.
+    rasteriser = chosen_rasteriser() if rasteriser is None else rasteriser
     health = check_private_package_health(package_directory)
     if not health.is_ready:
         raise PrivateJourneyFilmError(

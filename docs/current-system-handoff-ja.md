@@ -9313,3 +9313,12 @@ E-5・E-7は研究文書の指示どおり「別層がambient音声を配線中�
 **次に推奨**: 同じ切り口の次点は`app/web/journey_workflow_preview.py`（72%、`main`の
 `serve_forever()`を除く部分と`application`の委譲分岐がテスト可能）。7.5・UI・7.6残り（認証）・
 E-5・E-7は引き続き別層/オーナー判断待ち。
+
+### 追記（2026-09-09 23:20）: 配布物の README.txt を直し、zip を差し替えた
+
+zip 内 `day-7/README.txt` の一覧行に「music/ one track, Kevin MacLeod, CC BY 4.0」が残っていた
+（同じファイルの末尾のクレジットは Wandering で正しかった）。行を「Wandering by Numall Fix,
+CC BY 3.0」に直し、`zip -u` でその 1 entry だけ差し替えた。新しい zip は 1,730,095,529 バイト、
+SHA-256 `5554718a554a82f0962c79ea5bb9a83a7d7ec5666b04ca99343c4fbea405bd3d`。Release の
+asset も差し替える（旧 SHA `d6dedf40…` は無効）。
+
