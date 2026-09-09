@@ -3,13 +3,16 @@
 from __future__ import annotations
 
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 
+import app.plate_blur as module
 from app.plate_blur import (
     PlateBlurError,
     Region,
+    _at_least,
     as_video_box,
     blur_command,
     blur_filter,
@@ -17,7 +20,9 @@ from app.plate_blur import (
     blur_until_clean,
     clear_of_faces,
     face_seconds,
+    inspect_footage,
     looks_like_a_plate,
+    main,
     plate_regions,
     radius_for,
     sample_command,
@@ -80,6 +85,46 @@ def test_a_plate_needs_both_letters_and_digits() -> None:
     assert not looks_like_a_plate("A1")
 
 
+# --- a region's own shape ---------------------------------------------------------
+
+
+def test_a_region_must_cover_a_positive_span_of_time() -> None:
+    with pytest.raises(PlateBlurError):
+        Region(start_s=1.0, end_s=1.0, x=0, y=0, width=1, height=1)
+    with pytest.raises(PlateBlurError):
+        Region(start_s=2.0, end_s=1.0, x=0, y=0, width=1, height=1)
+
+
+def test_a_region_must_have_a_positive_size() -> None:
+    with pytest.raises(PlateBlurError):
+        Region(start_s=0.0, end_s=1.0, x=0, y=0, width=0, height=1)
+    with pytest.raises(PlateBlurError):
+        Region(start_s=0.0, end_s=1.0, x=0, y=0, width=1, height=0)
+
+
+def test_a_region_must_lie_inside_the_frame() -> None:
+    with pytest.raises(PlateBlurError):
+        Region(start_s=0.0, end_s=1.0, x=-1, y=0, width=1, height=1)
+    with pytest.raises(PlateBlurError):
+        Region(start_s=0.0, end_s=1.0, x=0, y=-1, width=1, height=1)
+
+
+def test_regions_touching_at_the_instant_they_change_still_overlap() -> None:
+    """`end_s < other.start_s` is a strict inequality, so a region that ends
+    exactly when another starts is treated as sharing that instant."""
+    before = Region(start_s=0.0, end_s=1.0, x=0, y=0, width=10, height=10)
+    after = Region(start_s=1.0, end_s=2.0, x=0, y=0, width=10, height=10)
+
+    assert before.overlaps(after)
+
+
+def test_regions_apart_in_space_do_not_overlap_even_at_the_same_time() -> None:
+    left = Region(start_s=0.0, end_s=1.0, x=0, y=0, width=10, height=10)
+    right = Region(start_s=0.0, end_s=1.0, x=100, y=100, width=10, height=10)
+
+    assert not left.overlaps(right)
+
+
 # --- from Vision's coordinates to the video's -----------------------------------
 
 
@@ -106,6 +151,26 @@ def test_the_box_is_padded_clamped_and_even() -> None:
 def test_a_frame_with_no_size_is_refused() -> None:
     with pytest.raises(PlateBlurError):
         as_video_box(_text("ABC123"), width=0, height=100)
+
+
+def test_negative_padding_is_refused() -> None:
+    with pytest.raises(PlateBlurError):
+        as_video_box(_text("ABC123"), width=100, height=100, pad_share=-0.1)
+    with pytest.raises(PlateBlurError):
+        as_video_box(_text("ABC123"), width=100, height=100, pad_pixels=-1)
+
+
+def test_a_box_wholly_outside_the_frame_is_refused() -> None:
+    """A box Vision placed past the edge pads to nothing inside the picture."""
+    with pytest.raises(PlateBlurError):
+        as_video_box(_text("ABC123", x=1.5), width=100, height=100)
+
+
+def test_a_box_smaller_than_the_minimum_is_grown_about_its_own_middle() -> None:
+    """`_at_least` clamps the minimum to the frame rather than overflow it."""
+    x, y, right, bottom = _at_least(4, 4, 6, 6, width=10, height=10, least=(48, 28))
+
+    assert (x, y, right, bottom) == (0, 0, 10, 10)
 
 
 # --- what to blur ----------------------------------------------------------------
@@ -156,6 +221,11 @@ def test_a_sampling_rate_of_zero_is_refused() -> None:
         plate_regions((), fps=0.0, width=1920, height=1080)
 
 
+def test_a_hold_of_zero_is_refused() -> None:
+    with pytest.raises(PlateBlurError):
+        plate_regions((), fps=10.0, width=1920, height=1080, hold_s=0.0)
+
+
 # --- where the faces are ---------------------------------------------------------
 
 
@@ -167,6 +237,11 @@ def test_a_face_big_enough_to_recognise_is_reported() -> None:
     )
 
     assert face_seconds(frames, fps=10.0) == (0.0,)
+
+
+def test_a_sampling_rate_of_zero_is_refused_for_faces_too() -> None:
+    with pytest.raises(PlateBlurError):
+        face_seconds((), fps=0.0)
 
 
 def test_the_stretches_between_faces_are_what_may_be_published() -> None:
@@ -186,6 +261,26 @@ def test_a_stretch_shorter_than_asked_for_is_not_offered() -> None:
     frames = (FrameBoxes(index=100, faces=(_face(),)),)
 
     assert clear_of_faces(frames, fps=10.0, length_s=60.0, total_s=70.0) == ()
+
+
+def test_the_stretch_and_the_whole_must_be_positive() -> None:
+    with pytest.raises(PlateBlurError):
+        clear_of_faces((), fps=10.0, length_s=0.0, total_s=10.0)
+    with pytest.raises(PlateBlurError):
+        clear_of_faces((), fps=10.0, length_s=1.0, total_s=0.0)
+
+
+def test_two_faces_within_the_margin_of_each_other_do_not_reopen_a_stretch() -> None:
+    """`start` only ever moves forward, so a face seen again inside the margin
+    of the last one does not carve out a spurious clear stretch before it."""
+    frames = (
+        FrameBoxes(index=100, faces=(_face(),)),  # at 10.0s
+        FrameBoxes(index=105, faces=(_face(),)),  # at 10.5s, inside the 1.0s margin
+    )
+
+    spans = clear_of_faces(frames, fps=10.0, length_s=5.0, total_s=30.0)
+
+    assert spans == ((0.0, 9.0), (11.5, 30.0))
 
 
 # --- the filter graph -------------------------------------------------------------
@@ -209,6 +304,20 @@ def test_each_region_is_cropped_blurred_and_overlaid_for_its_own_seconds() -> No
     assert "boxblur=9" in graph
     assert "overlay=10:20:enable='between(t,1.000,2.000)'" in graph
     assert graph.endswith("[out]")
+
+
+def test_two_regions_chain_through_the_same_base_picture() -> None:
+    """Each region overlays onto the previous stage's output, not the raw base,
+    so a second plate's blur does not erase the first's."""
+    first = Region(start_s=1.0, end_s=2.0, x=10, y=20, width=120, height=80)
+    second = Region(start_s=3.0, end_s=4.0, x=200, y=200, width=100, height=60)
+
+    graph = blur_filter((first, second), radius=9)
+
+    assert "split=3" in graph
+    assert "[base0][blur0]overlay=10:20:enable='between(t,1.000,2.000)'[over0]" in graph
+    assert "[over0][blur1]overlay=200:200:enable='between(t,3.000,4.000)'[over1]" in graph
+    assert graph.endswith("[over1]null[out]")
 
 
 def test_a_small_region_takes_the_strongest_blur_it_can_hold() -> None:
@@ -282,6 +391,39 @@ def test_footage_that_is_not_there_is_refused(tmp_path: Path) -> None:
         blur_plates(tmp_path / "absent.mp4", tmp_path / "out.mp4", ())
 
 
+def test_a_symlinked_source_is_refused(tmp_path: Path) -> None:
+    """`is_file()` alone follows a symlink to the real footage; the check
+    beside it is what actually stops one."""
+    real = tmp_path / "real.mp4"
+    real.write_bytes(b"x")
+    link = tmp_path / "in.mp4"
+    link.symlink_to(real)
+
+    with pytest.raises(PlateBlurError):
+        blur_plates(link, tmp_path / "out.mp4", ())
+
+
+def test_ffmpeg_failing_to_start_is_refused(tmp_path: Path) -> None:
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+
+    def cannot_run(command, **kwargs):
+        raise OSError("no ffmpeg on this machine")
+
+    with pytest.raises(PlateBlurError):
+        blur_plates(source, tmp_path / "out.mp4", (), runner=cannot_run)
+    assert not list(tmp_path.glob("*.part*"))
+
+
+def test_a_clean_exit_that_wrote_nothing_is_still_refused(tmp_path: Path) -> None:
+    """ffmpeg can return zero without writing the file it was asked for."""
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+
+    with pytest.raises(PlateBlurError):
+        blur_plates(source, tmp_path / "out.mp4", (), runner=_runner(returncode=0))
+
+
 # --- asking about the footage -------------------------------------------------------
 
 
@@ -290,6 +432,13 @@ def test_the_sampling_command_writes_numbered_frames(tmp_path: Path) -> None:
 
     assert "fps=10.0,scale=1280:-2" in command
     assert command[-1].endswith("f%06d.jpg")
+
+
+def test_the_sampling_rate_and_width_must_be_positive(tmp_path: Path) -> None:
+    with pytest.raises(PlateBlurError):
+        sample_command(Path("in.mp4"), tmp_path, fps=0.0, width=1280)
+    with pytest.raises(PlateBlurError):
+        sample_command(Path("in.mp4"), tmp_path, fps=10.0, width=0)
 
 
 def test_the_picture_size_comes_from_ffprobe() -> None:
@@ -301,6 +450,14 @@ def test_a_size_ffprobe_cannot_report_is_refused() -> None:
         video_size(Path("in.mp4"), runner=_runner(stdout="what?\n"))
     with pytest.raises(PlateBlurError):
         video_size(Path("in.mp4"), runner=_runner(returncode=1))
+
+
+def test_ffprobe_failing_to_start_is_refused() -> None:
+    def cannot_run(command, **kwargs):
+        raise FileNotFoundError("no ffprobe on this machine")
+
+    with pytest.raises(PlateBlurError):
+        video_size(Path("in.mp4"), runner=cannot_run)
 
 
 def test_each_pass_blurs_the_original_with_everything_found_so_far(tmp_path: Path) -> None:
@@ -369,3 +526,197 @@ def test_a_single_frames_read_can_be_asked_to_reproduce() -> None:
     assert len(plate_regions(once, fps=10.0, width=1920, height=1080)) == 1
     assert plate_regions(once, fps=10.0, width=1920, height=1080, minimum_hits=2) == ()
     assert len(plate_regions(twice, fps=10.0, width=1920, height=1080, minimum_hits=2)) == 1
+
+
+# --- the whole "sample, read, judge" walk over one file ---------------------------
+#
+# `inspect_footage` is the only place that actually wires `video_size`,
+# `sample_command` and `detect_boxes_in_batches` together over a real runner;
+# every test above exercises those parts alone. `detect_boxes_in_batches` is
+# stubbed out here (it shells out to the compiled Vision helper), but the
+# ffprobe/ffmpeg calls run through the same fake runner `blur_plates` above
+# uses, and the frames it is asked to write are written for real so the
+# `work.glob("f*.jpg")` the function does is exercised too.
+
+
+def _fake_ffmpeg_ffprobe_runner(frame_names: Sequence[str] = ("f000001.jpg",)):
+    def run(command, **kwargs):
+        if command[0] == "ffprobe":
+            return subprocess.CompletedProcess(command, 0, "1920x1080\n", "")
+        directory = Path(command[-1]).parent
+        for name in frame_names:
+            (directory / name).write_bytes(b"x")
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    return run
+
+
+def test_inspect_footage_wires_sampling_ffprobe_and_the_reader_together(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    found = (
+        FrameBoxes(index=1, text=(_text("ABC123"),)),
+        FrameBoxes(index=2, faces=(_face(),)),
+    )
+    monkeypatch.setattr(module, "detect_boxes_in_batches", lambda frames, probe, runner=None: found)
+
+    regions, faces = inspect_footage(
+        tmp_path / "in.mp4",
+        probe_path=tmp_path / "probe",
+        work=tmp_path / "work",
+        fps=10.0,
+        runner=_fake_ffmpeg_ffprobe_runner(),
+    )
+
+    assert len(regions) == 1
+    assert faces == (0.2,)
+
+
+def test_inspect_footage_refuses_when_sampling_writes_no_frames(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(module, "detect_boxes_in_batches", lambda frames, probe, runner=None: ())
+
+    with pytest.raises(PlateBlurError):
+        inspect_footage(
+            tmp_path / "in.mp4",
+            probe_path=tmp_path / "probe",
+            work=tmp_path / "work",
+            fps=10.0,
+            runner=_fake_ffmpeg_ffprobe_runner(frame_names=()),
+        )
+
+
+def test_inspect_footage_refuses_when_sampling_itself_fails(tmp_path: Path) -> None:
+    def failing(command, **kwargs):
+        if command[0] == "ffprobe":
+            return subprocess.CompletedProcess(command, 0, "1920x1080\n", "")
+        return subprocess.CompletedProcess(command, 1, "", "no ffmpeg")
+
+    with pytest.raises(PlateBlurError):
+        inspect_footage(
+            tmp_path / "in.mp4",
+            probe_path=tmp_path / "probe",
+            work=tmp_path / "work",
+            fps=10.0,
+            runner=failing,
+        )
+
+
+# --- the command line -------------------------------------------------------------
+
+
+def test_main_blurs_the_file_and_reports_the_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+    output = tmp_path / "out.mp4"
+    probe = tmp_path / "probe"
+    probe.write_bytes(b"p")
+    calls: list[tuple[Path, Path, tuple]] = []
+
+    def fake_blur(src, out, regions, **kwargs):
+        calls.append((src, out, regions))
+        out.write_bytes(b"y")
+        return out
+
+    monkeypatch.setattr(module, "inspect_footage", lambda *a, **k: ((), ()))
+    monkeypatch.setattr(module, "blur_plates", fake_blur)
+
+    rc = main([str(source), str(output), "--probe", str(probe), "--passes", "1"])
+
+    assert rc == 0
+    assert output.exists()
+    assert calls == [(source, output, ())]
+
+
+def test_main_refuses_footage_a_face_appears_in(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+    output = tmp_path / "out.mp4"
+    probe = tmp_path / "probe"
+    probe.write_bytes(b"p")
+
+    def not_reached(*a, **k):
+        raise AssertionError("blur_plates must not run when a face was found")
+
+    monkeypatch.setattr(module, "inspect_footage", lambda *a, **k: ((), (1.0, 2.0)))
+    monkeypatch.setattr(module, "blur_plates", not_reached)
+
+    rc = main([str(source), str(output), "--probe", str(probe), "--passes", "1"])
+
+    assert rc == 1
+    assert not output.exists()
+
+
+def test_main_allow_faces_writes_the_file_anyway(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+    output = tmp_path / "out.mp4"
+    probe = tmp_path / "probe"
+    probe.write_bytes(b"p")
+
+    def fake_blur(src, out, regions, **k):
+        out.write_bytes(b"y")
+        return out
+
+    monkeypatch.setattr(module, "inspect_footage", lambda *a, **k: ((), (1.0,)))
+    monkeypatch.setattr(module, "blur_plates", fake_blur)
+
+    rc = main([str(source), str(output), "--probe", str(probe), "--passes", "1", "--allow-faces"])
+
+    assert rc == 0
+    assert output.exists()
+
+
+def test_main_builds_the_probe_when_it_is_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+    output = tmp_path / "out.mp4"
+    probe = tmp_path / "probe"  # deliberately not created
+    built: list[Path] = []
+
+    def fake_build(path):
+        built.append(path)
+        path.write_bytes(b"p")
+        return path
+
+    def fake_blur(src, out, regions, **k):
+        out.write_bytes(b"y")
+        return out
+
+    monkeypatch.setattr(module, "build_vision_boxes_probe", fake_build)
+    monkeypatch.setattr(module, "inspect_footage", lambda *a, **k: ((), ()))
+    monkeypatch.setattr(module, "blur_plates", fake_blur)
+
+    rc = main([str(source), str(output), "--probe", str(probe), "--passes", "1"])
+
+    assert rc == 0
+    assert built == [probe]
+
+
+def test_main_reports_a_plate_blur_error_and_exits_nonzero(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = tmp_path / "in.mp4"
+    source.write_bytes(b"x")
+    output = tmp_path / "out.mp4"
+    probe = tmp_path / "probe"
+    probe.write_bytes(b"p")
+
+    def refuses(*a, **k):
+        raise PlateBlurError("the footage produced no frames to inspect")
+
+    monkeypatch.setattr(module, "inspect_footage", refuses)
+
+    rc = main([str(source), str(output), "--probe", str(probe), "--passes", "1"])
+
+    assert rc == 1
+    assert not output.exists()

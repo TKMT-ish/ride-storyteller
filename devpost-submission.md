@@ -134,16 +134,21 @@ not falsely presented as a runtime integration.
 
 ## Testing Instructions
 
+**Two ways in.** The hosted console (<https://ride-storyteller-public-demo-q53n7masba-an.a.run.app>,
+judge credential in the form's Testing instructions field) shows the agent's
+decision flow on synthetic data in a browser, in Japanese or English. The
+product itself runs on your own machine:
+
 **Cut a film from a real ride, on your own machine.** One day of the tour is
-published as a portable package: one small clip per window the film uses, the
-judgement Gemini returned for them, the track, and the music. Its number plates
-are blurred and every clip in which a face appeared was removed, both by this
-repository.
+published as a portable package (<https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package>):
+one small clip per window the film uses, the judgement Gemini returned for
+them, the track, and the music. Its number plates are blurred and every clip
+in which a face appeared was removed, both by this repository.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -e '.[dev]'
-# unpack the package under private-media/portable/ first
+# unpack ride-storyteller-day-7.zip from the release under private-media/portable/ first
 python -m app.portable_package private-media/portable/day-7 --install
 python -m app.private_journey_film private-media/portable/day-7 \
   --music wandering --music-directory private-media/portable/day-7/music
@@ -186,9 +191,13 @@ preparation check while preserving the separate external gates.
 
 ## Public Demo Link
 
-`PENDING` — the verified Cloud Run service remains private. Do not publish it
-until IAM, abuse/cost controls, and live browser behavior have been approved and
-re-verified.
+<https://ride-storyteller-public-demo-q53n7masba-an.a.run.app> — the hosted, credential-free
+synthetic console: a judge can run the decision scenarios, view the Story Plan
+and the candidate clip plan, and read the AGPL source link. Every page except
+`/health` asks for the judge's HTTP Basic credential, which is shared only
+through the submission form's Testing instructions field. Real footage, GPS,
+Gemini calls and every private route are disabled there (403); nothing on that
+service can spend money.
 
 ## Public Repository Link
 

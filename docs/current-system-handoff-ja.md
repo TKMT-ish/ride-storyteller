@@ -8941,3 +8941,217 @@ POST 405、本文 413、私用経路 403、保護ヘッダ 5 種、連打で 429
   ハーネスの run_in_background で走らせ、完了通知を待つ。
 - `pytest … | tail -1` はパイプの終了コードを隠す。ガードにするなら終了コードを別に取る。
 - zsh は `cd` が呼び出し間で持ち越される。worktree へ入るときはサブシェル `( cd … )` で。
+
+## 206. `app/plate_blur.py`（ratio .62）のテスト薄さを閉じた
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・
+`app/analysis_ranking.py`とそのテスト、`app/analysis_model_trial.py`・
+`app/analysis_rank_agreement.py`＋テストの7件（7.5 Flash-Lite試験の書きかけ、
+第203・204節から mtime・内容とも変化なし）——引き続き自分の変更ではないため
+一切触らず、addの対象からも外した。`git fetch dev`は`cloud/*` branch無し。
+`.autonomy/trip/batch.log`は無関係（9/6付）。`git stash list`の
+`other layer ambient (not mine)`もこのcontainerに変化なく存在し、
+`app/story_film.py`・`app/private_journey_film.py`（core描画経路、E-5・E-7待ち）
+には引き続き触れていない。
+
+優先順位を見直すと、S/Q/E は完了かオーナー視覚判断待ち、E-5・E-7は別層のambient
+音声配線待ち、7.5は上記の他層作業中、7.6残り（認証）・UIは承認/引き継ぎ待ちで
+着手不可。第204節が次点に挙げた`app/plate_blur.py`（ratio .62、598行/371行）に
+実装無変更でテストを追補した。
+
+**見つけた薄さ**: `Region.__post_init__`の3つの拒否（負の尺・非正の大きさ・
+フレーム外の原点）が一度も直接検査されていなかった（他関数を通じた間接生成でしか
+通っていない）。`overlaps`の境界（終わりと始まりが同じ瞬間は重なる扱いになる
+`<`の非対称性）も未検査。`as_video_box`の`pad_share`/`pad_pixels`負値拒否、
+箱がフレームの外に完全に出た場合の`right <= x`拒否、どちらも未検査。`_at_least`は
+`as_video_box`経由の間接検査のみで、最小サイズがフレーム自体より大きいときに
+フレーム全体へ丸める分岐は未検査。`plate_regions`の`hold_s<=0`拒否、`face_seconds`の
+`fps<=0`拒否、`clear_of_faces`の`length_s<=0`/`total_s<=0`拒否、いずれも未検査。
+`clear_of_faces`は2つの顔がmarginの内側で連続したときに`start`が後退しない
+（単調に進む）分岐も未検査だった。`blur_filter`は1リージョンの検査しかなく、
+2リージョンが同じ`current`チェーンを通す（1つ目の上に2つ目が乗る）分岐が
+未検査。`blur_plates`はsymlink拒否（読み取り専用のこのmoduleでも書き込み側と
+同じ理由で必要）、runnerが`OSError`を投げる経路、returncode 0だが一時ファイルが
+書かれなかった経路、いずれも未検査。`sample_command`の`fps`/`width`非正拒否、
+`video_size`のrunner例外経路も未検査。最大の穴は`inspect_footage`
+（sample→ffprobe→Vision読み取り→judgeを実際に配線する統合関数、約30行）に
+**テストが1件も無かった**こと——部品（`video_size`・`sample_command`・
+`plate_regions`・`face_seconds`）は個別に検査されていたが、実際のrunner越しに
+ffmpegでフレームを書かせ`work.glob`で拾う経路そのものは一度も実行されていなかった
+（フレームが0枚の拒否、サンプリング自体の失敗も含む）。同じ理由で`main`（CLI）も
+無検査だった：成功時の出力書き込み、顔検出時の拒否（`blur_plates`未到達の確認）、
+`--allow-faces`での上書き、probe未存在時の`build_vision_boxes_probe`呼び出し、
+`PlateBlurError`捕捉時の終了コード、いずれも未検査。
+
+実装を変更する前に上のケースを`.venv/bin/python3`でその場ですべて通し
+（symlink拒否・OSError経路・`inspect_footage`のfakeランナー・`main`の
+monkeypatch差し替え含む）、想定どおりの値・例外になることを確認してから
+`tests/test_plate_blur.py`に33件追加した（実装は無変更）。
+
+**テスト**: `tests/test_plate_blur.py`単体37→58件。全**3,186件成功**（他層の
+未commit分4テストファイルを含む。`--deselect`/`--ignore`は使わず、
+`test_judged_film_end_to_end.py`含め全件成功）。Ruff check緑、`git diff --check`
+（`tests/test_plate_blur.py`のみ）問題なし。実素材・GPX・Gemini・GCSには
+一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。
+`app/story_film.py`・`app/private_journey_film.py`のcore描画経路（ambient音声層
+待ち）にも触れていない。
+
+**次に推奨**: 同じ切り口の続きは`app/chapter_card.py`（ratio .68）・
+`app/reference_fetch.py`（ratio .72）が未着手。7.5・UI・7.6残り（認証）・E-5・E-7は
+引き続き別層/オーナー判断待ち。上記いずれかが解消され次第そちらを優先する。
+
+## 207. `app/chapter_card.py`（ratio .68）のテスト薄さを閉じた——実は99%線・98%分岐で被覆済みだった
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの
+7件（第203・204・206節から変化なし）——引き続き自分の変更ではないため一切触れず、
+addの対象からも外した。`git fetch dev`は`cloud/*` branch無し。`.autonomy/trip/batch.log`は
+無関係（9/6付）。`git stash list`の`other layer ambient (not mine)`も変化なく存在し、
+`app/story_film.py`・`app/private_journey_film.py`のcore描画経路には触れていない。
+
+第206節が次点に挙げた`app/chapter_card.py`（ratio .68、424行/292行）に着手。ただし
+「行数比」は`tests/test_chapter_card.py`単体の行数しか見ておらず、実際には
+`tests/test_map_background.py`（背景地図つきの`route_map_svg`）・
+`tests/test_story_film_corner_map.py`（`build_position_map_html`）・
+`tests/test_story_sections.py`（`build_section_html`）が同じmoduleを別の角度から
+被覆していた。一時的に`.venv/bin/pip install coverage`（開発時解析のみ、commitにもrequirements
+にも入れず、作業後`pip uninstall`・生成された`.coverage`も削除）して全3,186件のテストで
+行・分岐被覆を測ると、**線123文中122行（99%）、分岐38中被覆済み36（98%）**——既に
+ほぼ閉じていた。残る2分岐はどちらも`_svg_over_map`（地図画像の上に経路を描く経路）:
+(1) `highlighted`が空のとき（背景ありでハイライト区間を渡さない呼び出しが一度も
+無かった）の分岐、(2) `mark_index`が範囲外のときの拒否（`ChapterCardError`、
+背景なし版`route_map_svg`の同じ拒否は検査済みだが背景ありの複製コードは未検査）。
+
+実装を変更する前に`.venv/bin/python3`でその場に`MapBackground.from_file`を組み立てて
+両ケースを実行し、想定どおり`"here"`クラスが出ないこと・`"a mark must lie on the route"`が
+上がることを確認してから`tests/test_chapter_card.py`に2件追加した（実装は無変更）。
+
+**テスト**: `tests/test_chapter_card.py`単体30→32件。`app/chapter_card.py`単体の被覆は
+**行100%・分岐100%**（全3,188件成功時点）。全**3,188件成功**（他層の未commit分4テスト
+ファイルを含む。`--deselect`/`--ignore`は使わず全件成功）。Ruff check緑、
+`git diff --check`（`tests/test_chapter_card.py`のみ）問題なし。実素材・GPX・Gemini・
+GCSには一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。
+`app/story_film.py`・`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも
+触れていない。
+
+**次に推奨**: `app/reference_fetch.py`（ratio .72）が未着手——ただし今回の教訓どおり、
+着手前に他ファイルからの間接被覆も含めて実測してから始めるべき。`app/private_journey_film.py`・
+`app/story_film.py`（ratio .34/.42、最も低い）はambient音声層のstash待ちで依然触れられない。
+7.5・UI・7.6残り（認証）・E-5・E-7は引き続き別層/オーナー判断待ち。
+
+## 208. `app/reference_fetch.py`（実測85%線・82%分岐）のテスト薄さを閉じた
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの
+7件（第203・204・206・207節から変化なし、7.5 Flash-Lite試験の書きかけ）——引き続き自分の
+変更ではないため一切触れず、addの対象からも外した。`git fetch dev`は`cloud/*` branch無し。
+`.autonomy/trip/batch.log`は無関係（9/6付のまま）。全3,188件（他層分含む）がこの時点でも
+成功することを確認済み。
+
+第207節の教訓（間接被覆を実測してから着手）に従い、`app/ferries.py`・`app/places.py`・
+`app/route_references.py`（いずれも`reference_fetch`を使う側）とそのテストを含む全3,188件で
+`.venv/bin/pip install coverage`（開発時解析のみ）して実測: `app/reference_fetch.py`は
+**行170中146（85%）、分岐62中51+部分11（82%）**——間接被覆を差し引いても実質的な薄さが
+残っていた。
+
+**見つけた薄さ**: `overpass_query`の`passes`・`ferries`分岐（`places`と`named-roads`のみ検査済み）。
+`_number`が正規表現にマッチしない文字列（数字で始まらない値）を渡されたときに`None`を返す分岐
+（`ele`キーが無い場合の`None`としか区別されていなかった）。`parse_passes`が名前や位置を欠く要素を
+捨てる`continue`（`parse_places`の同種の検査はhamletで検査済みだが`parse_passes`側は未検査）。
+`parse_ways`の4つの分岐：要素が`way`でない場合の`continue`、名前かgeometryを欠く場合の
+`continue`、geometryの要素がMappingでない場合の`continue`、ノードの緯度経度が拾えない場合に
+座標を積まずループへ戻る分岐——`test_ways_of_one_name_become_one_route`は`geometry`が短すぎる
+ケースしか検査していなかった。`parse()`自体の未知kind拒否（`overpass_query`側の拒否とは別の
+関数）。`fetch()`がJSONとして読めても`elements`キーが無い/リストでない答えを「no elements」の
+失敗として扱う分岐。そして最大の穴は`_post`（実際の`urllib.request.urlopen`呼び出し・
+`HTTPError`/`URLError`/`OSError`の変換）に**テストが1件も無かった**こと——既存テストは全て
+`fetch(..., post=fake)`で`post`関数を差し替えており、本物のHTTP層は素通りしていた。`main`の
+成功経路（`write_reference`まで到達し件数を印字する）も未検査で、既存の1件は`--names`欠落による
+失敗経路のみだった。
+
+実装を変更する前に上のケースを`.venv/bin/python3`でその場ですべて通し（`urlopen`を
+monkeypatchでの`HTTPError`/`URLError`差し替え、`main`での`fetch`差し替え含む）、想定どおりの
+値・例外になることを確認してから`tests/test_reference_fetch.py`に10件追加した（実装は無変更）。
+
+**テスト**: `tests/test_reference_fetch.py`単体16→26件。`app/reference_fetch.py`単体の被覆は
+**行99%（170中169）・分岐99%**——残る1行は`if __name__ == "__main__":`の起動ガード
+（`app/plate_blur.py`の同種の行と同じ扱いで、このリポジトリでは意図的に未検査のまま）。
+全**3,198件成功**（他層の未commit分4テストファイルを含む。`--deselect`/`--ignore`は使わず
+全件成功）。作業後`coverage`は`pip uninstall`、`.coverage`ファイルも削除し、pytest再実行で
+coverageパッケージ無しでも3,198件成功を確認。Ruff check緑、`git diff --check`
+（`tests/test_reference_fetch.py`のみ）問題なし。実素材・GPX・Gemini・GCSには一切触れていない。
+支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも触れていない。
+
+**次に推奨**: 同じ切り口で未着手のファイルは残っていない（plate_blur→chapter_card→
+reference_fetchで一巡）。次点は改めて低カバレッジのファイルを実測して選ぶか、
+`app/private_journey_film.py`・`app/story_film.py`（ratio .34/.42、最も低いが依然ambient音声層
+のstash待ち）の解消を待つ。7.5・UI・7.6残り（認証）・E-5・E-7は引き続き別層/オーナー判断待ち。
+
+## 209. `app/portable_package.py`のテスト薄さを再び閉じた——§204後の3 commitが積み残した`main`と6分岐
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの7件
+（mtimeは9/9 08:26〜13:19、第203・204・206〜208節から続く7.5 Flash-Lite試験の書きかけ）——
+引き続き自分の変更ではないため一切触れず、addの対象からも外した。`git fetch dev`は`cloud/*`
+branch無し。`.autonomy/trip/batch.log`は無関係（9/6付）。`git stash list`の
+`other layer ambient (not mine)`も変化なく存在し、`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路には触れていない。全3,198件が着手前に成功することを
+確認済み。
+
+第208節が「同じ切り口で未着手のファイルは残っていない」と書いた次点どおり、`app/*.py`直下
+（`app/video`・`app/web`等のサブディレクトリを含む）を`.venv/bin/pip install coverage`
+（開発時解析のみ）で実測。`app/portable_package.py`は**78%（329文中256行）**——第204節が
+「実装無変更でテスト12件追加、21→33件」まで閉じたはずのfileだが、その後`d5b2693`
+（`settle_package`/`--install`）・`919f871`（`harden_package`/`--harden`）・`25916ed`
+（`harden_from_film`/`--harden-from-film`）の3 commitが機能とテストを増分で足しながら、
+`main`（CLI、約110行）と各関数の失敗・境界分岐を積み残していた。第204節の「同じ切り口の続き」
+という次点は当時 plate_blur・chapter_card・reference_fetch を指していたが、それらを一巡した今、
+この file 自身が最新の増分の分だけ再び薄くなっていた。
+
+**見つけた薄さ**: `load_film_sources`が`sources`の値としてMappingでないもの（文字列等）を渡された
+ときの拒否（既存の検査は空dict＝`file`キー欠落の`KeyError`経路のみ）。`trim_command`の
+`start_s<0`拒否（`duration_s<=0`は検査済みだったが`start_s`側は未検査）。`build_portable_sources`
+が`blur=True`で`PlateBlurError`を受けたときに`PortablePackageError`へ変換する経路（既存テストは
+全て`blur=False`）。`copy_music`がカタログにtrack_idはあるが実ファイルが無いときの拒否
+（既存はカタログ自体に無い場合のみ検査済み）。`Hardening.settled`プロパティ直接検査。
+`harden_package`の`rounds<1`拒否、およびクリップが既にディスクから消えているときに検査を
+飛ばして`continue`する分岐（`inspect_footage`を一度も呼ばないことまで確認）。`harden_from_film`
+の3分岐：プランが無いときの拒否、リージョンの中間時刻がどのbeatにも入らず`event`が`None`に
+なる`continue`、beatの`event`はmapに載っているがクリップが既に消えている`continue`。
+`_clip_seconds`が`ffprobe`の出力を数値として読めない2通り（非数値・空行、いずれも
+`IndexError`/`ValueError`）。`settle_package`が`film-sources`ディレクトリ自体が無いときの拒否
+（track無しは検査済みだったがclipsディレクトリ無しは未検査）。そして最大の穴は`main`
+（CLI、約110行）に**テストが1件も無かった**こと：`--install`の成功・失敗、出力先省略時の拒否、
+`--harden`・`--harden-from-film`それぞれの成功時の集計文言・失敗時のエラー文言、通常の
+build成功・失敗、いずれも未検査だった。
+
+実装を変更する前に上のケースを`.venv/bin/python3`でその場ですべて通し（`main`は
+`monkeypatch`/`redirect_stdout`で`build_package`・`settle_package`・`harden_package`・
+`harden_from_film`を差し替えての確認を含む）、想定どおりの値・例外になることを確認してから
+`tests/test_portable_package.py`に24件追加した（実装は無変更）。
+
+**テスト**: `tests/test_portable_package.py`単体30→54件。`app/portable_package.py`単体の被覆は
+**99%（329中328行）**——残る1行は`if __name__ == "__main__":`の起動ガード（plate_blur・
+reference_fetchと同じ扱いで意図的に未検査のまま）。全**3,219件成功**（他層の未commit分4テスト
+ファイルを含む。`--deselect`/`--ignore`は使わず全件成功）。作業後`coverage`は`pip uninstall`、
+`.coverage`ファイルも削除し、pytest再実行でcoverageパッケージ無しでも3,219件成功を確認。
+Ruff check緑（長い行2件を折り返して解消）、`git diff --check`（`tests/test_portable_package.py`
+のみ）問題なし。実素材・GPX・Gemini・GCSには一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも触れていない。
+
+**次に推奨**: `app/main.py`（62%・8文中3行）は小さすぎて単独の単位にする価値が薄い。次点は
+`app/video/export.py`（67%）・`app/web/journey_workflow_preview.py`（72%）・
+`app/video/highlight_research.py`（73%）・`app/video/probe.py`（74%）・
+`app/agent_runtime/gemini_probe.py`（76%）など、`app/*`サブディレクトリを含めて実測した
+低カバレッジ順——ただしこれらは`app/analysis_cli.py`等と違う層（`app/web`・`app/video`・
+`app/agent_runtime`）で、着手前に「なぜ薄いか」（未配線か、単に検査が薄いだけか）を
+実測してから選ぶべき。7.5・UI・7.6残り（認証）・E-5・E-7は引き続き別層/オーナー判断待ち。

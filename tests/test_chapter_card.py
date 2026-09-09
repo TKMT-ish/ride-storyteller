@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
@@ -269,6 +270,31 @@ def test_a_highlight_of_a_single_point_still_draws_a_line() -> None:
 
     highlighted = re.search(r'class="here" points="([^"]+)"', svg).group(1).split(" ")
     assert len(highlighted) == 2
+
+
+def _background(tmp_path: Path) -> object:
+    from app.map_background import MapBackground, frame_for
+
+    png = tmp_path / "m.png"
+    png.write_bytes(b"\x89PNG\r\n\x1a\nfake")
+    return MapBackground.from_file(frame_for(_points(count=20)), png)
+
+
+def test_a_route_over_a_background_without_a_highlight_draws_only_the_route(
+    tmp_path: Path,
+) -> None:
+    """`_svg_over_map` skips the "here" polyline when nothing is highlighted,
+    the same as the plain, no-background drawing."""
+    svg = route_map_svg(_points(count=20), background=_background(tmp_path))
+
+    assert 'class="route"' in svg
+    assert 'class="here"' not in svg
+
+
+def test_a_background_maps_mark_outside_the_route_is_refused(tmp_path: Path) -> None:
+    points = _points(count=20)
+    with pytest.raises(ChapterCardError, match="mark must lie on the route"):
+        route_map_svg(points, background=_background(tmp_path), mark_index=len(points))
 
 
 def test_a_card_with_a_day_label_shows_it_above_the_title() -> None:

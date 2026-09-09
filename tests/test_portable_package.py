@@ -74,6 +74,17 @@ def test_a_malformed_map_is_refused(tmp_path: Path) -> None:
         load_film_sources(path)
 
 
+def test_a_map_whose_source_is_not_a_document_is_refused(tmp_path: Path) -> None:
+    """A shape check on the outer map does not catch a scalar standing in
+    for one of its entries."""
+    path = tmp_path / FILM_SOURCES_FILE_NAME
+    path.write_text(
+        json.dumps({"schema_version": FILM_SOURCES_SCHEMA_VERSION, "sources": {"a": "nope"}})
+    )
+    with pytest.raises(PortablePackageError):
+        load_film_sources(path)
+
+
 def test_a_map_that_is_not_even_a_document_is_refused(tmp_path: Path) -> None:
     """Not just the wrong shape inside -- not a mapping at the top at all."""
     path = tmp_path / FILM_SOURCES_FILE_NAME
@@ -153,6 +164,11 @@ def test_a_clip_of_no_length_is_refused() -> None:
         trim_command(Path("in.mp4"), Path("out.mp4"), start_s=0.0, duration_s=0.0)
 
 
+def test_a_clip_starting_before_its_recording_is_refused() -> None:
+    with pytest.raises(PortablePackageError):
+        trim_command(Path("in.mp4"), Path("out.mp4"), start_s=-1.0, duration_s=12.0)
+
+
 def test_every_window_becomes_one_clip_starting_at_zero(tmp_path: Path) -> None:
     recording = tmp_path / "GX01.MP4"
     recording.write_bytes(b"x")
@@ -216,6 +232,30 @@ def test_a_cut_that_fails_stops_the_build(tmp_path: Path) -> None:
         )
 
 
+def test_a_blur_that_fails_stops_the_build(tmp_path: Path) -> None:
+    """The clip is cut cleanly but cannot be made safe -- that still stops
+    the build, because an unblurred clip is not what was asked for."""
+    import app.portable_package as module
+    from app.plate_blur import PlateBlurError
+
+    recording = tmp_path / "GX01.MP4"
+    recording.write_bytes(b"x")
+    original = module.blur_until_clean
+    module.blur_until_clean = lambda *a, **k: (_ for _ in ()).throw(PlateBlurError("no good frame"))
+    try:
+        with pytest.raises(PortablePackageError):
+            build_portable_sources(
+                [("evt-1", recording, 0.0, 12.0)],
+                tmp_path / "out",
+                probe_path=tmp_path / "probe",
+                work=tmp_path / "work",
+                blur=True,
+                runner=_runner(),
+            )
+    finally:
+        module.blur_until_clean = original
+
+
 def test_the_one_track_the_package_is_scored_with_travels_with_it(tmp_path: Path) -> None:
     """The tracks are CC BY 4.0, so they may travel as long as the credit does."""
     from app.portable_package import copy_music
@@ -254,6 +294,22 @@ def test_a_track_the_catalogue_does_not_have_is_refused(tmp_path: Path) -> None:
     music = tmp_path / "music"
     music.mkdir()
     (music / "music-catalogue.json").write_text(json.dumps({"tracks": []}))
+
+    with pytest.raises(PortablePackageError):
+        copy_music(tmp_path / "out", music_directory=music, track_id="rising-tide")
+
+
+def test_a_track_the_catalogue_names_but_does_not_have_is_refused(tmp_path: Path) -> None:
+    """The catalogue entry exists; the file next to it does not."""
+    from app.portable_package import copy_music
+
+    music = tmp_path / "music"
+    music.mkdir()
+    (music / "music-catalogue.json").write_text(
+        json.dumps(
+            {"tracks": [{"track_id": "rising-tide", "file_name": "Rising Tide.mp3", "artist": "K"}]}
+        )
+    )
 
     with pytest.raises(PortablePackageError):
         copy_music(tmp_path / "out", music_directory=music, track_id="rising-tide")
@@ -496,6 +552,36 @@ def test_a_package_without_its_track_is_refused(tmp_path: Path) -> None:
         settle_package(package)
 
 
+def test_a_package_without_its_clips_directory_is_refused(tmp_path: Path) -> None:
+    """The map and the track are there, but the map is a promise with
+    nothing behind it once the clip directory itself is gone."""
+    from app.portable_package import settle_package
+
+    package = _portable(tmp_path)
+    import shutil
+
+    shutil.rmtree(package / "film-sources")
+
+    with pytest.raises(PortablePackageError):
+        settle_package(package)
+
+
+def test_clip_seconds_refuses_output_it_cannot_read_as_a_number(tmp_path: Path) -> None:
+    import app.portable_package as module
+
+    def unparsable(command, **kwargs):
+        return subprocess.CompletedProcess(command, 0, "not-a-number\n", "")
+
+    with pytest.raises(PortablePackageError):
+        module._clip_seconds(tmp_path / "clip.mp4", runner=unparsable)
+
+    def empty(command, **kwargs):
+        return subprocess.CompletedProcess(command, 0, "\n", "")
+
+    with pytest.raises(PortablePackageError):
+        module._clip_seconds(tmp_path / "clip.mp4", runner=empty)
+
+
 def test_a_clip_with_a_face_is_dropped_and_one_with_a_plate_is_blurred(tmp_path: Path) -> None:
     """Encoding changes pixels, so a package is finished when a pass finds
     nothing, not when it is built. A face is removed, not blurred."""
@@ -568,6 +654,58 @@ def test_a_package_whose_every_clip_is_dropped_is_refused(tmp_path: Path) -> Non
         plate.inspect_footage = plate_inspect
 
 
+def test_hardening_reports_whether_it_settled() -> None:
+    from app.portable_package import Hardening
+
+    assert Hardening().settled
+    assert not Hardening(dropped=("a",)).settled
+    assert not Hardening(blurred=("a",)).settled
+
+
+def test_harden_package_needs_at_least_one_round(tmp_path: Path) -> None:
+    from app.portable_package import harden_package
+
+    with pytest.raises(PortablePackageError):
+        harden_package(
+            _portable(tmp_path), probe_path=tmp_path / "p", work=tmp_path / "w", rounds=0
+        )
+
+
+def test_harden_package_skips_a_clip_already_missing(tmp_path: Path) -> None:
+    """A clip named in the map but not on disk is passed over, not inspected."""
+    import app.plate_blur as plate
+    import app.portable_package as module
+
+    package = _portable(tmp_path)
+    clips = package / "film-sources"
+    write_film_sources(
+        package / FILM_SOURCES_FILE_NAME,
+        (
+            PortableSource(event_id="a", file_name="a.mp4"),
+            PortableSource(event_id="b", file_name="b.mp4"),  # never written to disk
+        ),
+    )
+    (package / "gemini-video-analysis.json").write_text(
+        json.dumps({"analysed": [{"event_id": "a"}, {"event_id": "b"}]})
+    )
+    seen: list[str] = []
+
+    def inspect(clip, **kwargs):
+        seen.append(Path(clip).name)
+        return (), ()
+
+    plate_inspect = plate.inspect_footage
+    plate.inspect_footage = inspect  # type: ignore[assignment]
+    try:
+        result = module.harden_package(package, probe_path=tmp_path / "p", work=tmp_path / "w")
+    finally:
+        plate.inspect_footage = plate_inspect
+
+    assert seen == ["a.mp4"]  # b.mp4 was never inspected
+    assert result.clean == ("a",)
+    assert not (clips / "b.mp4").exists()
+
+
 def test_what_the_film_shows_is_blurred_in_the_clip_it_came_from(tmp_path: Path) -> None:
     """A clip and the film cut from it are different encodes: clips clean at
     every frame still produced a legible plate once cut."""
@@ -632,3 +770,203 @@ def test_a_film_that_shows_nothing_changes_no_clip(tmp_path: Path) -> None:
         )
     finally:
         plate.inspect_footage = plate_inspect
+
+
+def test_harden_from_film_needs_a_plan_to_trace_regions_through(tmp_path: Path) -> None:
+    """Without the plan there is no way from a moment in the film back to a clip."""
+    from app.portable_package import harden_from_film
+
+    package = _portable(tmp_path)  # no journey-story-plan.json
+    with pytest.raises(PortablePackageError):
+        harden_from_film(
+            package, tmp_path / "film.mp4", probe_path=tmp_path / "p", work=tmp_path / "w"
+        )
+
+
+def test_harden_from_film_skips_a_region_no_beat_covers(tmp_path: Path) -> None:
+    """A region whose moment in the film falls between beats names no window."""
+    import app.plate_blur as plate
+    import app.portable_package as module
+    from app.plate_blur import Region
+
+    package = _portable(tmp_path)
+    (package / "journey-story-plan.json").write_text(
+        json.dumps({"beats": [{"screen_duration_s": 6.0, "event_id": "a"}]})
+    )
+    seen = (Region(start_s=99.0, end_s=101.0, x=0, y=0, width=10, height=10),)
+    plate_inspect = plate.inspect_footage
+    plate.inspect_footage = lambda *a, **k: (seen, ())  # type: ignore[assignment]
+    try:
+        changed = module.harden_from_film(
+            package, tmp_path / "film.mp4", probe_path=tmp_path / "p", work=tmp_path / "w"
+        )
+    finally:
+        plate.inspect_footage = plate_inspect
+
+    assert changed == ()
+
+
+def test_harden_from_film_skips_a_clip_already_missing(tmp_path: Path) -> None:
+    """The region's beat names a window in the map, but its clip is gone."""
+    import app.plate_blur as plate
+    import app.portable_package as module
+    from app.plate_blur import Region
+
+    package = _portable(tmp_path)
+    (package / "film-sources" / "a.mp4").unlink()
+    (package / "journey-story-plan.json").write_text(
+        json.dumps({"beats": [{"screen_duration_s": 6.0, "event_id": "a"}]})
+    )
+    seen = (Region(start_s=1.0, end_s=2.0, x=0, y=0, width=10, height=10),)
+    plate_inspect = plate.inspect_footage
+    plate.inspect_footage = lambda *a, **k: (seen, ())  # type: ignore[assignment]
+    try:
+        changed = module.harden_from_film(
+            package, tmp_path / "film.mp4", probe_path=tmp_path / "p", work=tmp_path / "w"
+        )
+    finally:
+        plate.inspect_footage = plate_inspect
+
+    assert changed == ()
+
+
+# --- the CLI ------------------------------------------------------------------
+
+
+def test_main_install_settles_the_package_and_reports_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.portable_package import main
+
+    package = _portable(tmp_path)
+
+    rc = main([str(package), "--install"])
+
+    assert rc == 0
+    assert "ready to cut" in capsys.readouterr().out
+
+
+def test_main_install_reports_failure(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from app.portable_package import main
+
+    not_a_package = tmp_path / "not-a-package"
+    not_a_package.mkdir()
+
+    rc = main([str(not_a_package), "--install"])
+
+    assert rc == 1
+    assert "portable package failed" in capsys.readouterr().err
+
+
+def test_main_without_an_output_or_a_flag_is_refused(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from app.portable_package import main
+
+    rc = main([str(tmp_path)])
+
+    assert rc == 1
+    assert "an output directory is required" in capsys.readouterr().err
+
+
+def test_main_builds_and_reports_the_clip_count(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.portable_package as module
+
+    monkeypatch.setattr(module, "build_package", lambda *a, **k: ("a", "b", "c"))
+
+    rc = module.main([str(tmp_path), str(tmp_path / "out")])
+
+    assert rc == 0
+    assert "3 clips" in capsys.readouterr().out
+
+
+def test_main_reports_a_build_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.portable_package as module
+
+    def fail(*a, **k):
+        raise PortablePackageError("no plan to build from")
+
+    monkeypatch.setattr(module, "build_package", fail)
+
+    rc = module.main([str(tmp_path), str(tmp_path / "out")])
+
+    assert rc == 1
+    assert "no plan to build from" in capsys.readouterr().err
+
+
+def test_main_harden_reports_the_tally(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.portable_package as module
+
+    package = tmp_path / "day-x"
+    package.mkdir()
+    monkeypatch.setattr(
+        module,
+        "harden_package",
+        lambda *a, **k: module.Hardening(dropped=("c",), blurred=("b",), clean=("a",)),
+    )
+
+    rc = module.main([str(package), "--harden"])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "1 clean, 1 blurred, 1 dropped for a face" in out
+
+
+def test_main_harden_reports_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.portable_package as module
+
+    package = tmp_path / "day-x"
+    package.mkdir()
+
+    def fail(*a, **k):
+        raise PortablePackageError("every clip was dropped")
+
+    monkeypatch.setattr(module, "harden_package", fail)
+
+    rc = module.main([str(package), "--harden"])
+
+    assert rc == 1
+    assert "every clip was dropped" in capsys.readouterr().err
+
+
+def test_main_harden_from_film_reports_the_clip_count(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.portable_package as module
+
+    package = tmp_path / "day-x"
+    package.mkdir()
+    monkeypatch.setattr(module, "harden_from_film", lambda *a, **k: ("a", "b"))
+
+    rc = module.main([str(package), "--harden-from-film", str(tmp_path / "film.mp4")])
+
+    out = capsys.readouterr().out
+    assert rc == 0
+    assert "2 clips blurred from the film" in out
+
+
+def test_main_harden_from_film_reports_failure(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import app.portable_package as module
+
+    package = tmp_path / "day-x"
+    package.mkdir()
+
+    def fail(*a, **k):
+        raise PortablePackageError("the film has no plan to trace its regions through")
+
+    monkeypatch.setattr(module, "harden_from_film", fail)
+
+    rc = module.main([str(package), "--harden-from-film", str(tmp_path / "film.mp4")])
+
+    assert rc == 1
+    assert "no plan to trace" in capsys.readouterr().err
