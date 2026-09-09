@@ -9322,3 +9322,48 @@ CC BY 3.0」に直し、`zip -u` でその 1 entry だけ差し替えた。新�
 SHA-256 `5554718a554a82f0962c79ea5bb9a83a7d7ec5666b04ca99343c4fbea405bd3d`。Release の
 asset も差し替える（旧 SHA `d6dedf40…` は無効）。
 
+## 213. `app/web/journey_workflow_preview.py`のテスト薄さを閉じた——委譲経路と`main`が未検査だった
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの7件
+（第203・204・206〜212節から変化なし、7.5 Flash-Lite試験の書きかけ）——引き続き自分の変更では
+ないため一切触れず、addの対象からも外した。`git fetch dev`は`cloud/*` branch無し。
+`git stash list`の`other layer ambient (not mine)`も変化なく存在し、`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路には触れていない。`.autonomy/trip/batch.log`は
+無関係（9/6付）。全3,245件が着手前に成功することを確認済み。
+
+品質の単位（S2追補・Q1・E-3・E-4・Q5）・E-1・E-2・E-6は完了・配線済み。E-5・E-7は別層が
+ambient音声を配線中の間は避ける対象、7.5は上記未commit7件が同じ主題で進行中、7.6残り
+（認証）は新しい設計判断を要するため見送り、新しい日の素材の取り込みはオーナーの合図待ち
+——第212節の次点どおり`app/web/journey_workflow_preview.py`（72%、`main`の
+`serve_forever()`を除く部分と`application`の委譲分岐がテスト可能）を選んだ。
+
+**見つけた薄さ**: `application`の「`/`・`/workflow`以外のパスは既存の`app/web/server.py`の
+`application`へ委譲する」分岐（既存テストは`/workflow`と`POST /workflow`のみ検査しており、
+委譲そのものは一度も検査されていなかった）。`main`（CLI、約10行:
+`argparse`組み立て・`--port`の範囲検証・`make_server`呼び出し・起動時の印字）に
+**テストが1件も無かった**。
+
+実装を変更する前に`.venv/bin/python3`でその場で通し（委譲は`monkeypatch.setattr`で
+モジュールの`existing_application`を差し替え、`main`は`app/portable_package.py`と同じ作法で
+`make_server`をfakeのコンテキストマネージャに差し替えて`serve_forever()`の実起動を避ける）、
+想定どおりの値になることを確認してから`tests/test_journey_workflow_frontend.py`に4件追加した
+（実装は無変更）。
+
+**テスト**: `tests/test_journey_workflow_frontend.py`単体9→12件（1件は日英2言語を
+1関数で検査しているため実質+4検査）。`app/web/journey_workflow_preview.py`単体の被覆は
+**97%（36中35行）**——残る1行は`if __name__ == "__main__":`の起動ガード（他の同種モジュールと
+同じ扱いで意図的に未検査のまま）。全**3,250件成功**（他層の未commit分4テストファイルを含む。
+`--deselect`/`--ignore`は使わず全件成功）。作業後`coverage`は`pip uninstall`、`.coverage`
+ファイルも削除し、pytest再実行でcoverageパッケージ無しでも3,250件成功を確認。Ruff check緑、
+`git diff --check`（`tests/test_journey_workflow_frontend.py`のみ）問題なし。実素材・GPX・
+Gemini・GCSには一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも触れていない。
+
+**次に推奨**: 同じ切り口の次点候補は着手前に「なぜ薄いか」（未配線か、単に検査が薄いだけか）を
+実測してから選ぶこと。`app/video/highlight_research.py`（73%）は`run_local_highlight_research`
+本体の統合テストが要るため単独の大きめの単位として改めて計画してから着手すること。7.5・UI・
+7.6残り（認証）・E-5・E-7は引き続き別層/オーナー判断待ち。
+

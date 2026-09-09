@@ -181,11 +181,9 @@ story's chapters. The page runs only on your machine and sends nothing.
 
 That is the product, not a demo of it: it reads the track, cuts the day into
 legs, places the moments the track proves, lays the lower thirds, draws the
-cards, cuts the film, writes the subtitles and mixes the music. `ffmpeg` and
-`ffprobe` must be on the path; on Linux the cards are drawn by headless
-`chromium`.
+cards, cuts the film, writes the subtitles and mixes the music.
 
-Python 3.11 or later is required.
+Requirements and what was verified: Python 3.11+, `ffmpeg`/`ffprobe` on the PATH, about 4 GB of disk for the package and the film, and memory: the film is cut in one ffmpeg pass that opens every clip and card at once. Verified end to end on macOS (Apple Silicon; peak 4 GB of memory, about 9 minutes). On Linux the same steps draw the cards with headless `chromium` but the render was killed for lack of memory in an 8 GB container (Debian 13, ffmpeg 7.1); use a machine with 16 GB or more. Windows is not supported natively; use WSL2 with the Linux notes.
 
 ```bash
 python3 -m venv .venv

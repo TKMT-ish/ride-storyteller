@@ -5,11 +5,14 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
+from collections.abc import Iterable
 from io import BytesIO
 from pathlib import Path
 
 import pytest
 
+from app.web import journey_workflow_preview as journey_workflow_preview_module
 from app.web.i18n import UiLanguage
 from app.web.journey_workflow_frontend import (
     WORKFLOW_FRONTEND_SCHEMA_VERSION,
@@ -139,3 +142,73 @@ def test_preview_fails_closed_in_public_demo(monkeypatch: pytest.MonkeyPatch) ->
 
     assert status == "403 Forbidden"
     assert body == b"local workflow only"
+
+
+def test_preview_delegates_paths_outside_the_workflow_to_the_existing_application(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("RIDE_WEB_MODE", "local")
+    delegated_paths: list[str] = []
+
+    def fake_existing_application(
+        environ: dict[str, object], start_response: object
+    ) -> Iterable[bytes]:
+        delegated_paths.append(str(environ["PATH_INFO"]))
+        start_response("200 OK", [("Content-Type", "text/plain")])  # type: ignore[operator]
+        return [b"delegated"]
+
+    monkeypatch.setattr(
+        journey_workflow_preview_module, "existing_application", fake_existing_application
+    )
+
+    status, _, body = _request("/api/private-journey/status")
+
+    assert status == "200 OK"
+    assert body == b"delegated"
+    assert delegated_paths == ["/api/private-journey/status"]
+
+
+def test_main_rejects_a_port_outside_the_valid_range(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(sys, "argv", ["journey_workflow_preview", "--port", "70000"])
+
+    with pytest.raises(SystemExit):
+        journey_workflow_preview_module.main()
+
+    assert "--port must be between 1 and 65535" in capsys.readouterr().err
+
+
+def test_main_starts_the_server_on_the_requested_port(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    started: dict[str, object] = {}
+
+    class FakeServer:
+        def __enter__(self) -> "FakeServer":
+            return self
+
+        def __exit__(self, *exc_info: object) -> bool:
+            return False
+
+        def serve_forever(self) -> None:
+            started["served"] = True
+
+    def fake_make_server(host: str, port: int, app: object) -> FakeServer:
+        started["host"] = host
+        started["port"] = port
+        started["app"] = app
+        return FakeServer()
+
+    monkeypatch.setattr(journey_workflow_preview_module, "make_server", fake_make_server)
+    monkeypatch.setattr(sys, "argv", ["journey_workflow_preview", "--port", "9001"])
+
+    journey_workflow_preview_module.main()
+
+    assert started == {
+        "host": "127.0.0.1",
+        "port": 9001,
+        "app": journey_workflow_preview_module.application,
+        "served": True,
+    }
+    assert "http://127.0.0.1:9001/workflow" in capsys.readouterr().out
