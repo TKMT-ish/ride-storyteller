@@ -1,8 +1,7 @@
 # Ride Storyteller
 
-> Devpost working draft only. The participant is registered for Agentic Cinema,
-> but no project has been sent to Devpost. `PENDING` values require participant
-> input, public verification, or the real-media gate.
+> Submitted to Devpost on 2026-09-10 (JST) by the owner; this file is the text
+> and the field values as submitted. Edits remained possible until the deadline.
 
 ## One-line Summary
 
@@ -230,8 +229,8 @@ repository **public** on 2026-09-09 and published the judge package
 
 ## Demo Video
 
-`PENDING` — publish a maximum three-minute YouTube or Vimeo demonstration in
-English or with complete English subtitles. **The demo is assembled by the
+Published at <https://youtu.be/wgrmPRAei-o> (public, 2:57, English on-screen text and subtitles, music
+credited in the description). **The demo is assembled by the
 repository**, not recorded by hand, from the real day-7 film (English cut), the
 day's own judged windows and two screenshots of the local console:
 
@@ -366,7 +365,7 @@ Still required as distinct evidence:
   405 for POST, 413 for a request body, 403 for every private route, the
   five protective headers, and 429 with `Retry-After` after sixty requests
   in a minute. See [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md).
-- **Public YouTube/Vimeo demo URL:** `PENDING`
+- **Public YouTube/Vimeo demo URL:** <https://youtu.be/wgrmPRAei-o> — public, 2:57, English captions and subtitles, music credited in the description (verified 2026-09-10)
 - **OSI-approved root license:** `AGPL-3.0-only`; full text is in the repository-root
   `LICENSE` file
 - **Music title, creator, license, and source URL:** *Wandering* by Numall Fix

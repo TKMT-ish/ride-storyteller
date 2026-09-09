@@ -28,6 +28,9 @@ The current implementation baseline and the open system-design questions are
 summarized in
 [`docs/current-system-handoff-ja.md`](docs/current-system-handoff-ja.md).
 
+
+Demo video (2:57, English): <https://youtu.be/wgrmPRAei-o>. Judge package: <https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package>.
+
 ## Current boundaries
 
 - The public and cloud demos use fixed synthetic data. They cannot read private

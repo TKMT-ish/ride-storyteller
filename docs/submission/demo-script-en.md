@@ -81,6 +81,11 @@ figures. The inputs file's windows were chosen from the day's 337 judgements
 was inspected for faces and plate-shaped text before it was allowed in; two
 were dropped for that.
 
+## Published
+
+<https://youtu.be/wgrmPRAei-o> — public on YouTube, 2:57, with the `.srt` uploaded as English subtitles
+and the music credit in the description; the closing card carries the same credit.
+
 ## Narration
 
 There is no spoken track. [`demo-narration-en.md`](demo-narration-en.md) holds
