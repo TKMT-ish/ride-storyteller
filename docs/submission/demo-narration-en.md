@@ -174,7 +174,7 @@
 ### 10 · 2:45 · 12 秒 · Console（締めのカード）
 
 **画面の英文（字幕）**
-> **Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day.** Judges: the day-7 package cuts this film on your own computer.
+> **Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day.** Judges: the day-7 package cuts this film on your own computer. Music: Wandering by Numall Fix · CC BY 3.0 · royalty free music by www.free-stock-music.com
 
 **話す英文**
 > Open source. Runs on your machine, about fifty yen of Gemini a riding day. [間 1 秒] The day-seven package cuts this film on yours.

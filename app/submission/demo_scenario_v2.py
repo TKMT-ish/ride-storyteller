@@ -678,6 +678,10 @@ def scenario_captions(figures: Figures) -> dict[str, tuple[str, tuple[str, ...]]
                 "Runs on your machine.",
                 f"About ¥{round(figures.cost_jpy):.0f} of Gemini per riding day.",
                 "Judges: the day-7 package cuts this film on your own computer.",
+                # CC BY asks for the credit in the work itself; the description
+                # of the published video repeats it.
+                "Music: Wandering by Numall Fix · CC BY 3.0 · "
+                "royalty free music by www.free-stock-music.com",
             ),
         ),
     }

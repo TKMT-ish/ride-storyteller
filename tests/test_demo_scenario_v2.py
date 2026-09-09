@@ -239,7 +239,9 @@ _SCENARIO_TEXT = {
     ),
     10: (
         "Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day. "
-        "Judges: the day-7 package cuts this film on your own computer."
+        "Judges: the day-7 package cuts this film on your own computer. "
+        "Music: Wandering by Numall Fix · CC BY 3.0 · "
+        "royalty free music by www.free-stock-music.com"
     ),
 }
 

@@ -60,7 +60,7 @@
 | 7 | 1:20 | 30 | RAW＋判定 | 小さなコピー 4 本を順に（各 7.5 秒）。それぞれに Gemini の判定文とスコアを重ねる（例: 「rural highway · vista · interest 0.9」「car park · stationary · 0.2」） | **Gemini 2.5 Flash judges every window**: is the rider in frame, is the bike stopped, what is worth looking at. 337 structured judgements. **Only 43 scored 0.7 or more.** |
 | 8 | 1:50 | 15 | Console | 数値カード（現行の `console` 区間を流用）: 337 windows · 245.1 MB · ¥49.79 · 63 beats · 380 s | The story planner keeps **63 beats in the order the day happened**; ffmpeg cuts the film and adds the music. **About 80 minutes of machine time. Two confirmations from a person.** |
 | 9 | 2:05 | 40 | 成果物 | 作品の連続 40 秒。章カード → 走行 → 下部テロップ（地名・区間）→ 立ち寄り | The result: **six minutes**, chapters named by place, a map in the corner, sections for scenic roads and stops. |
-| 10 | 2:45 | 12 | Console（カード） | 締めのカード | **Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day.** Judges: the day-7 package cuts this film on your own computer. |
+| 10 | 2:45 | 12 | Console（カード） | 締めのカード | **Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day.** Judges: the day-7 package cuts this film on your own computer. Music: Wandering by Numall Fix · CC BY 3.0 · royalty free music by www.free-stock-music.com |
 
 合計 177 秒（8+12+12+15+18+15+30+15+40+12）。3 分の上限に 3 秒残すのは現行と同じ理由
 （エンコードで数十ミリ秒はみ出ても 3:00 を超えないため）。

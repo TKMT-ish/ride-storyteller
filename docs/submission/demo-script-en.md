@@ -50,7 +50,7 @@ refuse.
 | 7 | 1:20 | 30 s | raw + judgement | Four windows, 7.5 s each, with the model's own words and scores beside them: two vistas, a halted bike, a plain road. "Gemini 2.5 Flash judges every window … 337 structured judgements. Only 43 scored 0.7 or more." |
 | 8 | 1:50 | 15 s | console | The figures card. "The story planner keeps 63 beats in the order the day happened; ffmpeg cuts the film and adds the music. About 80 minutes of machine time. Two confirmations from a person." |
 | 9 | 2:05 | 40 s | film, framed then full | From the lookout stop through the chapter card to the lake road; the last ten seconds full-screen with the badge. "The result: six minutes, chapters named by place, a map in the corner, sections for scenic roads and stops." |
-| 10 | 2:45 | 12 s | card | "Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day. Judges: the day-7 package cuts this film on your own computer." |
+| 10 | 2:45 | 12 s | card | "Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day. Judges: the day-7 package cuts this film on your own computer. Music: Wandering by Numall Fix · CC BY 3.0 · royalty free music by www.free-stock-music.com" |
 
 `--cold-open-s` and `--result-start-s` choose where in the film segments 1 and
 9 begin (163 s and 303 s of the English film: the descent from the Bluff
