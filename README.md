@@ -29,7 +29,7 @@ summarized in
 [`docs/current-system-handoff-ja.md`](docs/current-system-handoff-ja.md).
 
 
-Submitted to Agentic Cinema (IBM track) on 2026-09-10. Demo video (2:57, English): <https://youtu.be/wgrmPRAei-o>. Judge package: <https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package>.
+Submitted to Agentic Cinema (IBM track) on 2026-09-09. Demo video (2:57, English): <https://youtu.be/wgrmPRAei-o>. Judge package: <https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package>.
 
 ## Current boundaries
 

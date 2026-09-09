@@ -1,6 +1,6 @@
 # Ride Storyteller
 
-> Submitted to Devpost on 2026-09-10 (JST) by the owner; this file is the text
+> Submitted to Devpost on 2026-09-09 (about 23:00 JST) by the owner; this file is the text
 > and the field values as submitted. Edits remained possible until the deadline.
 
 ## One-line Summary
@@ -365,7 +365,7 @@ Still required as distinct evidence:
   405 for POST, 413 for a request body, 403 for every private route, the
   five protective headers, and 429 with `Retry-After` after sixty requests
   in a minute. See [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md).
-- **Public YouTube/Vimeo demo URL:** <https://youtu.be/wgrmPRAei-o> — public, 2:57, English captions and subtitles, music credited in the description (verified 2026-09-10)
+- **Public YouTube/Vimeo demo URL:** <https://youtu.be/wgrmPRAei-o> — public, 2:57, English captions and subtitles, music credited in the description (verified 2026-09-09)
 - **OSI-approved root license:** `AGPL-3.0-only`; full text is in the repository-root
   `LICENSE` file
 - **Music title, creator, license, and source URL:** *Wandering* by Numall Fix
