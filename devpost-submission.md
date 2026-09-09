@@ -161,6 +161,19 @@ The package is 1.61 GiB and carries 53 clips; the film it produces runs six
 minutes and eight seconds, with subtitles and music. Read at every frame, it
 shows no legible number plate and no face.
 
+The same cut can be made from the product's own page instead of the last
+command: start the local server on the package and open the workflow page.
+
+```bash
+RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY="$PWD/private-media/portable/day-7" \
+  python -m app.web.server
+# then open http://127.0.0.1:8765/workflow?lang=en
+```
+
+It shows the judged stages, "Create the film on this Mac" (choose Wandering
+as the music), and about five minutes later "Watch the finished film" with the
+story's chapters. The page runs only on your machine and sends nothing.
+
 That is the product, not a demo of it: it reads the track, cuts the day into
 legs, places the moments the track proves, lays the lower thirds, draws the
 cards, cuts the film, writes the subtitles and mixes the music. `ffmpeg` and
