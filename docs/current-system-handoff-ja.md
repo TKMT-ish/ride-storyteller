@@ -9373,3 +9373,37 @@ Gemini・GCSには一切触れていない。支出¥0。承認待ちなし。
 外から確認済み）し、Devpost に **Submit 済み**。締切 06:00 JST までは編集可能。残る任意の
 手直しは、審査員 PDF の差し替え（新 SHA・動作環境）と画像 5 の差し替えのみ。
 
+## 214. ハッカソン向け開発の完了（2026-09-10 01:00 JST、オーナー宣言）
+
+Agentic Cinema への提出は 2026-09-10 00:30 頃に完了し、オーナーは「ハッカソン向けの開発は
+ここで完了」と宣言した。以後、提出物は**凍結**扱い（オーナーの指示が無い限り触らない）。
+
+### 提出物と所在
+
+| もの | 所在 | 状態 |
+|---|---|---|
+| 公開リポジトリ | `TKMT-ish/ride-storyteller`（PUBLIC） | 現在のツリーを 1 commit ずつ載せる方式。tag `hackathon-submission-2026-09-10` |
+| 私有ミラー | `TKMT-ish/ride-storyteller-dev`（dev） | 全履歴。同名 tag |
+| 配布物 | Release `day-7-package` | `ride-storyteller-day-7.zip` 1,730,095,529 バイト、SHA-256 `5554718a…` |
+| ホスト版 | Cloud Run 第 7 リビジョン | 公開（invoker IAM check 無効）、審査員 Basic 認証。資格情報は `private-media/hosting/judge-credential.yaml` と Devpost 添付 PDF だけ |
+| デモ動画 | https://youtu.be/wgrmPRAei-o | 公開、2:57、英語字幕、音楽クレジットはカードと説明文 |
+| Devpost | 提出済み | 記入キットと審査員 PDF は `private-media/hosting/`（Git 外） |
+
+### 締切後に残した課題（優先順）
+
+1. **一括レンダーのメモリ**: 119 入力の単一 ffmpeg パスは Mac でピーク 4.0 GB、Linux 8 GB コンテナで OOM kill。
+   区間ごとに切って concat する設計に変えれば審査員の環境要件（16 GB）を外せる。
+2. `app/web/journey_workflow_preview.py` の削除判断（`/workflow` と重複、指示 11 で残置）。
+3. Gate 7.6 の残り（認証そのもの）、E-5・E-7（素材の音、オーナー判断）、`DEFAULT_STRIDE_S` 既定 60。
+4. `ruff format` が Codex の 2 ファイルを整形したがっている（`ruff check` は緑）。
+
+### 片付けたもの
+
+scratchpad の worktree と検証用 Docker イメージ（6.2 GB）を削除。dev の作業ブランチは無し。
+作業ツリーに残る `app/analysis_*` の未 commit 差分は**別層のもの**で触っていない。
+stash `wip: other layer ambient` も同様。
+
+### 支出
+
+Gemini 累計 ≈¥776 / ¥1000（2026-09-09 以降 ¥0）。Cloud Run は min 0、予算アラート ¥1,000。
+

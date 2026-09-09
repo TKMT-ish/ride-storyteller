@@ -105,3 +105,17 @@ product-identifying review screen now satisfies this evidence item.
 - Never open `.env` while recording.
 - Do not show model response text retained from private or real-media input.
 - Verify every screenshot at full resolution before publication.
+
+## Submitted gallery — 2026-09-09
+
+Ten images went into the Devpost gallery, kept with their captions under
+`private-media/hosting/gallery/` (not in the repository): six frames of the
+inspected demo video (the lake road, the framed cold open, a judged window, the
+raw mosaic, a chapter card, the closing card was not used), the `/workflow` page
+on the real day, the spend gate with the data-handling note, the hosted public
+console, the existing IBM Bob review capture, and a sanitised crop of Bob's
+task-plan session (`10-ibm-bob-plan-and-files.png`: source-control column and
+Bob column only, usage figures blacked out; the original with the account email
+stays untracked). The thumbnail is a 3:2 crop of the lake road from the film,
+checked for plates and faces before use.
+
