@@ -110,7 +110,7 @@ appeared was removed, both by this repository (`app.plate_blur`,
 python3 -m venv .venv && source .venv/bin/activate
 python -m pip install -e '.[dev]'
 
-# Unpack the package (the link is in the submission) under private-media/portable/
+# Unpack the package from the release (https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package) under private-media/portable/
 python -m app.portable_package private-media/portable/day-7 --install
 python -m app.private_journey_film private-media/portable/day-7   --music wandering --music-directory private-media/portable/day-7/music
 ```
@@ -158,6 +158,14 @@ python -m app.private_journey_film private-media/work/<name>   --music <track-id
 To run the whole path from a page, point the local server at a package and
 open `/private-journey`: intake, copies, the spend gate, and the film, one job
 at a time. Buying the judgement starts only when the figure shown is typed back.
+
+The product-facing version of that page is `/workflow` (`?lang=ja` or
+`?lang=en`): one path from intake to the finished film -- progress, the next
+step, the spend gate with its data-handling note, the story and the film --
+on the same private-journey API and the same boundaries. It renders before any
+package exists (the first screen is the intake form) and is refused, with every
+route it calls, in `public_demo` mode. The engineering console at
+`/private-journey` stays alongside it.
 
 ```bash
 export RIDE_PRIVATE_JOURNEY_PACKAGE_DIRECTORY="$(pwd)/private-media/work/<name>"
@@ -612,9 +620,11 @@ RIDE_WEB_MODE=public_demo RIDE_WEB_HOST=0.0.0.0 RIDE_WEB_PORT=8080 \
   python -m app.web.server
 ```
 
-The reviewed source repository is the exact root URL shown above. The hosted
-Cloud Run service remains private even though its authenticated UI exposes the
-validated source link.
+The reviewed source repository is the exact root URL shown above. Since
+2026-09-09 the hosted Cloud Run service is reachable without a Google account
+(the service's invoker IAM check is disabled, the route Google recommends where
+an organisation policy refuses `allUsers`), and every page except `/health`
+asks for the judge credential that is shared only through the submission form.
 
 For a production-style local container check:
 

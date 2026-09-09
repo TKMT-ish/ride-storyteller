@@ -74,6 +74,7 @@ MUSIC_TRACK_IDS: tuple[str, ...] = (
     "windswept",
     "rising-tide",
     "lightless-dawn",
+    "wandering",
 )
 # No music is a choice, and the default one: the owner called the library
 # terrible, riders on the forums want the engine, and the research puts

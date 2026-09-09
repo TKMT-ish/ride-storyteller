@@ -195,29 +195,35 @@ re-verified.
 <https://github.com/TKMT-ish/ride-storyteller> — `main` is at `548c2b8`
 (2026-09-09): the current tree as one commit on top of the 49 commits that were
 already public. It carries no place name from the rider's route; the private
-development history stays in the private mirror. The repository is still
-**private** until the owner runs the one visibility command recorded in
-[`docs/submission/public-repository-preflight-ja.md`](docs/submission/public-repository-preflight-ja.md).
-The judge package (`ride-storyteller-day-7.zip`) is attached to a draft release
-on the same repository, to be published with it.
+development history stays in the private mirror. The owner made the
+repository **public** on 2026-09-09 and published the judge package
+(`ride-storyteller-day-7.zip`, 1,730,095,484 bytes) as release `day-7-package`:
+<https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package> (SHA-256 `d6dedf409fe7c1ea307ba051e8004b5ee6019b9216236f2a45d2e4cde5dc5e1d`).
 
 ## Demo Video
 
 `PENDING` — publish a maximum three-minute YouTube or Vimeo demonstration in
 English or with complete English subtitles. **The demo is assembled by the
-repository**, not recorded by hand:
+repository**, not recorded by hand, from the real day-7 film (English cut), the
+day's own judged windows and two screenshots of the local console:
 
 ```bash
-python -m app.submission.demo_assembly private-media/work/<package> \
-  --excerpt-start-s <seconds> --overwrite
+python -m app.submission.demo_scenario_v2 private-media/work/day-7-en-v1 \
+  --inputs private-media/work/demo-v2/inputs.json \
+  --film private-media/work/day-7-en-v1/ride-storyteller-story-film-scored.mp4 \
+  --cold-open-s 163 --result-start-s 303 \
+  --console-copies-png private-media/work/demo-v2/console-copies.png \
+  --console-cost-png private-media/work/demo-v2/console-cost.png --overwrite
 ```
 
-It writes the video and its subtitle file, the subtitles generated from the same
-timeline the video is cut to. One is already assembled and measured at 177.02 s,
-from the day whose opening minutes are open country. What remains is a person's: watch the five footage
-stretches for identifiable faces and number plates, re-assemble from a different
-start if either appears, then upload. The timeline and that check are described
-in [`docs/submission/demo-script-en.md`](docs/submission/demo-script-en.md).
+It runs 2:57 in ten segments -- the problem first (108 GB and 4 h 43 min of
+footage that nearly all looks the same), then the local copies, the spend gate,
+the model's own judgements beside the windows it judged, and the finished film
+at 80 % in a frame so it can be told apart from raw footage -- with subtitles
+written from the same timeline. Every figure on screen is cross-checked against
+what the package's judgement bought, and every frame is read for faces and
+number plates on the owner's machine before the file is kept. See
+[`docs/submission/demo-script-en.md`](docs/submission/demo-script-en.md).
 
 ## Screenshot Shot List
 
@@ -314,13 +320,22 @@ Still required as distinct evidence:
 ### Links and assets
 
 - **Open-source repository URL:** <https://github.com/TKMT-ish/ride-storyteller>
-  — exists; must be brought up to date first (see above)
-- **Hosted project URL:** `PENDING`. Cloud Run IAM will be unauthenticated
-  (`--no-invoker-iam-check`) gated by an application-level HTTP Basic
-  credential; remember to fill the judge username/password into the
-  submission form's **Testing instructions** field once the credential is
-  set and the service is redeployed. See
-  [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md).
+  — public, at the current tree (2026-09-09)
+- **Judge package (GitHub Release):** <https://github.com/TKMT-ish/ride-storyteller/releases/tag/day-7-package>
+  — `ride-storyteller-day-7.zip`, SHA-256 `d6dedf409fe7c1ea307ba051e8004b5ee6019b9216236f2a45d2e4cde5dc5e1d`; the archive's `README.txt`
+  says how to cut the film from it
+- **Hosted project URL:** <https://ride-storyteller-public-demo-q53n7masba-an.a.run.app>
+  — reachable without a Google account since 2026-09-09 (the invoker IAM
+  check is disabled on the service; the organisation's policy refuses an
+  `allUsers` binding, so that is the sanctioned route), and every page except
+  `/health` requires the judge's HTTP Basic credential. **Fill the judge
+  username and password into the submission form's Testing instructions
+  field**; they live only in `private-media/hosting/judge-credential.yaml`
+  on the owner's machine, never in this repository. Verified from outside:
+  401 without or with a wrong credential, 200 with it (both languages),
+  405 for POST, 413 for a request body, 403 for every private route, the
+  five protective headers, and 429 with `Retry-After` after sixty requests
+  in a minute. See [`docs/public-demo-hosting.md`](docs/public-demo-hosting.md).
 - **Public YouTube/Vimeo demo URL:** `PENDING`
 - **OSI-approved root license:** `AGPL-3.0-only`; full text is in the repository-root
   `LICENSE` file

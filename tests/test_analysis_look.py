@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 from pathlib import Path
 
@@ -102,6 +103,33 @@ def test_a_look_is_four_finite_non_negative_numbers() -> None:
         WindowLook(float("nan"), 0, 0, 0)
 
 
+def test_a_look_rejects_a_negative_value_in_any_of_its_four_fields() -> None:
+    # The line above only pins this for luma; __post_init__ loops over all
+    # four fields identically, so chroma_u, chroma_v and motion need the
+    # same boundary pinned or a copy-paste slip in the loop would pass.
+    with pytest.raises(ValueError):
+        WindowLook(0, -1, 0, 0)
+    with pytest.raises(ValueError):
+        WindowLook(0, 0, -1, 0)
+    with pytest.raises(ValueError):
+        WindowLook(0, 0, 0, -1)
+
+
+def test_a_look_rejects_positive_infinity_in_any_of_its_four_fields() -> None:
+    # `not isfinite(value) or value < 0`: positive infinity is not caught
+    # by the `< 0` half (inf is not less than zero), so only the isfinite
+    # half rejects it. Same gap app.story_color and app.story_audio's own
+    # boundary checks were already pinned against.
+    with pytest.raises(ValueError):
+        WindowLook(math.inf, 0, 0, 0)
+    with pytest.raises(ValueError):
+        WindowLook(0, math.inf, 0, 0)
+    with pytest.raises(ValueError):
+        WindowLook(0, 0, math.inf, 0)
+    with pytest.raises(ValueError):
+        WindowLook(0, 0, 0, math.inf)
+
+
 def test_a_look_kept_without_its_series_is_measured_again_only_when_asked(tmp_path: Path) -> None:
     import json
 
@@ -136,6 +164,17 @@ def test_a_motion_series_round_trips_and_must_be_finite() -> None:
     assert WindowLook.from_dict(look.to_dict()) == look
     with pytest.raises(ValueError, match="series"):
         WindowLook(luma=1.0, chroma_u=2.0, chroma_v=3.0, motion=4.0, motion_series=(-1.0,))
+
+
+def test_a_motion_series_rejects_non_finite_readings() -> None:
+    # The negative-reading case above only pins the sign half of the same
+    # `not isfinite(value) or value < 0` check; nan fails every comparison
+    # (so `< 0` alone would silently let it through) and positive infinity
+    # is not itself less than zero -- both need the isfinite half.
+    with pytest.raises(ValueError, match="series"):
+        WindowLook(luma=1.0, chroma_u=2.0, chroma_v=3.0, motion=4.0, motion_series=(math.nan,))
+    with pytest.raises(ValueError, match="series"):
+        WindowLook(luma=1.0, chroma_u=2.0, chroma_v=3.0, motion=4.0, motion_series=(math.inf,))
 
 
 def test_to_dict_omits_the_series_key_when_there_is_no_series() -> None:

@@ -25,6 +25,7 @@ from app.web.i18n import UiLanguage
 _NODE = shutil.which("node")
 
 PAGES = (
+    "_journey_workflow_page",
     "_private_journey_console_page",
     "_private_journey_status_page",
     "_private_highlight_review_page",

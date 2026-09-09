@@ -1,56 +1,95 @@
 # Three-minute English demo
 
-Rewritten 2026-09-07. **The demo is assembled by the repository, not recorded
-by hand**: `python -m app.submission.demo_assembly <package>` cuts it from a
-finished film and the package's own console figures, and writes the subtitle
-file beside it from the same timeline, so the captions and the subtitles cannot
-drift apart. What follows is what that timeline says and why, and what a person
-must still do before it is published.
+Rewritten 2026-09-09 for **scenario v2** ([`demo-scenario-v2-ja.md`](demo-scenario-v2-ja.md),
+approved by the owner that day). **The demo is assembled by the repository, not
+recorded by hand**: `python -m app.submission.demo_scenario_v2 <english package>`
+cuts it from the finished English film, the day's own judged windows and two
+screenshots of the local console, and writes the subtitle file beside it from
+the same timeline, so captions and subtitles cannot drift apart.
 
-**Every number on screen comes from the package.** The console card is filled
-from the same payload the local page reads — window counts, megabytes, yen — and
-a test forbids any file name, path, coordinate or capture time appearing in any
-card or caption.
+**Every figure on screen comes from the day's records.** The inputs file
+(`private-media/work/demo-v2/inputs.json`) carries the measured figures --
+35 GoPro files, 108.6 GB, 4 h 43 min, 337 windows, 245.1 MB, ¥49.79, 43 windows
+at 0.7 or more, 63 beats, 380 s, about 80 minutes of machine time, two
+confirmations -- and the assembler refuses to run unless the window count,
+cost and megabytes agree with what the package's judgement bought. A test
+forbids any id, file name, path, coordinate or capture time appearing in any
+caption, card, tag, badge or judgement panel.
 
-**Decided 2026-09-03: the demo uses the real film.** The owner chose real
-footage over a labelled synthetic stand-in. The published video therefore shows
-a real ride, including other road users who did not consent. **Reviewing the
-footage in the assembled demo for identifiable faces and number plates is a
-precondition of publishing it**, and publishing is a separate, deliberate act by
-the owner.
+**Three kinds of screen, told apart on sight.** Raw footage (the day's own
+480p judging copies) fills the frame under a `RAW GoPro · unedited` tag; the
+local console fills the picture area under a `Local console` tag with the
+caption in a band below; **the finished film is the only thing shown at 80 %**,
+top-right in a thin frame under the badge `Ride Storyteller output · day 7 · no
+one edited this`, and goes full-screen only for the last ten seconds of the
+result.
+
+**The demo uses the real film.** The published video shows a real ride, so
+**every frame of the joined demo is read for faces and plate-shaped text on
+this machine before it is kept** (`app.plate_blur`, Apple Vision); plates are
+blurred, and a face anywhere removes the file. Publishing remains a separate,
+deliberate act by the owner.
 
 ---
 
 ## The timeline
 
-Two minutes fifty-seven, in nine segments. It stops short of the three-minute
-ceiling on purpose: an encode lands a few hundredths of a second over its own
-sum, and a demo measured at 3:00.02 is one an automated check can refuse.
+Two minutes fifty-seven, in ten segments (fourteen cuts). It stops short of the
+three-minute ceiling on purpose: an encode lands a few hundredths of a second
+over its own sum, and a demo measured at 3:00.02 is one an automated check can
+refuse.
 
-Five of the nine are stretches of the finished film, cut back to back from one
-place in it, each carrying its narration as a caption over the lower third — the
-same lower third the film itself uses. Well over half the running time is
-footage, because a demo that opens on cards and closes on fifteen seconds of
-video reads as a slideshow rather than a video product (Q5 of
-`../user-feedback-2026-09-04-ja.md`).
+| # | Start | Hold | Kind | What is on screen |
+|---|-------|------|------|-------------------|
+| 1 | 0:00 | 8 s | film, framed | The coast road down from the lookout. "Made by Ride Storyteller from 4 hours 43 minutes of GoPro footage. No one edited this." |
+| 2 | 0:08 | 12 s | raw, mosaic | Twelve judged windows at once, all grey road. "One day of riding: 108 GB of video, 4 hours 43 minutes. Nearly all of it looks like this." |
+| 3 | 0:20 | 12 s | raw, single | One window alone, nothing happening. "Finding the good minutes means watching all of it. So the footage sat on a hard drive." |
+| 4 | 0:32 | 15 s | console | The film's first chapter card with its route. "The GPS track already knows where the day happened … Every leg becomes a chapter." |
+| 5 | 0:47 | 18 s | console | The workflow page: 337 clips · 245.1 MB · ¥49.79, copies 337 / 337. "Locally, ffmpeg cuts 337 twelve-second windows and shrinks each to 480p at one frame a second: 245 MB in all. The 4K never leaves the machine." |
+| 6 | 1:05 | 15 s | console | The approval card: what is sent, to whom, for how long; the amount to type back. "One page shows the price — ¥49.79 — and waits for a person to type that figure back. Nothing is bought until then." |
+| 7 | 1:20 | 30 s | raw + judgement | Four windows, 7.5 s each, with the model's own words and scores beside them: two vistas, a halted bike, a plain road. "Gemini 2.5 Flash judges every window … 337 structured judgements. Only 43 scored 0.7 or more." |
+| 8 | 1:50 | 15 s | console | The figures card. "The story planner keeps 63 beats in the order the day happened; ffmpeg cuts the film and adds the music. About 80 minutes of machine time. Two confirmations from a person." |
+| 9 | 2:05 | 40 s | film, framed then full | From the lookout stop through the chapter card to the lake road; the last ten seconds full-screen with the badge. "The result: six minutes, chapters named by place, a map in the corner, sections for scenic roads and stops." |
+| 10 | 2:45 | 12 s | card | "Open source (AGPL-3.0). Runs on your machine. About ¥50 of Gemini per riding day. Judges: the day-7 package cuts this film on your own computer." |
 
-| # | Segment | Hold | What is on screen |
-|---|---------|------|-------------------|
-| 1 | `problem` | 20 s | Film. "One day, 68 gigabytes of video." / "Somewhere in it is a story worth watching." |
-| 2 | `evidence` | 25 s | Film. "The track gives the day its shape." / "Each leg — halt to halt — is a chapter that says where it went from and to." |
-| 3 | `clock` | 20 s | Film. "One question needs a person." / "The system proposes the clock offset with its evidence; a person confirms it." |
-| 4 | `chapter-a` | 15 s | A chapter card from the film itself, with the route drawn and the stretch picked out. |
-| 5 | `chapter-b` | 15 s | A second chapter card, later in the day. |
-| 6 | `console` | 25 s | Full-screen card of the console's own figures: windows planned, megabytes to send, yen against the ceiling, copies made, windows judged, beats and seconds planned. |
-| 7 | `gemini` | 25 s | Film. "Gemini decides what the film shows." / "Every window is judged on a small copy — the 4K source never leaves the machine." / "Setting off, each stop, joining the highway: the moments the track proves are kept." |
-| 8 | `bob` | 15 s | The sanitized IBM Bob review screenshot. |
-| 9 | `close` | 17 s | Film. "Telemetry becomes a story." / "The footage that proves it stays on your machine." |
+`--cold-open-s` and `--result-start-s` choose where in the film segments 1 and
+9 begin (163 s and 303 s of the English film: the descent from the Bluff
+lookout, and the Clyde lookout stop into the chapter card and the lake road).
+Both were chosen by reading the film's frames, and both lie well clear of the
+only seconds in which a face appears (98–103 s).
 
-`--excerpt-start-s` chooses where in the film the five stretches begin. Pick a
-stretch with open road and no legible plates; the five are contiguous, so
-reviewing them is one continuous look rather than five.
+## The build
 
-## The candidate already assembled
+```bash
+python -m app.submission.demo_scenario_v2 private-media/work/day-7-en-v1 \
+  --inputs private-media/work/demo-v2/inputs.json \
+  --film private-media/work/day-7-en-v1/ride-storyteller-story-film-scored.mp4 \
+  --cold-open-s 163 --result-start-s 303 \
+  --console-copies-png private-media/work/demo-v2/console-copies.png \
+  --console-cost-png private-media/work/demo-v2/console-cost.png \
+  --skip-inspection --overwrite
+python -m app.plate_blur private-media/work/day-7-en-v1/demo/demo-v2-en.mp4 \
+  private-media/work/day-7-en-v1/demo/demo-v2-en-published.mp4 --fps 30 --passes 4
+```
+
+The English package is the day-7 package re-cut with `output_language: en`
+(the judgements are reused; nothing was bought again). The two console
+screenshots come from the real `/workflow` page reading a copy of the package
+from which the judgement was removed, so the approval card shows the real
+figures. The inputs file's windows were chosen from the day's 337 judgements
+(monotony by the model's own interest score) and every one of the seventeen
+was inspected for faces and plate-shaped text before it was allowed in; two
+were dropped for that.
+
+## Narration
+
+There is no spoken track. [`demo-narration-en.md`](demo-narration-en.md) holds
+the script the owner may record later (301 spoken words, timed per segment,
+with a Japanese gloss), kept in step with this timeline.
+
+## Previous version (v1, 2026-09-07)
+
+### The v1 candidate that was assembled
 
 `private-media/work/day-7-v1/demo/demo-en-published.mp4`, 177.03 s, cut with
 `--excerpt-start-s 240` from the day's film and then passed through the plate

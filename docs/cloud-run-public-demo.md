@@ -180,6 +180,20 @@ English page 200, POST 405, the private-GPX route 404; the unauthenticated URL
 **not yet set on the service**; the owner sets it and opens IAM in two commands
 after looking at the page (see gate 10).
 
+Later on 2026-09-09 the owner set the judge credential on the service with
+`--env-vars-file` (all eight variables in one file, since that flag replaces
+the whole environment), producing revision `ride-storyteller-public-demo-00007-r5f`
+with `basic_auth_configured=true`. The owner's
+`add-iam-policy-binding --member=allUsers` was refused by the organisation
+policy (audit log: "One or more users named in the policy do not belong to a
+permitted customer, perhaps due to an organization policy"), so the owner ran
+`gcloud run services update --no-invoker-iam-check` instead, which is not
+subject to that policy. From outside, the service then answered: `/health`
+200; the page 401 without or with a wrong credential, 200 with the judge's
+(en and ja); POST 405; a body 413; `/api/private-gpx-summary` 403; the five
+protective headers; and 429 with `Retry-After: 53` after sixty requests in a
+minute. The `¥1,000` project budget alert was re-read and is unchanged.
+
 ## Staged approval gates
 
 Each stage requires a separate exact-target review. Do not combine the stages
@@ -204,16 +218,14 @@ into one unattended command.
 7. **Complete for private hosting:** the public request-shape and process-local
    rate guard are in public commit `6998221`; image/revision digests and hosted
    behavior were verified. This does not provide distributed DDoS protection.
-8. Separately approve unauthenticated public access. Following Google's current
-   recommended method, the command plan refuses to produce
-   `--no-invoker-iam-check` unless approval, a validated Source URL, and
-   `basic_auth_configured=True` are all present; private deployment explicitly
-   uses `--invoker-iam-check`.
+8. **Complete (2026-09-09, by the owner):** unauthenticated access at the
+   Cloud Run layer via `--no-invoker-iam-check`, after the organisation policy
+   refused `allUsers`; the judge credential was already set (gate 10), the
+   Source URL validated, and `basic_auth_configured=True`.
 9. Budget alerts are verified. Verify the unauthenticated public URL, bilingual
    Source link, response headers, and abuse/cost controls before treating public
    hosting as complete.
-10. **Decided 2026-09-08, image and revision ready 2026-09-09, two owner
-    commands remain:** public IAM access is gated by
+10. **Complete (2026-09-09, revision 00007):** public access is gated by
     an application-level judge Basic Auth credential
     (`RIDE_PUBLIC_DEMO_BASIC_AUTH_USER` / `_PASSWORD`), shared with judges only
     through the Devpost submission form, never committed to the repository or

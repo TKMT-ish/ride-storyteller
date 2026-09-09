@@ -33,6 +33,7 @@ from app.gps import consolidate_events, extract_events, parse_gpx_bytes
 from app.video.highlight_review import HighlightReviewReason, HighlightReviewStatus
 from app.web.deployment import WebDeploymentSettings
 from app.web.i18n import UiLanguage, copy_for, resolve_language
+from app.web.journey_workflow_frontend import render_journey_workflow_page
 from app.web.maps_config import GoogleMapsSettings
 from app.web.private_director_preview import (
     PrivateDirectorPreview,
@@ -101,6 +102,7 @@ _PUBLIC_DEMO_DISABLED_PATHS = {
     "/private-journey-status",
     "/api/private-journey-status",
     "/private-journey",
+    "/workflow",
     "/api/private-journey",
     "/api/private-journey/preflight",
     "/api/private-journey/judge",
@@ -529,6 +531,21 @@ def application(environ: dict[str, object], start_response: StartResponse) -> It
         )
     if path == "/private-journey/film":
         return _private_journey_film(environ, start_response)
+    if path == "/workflow":
+        if environ.get("REQUEST_METHOD", "GET") != "GET":
+            return _respond(
+                start_response,
+                "405 Method Not Allowed",
+                "application/json; charset=utf-8",
+                '{"error":"GETを使用してください。"}'.encode(),
+            )
+        language = resolve_language(query.get("lang", [None])[0])
+        return _respond(
+            start_response,
+            "200 OK",
+            "text/html; charset=utf-8",
+            _journey_workflow_page(language).encode(),
+        )
     if path == "/private-journey":
         if environ.get("REQUEST_METHOD", "GET") != "GET":
             return _respond(
@@ -1700,6 +1717,18 @@ def _private_evidence_review_setup_page(language: UiLanguage) -> str:
 </head><body><main><p><a href=\"/?lang={language.value}\">{escape("Back to demo" if english else "デモへ戻る")}</a></p><h1>{escape(title)}</h1><p>{escape(explanation)}</p><ol><li>{escape(steps)}<br><code>RIDE_PRIVATE_EVIDENCE_REVIEW_DIRECTORY</code></li><li>{escape(restart)}</li></ol></main></body></html>"""
 
 
+def _journey_workflow_page(language: UiLanguage) -> str:
+    """The product-facing page: one path from intake to the finished film.
+
+    It renders without a configured package on purpose -- the page itself
+    asks `/api/private-journey` and shows the intake form when that answers
+    503 -- and it offers exactly the music the actions module will accept.
+    Every private route it calls is already refused in the public demo, and
+    so is this page.
+    """
+    return render_journey_workflow_page(language, track_ids=MUSIC_TRACK_IDS)
+
+
 def _private_journey_console_page(language: UiLanguage) -> str:
     """One page from "what would judging cost" to "watch the film".
 
@@ -1803,6 +1832,24 @@ def _private_journey_console_page(language: UiLanguage) -> str:
         "film_silent": "silent version: music is a separate step"
         if english
         else "無音版（音楽は別工程）",
+        "dh_heading": "Before you approve" if english else "承認する前に",
+        "dh_sends": "sends" if english else "送信",
+        "dh_silent": "silent" if english else "無音",
+        "dh_to": "to" if english else "送り先",
+        "dh_only_if_approved": "only if approved" if english else "承認したときだけ",
+        "dh_kept": "kept up to" if english else "保持上限",
+        "dh_days": "d" if english else "日",
+        "dh_max": "max" if english else "上限",
+        "dh_never": (
+            "never sent: the original recording, file names or paths, GPS as text"
+            if english
+            else "送らない: 原本・ファイル名やパス・文字としてのGPS"
+        ),
+        "dh_deletable": (
+            "deletable on request (not self-service here yet)"
+            if english
+            else "依頼により削除可（この画面からはまだ不可）"
+        ),
     }
     track_ids = [NO_MUSIC_TRACK_ID, *MUSIC_TRACK_IDS]
     stage_names = {
@@ -1967,6 +2014,19 @@ function render(payload) {{
   const busy = payload.stages.some(function (s) {{ return s.state === "in_progress"; }});
   if (busy || running) {{ setTimeout(load, 5000); }}
 }}
+function dataHandlingLine(dh) {{
+  if (!dh) {{ return ""; }}
+  const w = dh.sent_per_window;
+  const parts = [
+    LABEL.dh_sends + ": " + esc(w.seconds) + "s, " + esc(w.height_px) + "p, " + esc(w.fps) + "fps, "
+      + LABEL.dh_silent + " (" + LABEL.dh_only_if_approved + ")",
+    LABEL.dh_to + ": " + esc(dh.recipients.join(", ")),
+    LABEL.dh_kept + " " + esc(dh.retention.default_days) + LABEL.dh_days
+      + " (" + LABEL.dh_max + " " + esc(dh.retention.maximum_days) + LABEL.dh_days + "), " + LABEL.dh_deletable,
+    LABEL.dh_never,
+  ];
+  return '<p class="facts"><strong>' + LABEL.dh_heading + "</strong><br>" + parts.join(" · ") + "</p>";
+}}
 function controls(payload) {{
   if (payload.job && payload.job.state === "running") {{ return ""; }}
   const planned = payload.stages.find(function (s) {{ return s.key === "footage_planned"; }});
@@ -1974,7 +2034,8 @@ function controls(payload) {{
     return '<p><button data-action="preflight">' + LABEL.do_preflight + "</button></p>";
   }}
   if (payload.next_action === "approve_and_judge" && planned) {{
-    return '<p><label>' + LABEL.approve_label + ' <span class="money">' + LABEL.yen + esc(planned.cost_jpy)
+    return dataHandlingLine(payload.data_handling)
+      + '<p><label>' + LABEL.approve_label + ' <span class="money">' + LABEL.yen + esc(planned.cost_jpy)
       + '</span><br><input id="approve" inputmode="decimal" placeholder="' + esc(planned.cost_jpy) + '"></label></p>'
       + '<p><label>' + LABEL.bucket_label + '<br><input id="bucket"></label></p>'
       + '<p><button data-action="judge">' + LABEL.do_judge + "</button></p>";

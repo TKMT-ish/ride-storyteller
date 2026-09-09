@@ -27,6 +27,7 @@ from app.analysis_run import (
     plan_analysis_run,
 )
 from app.contracts import VideoAnalysis
+from app.data_handling_disclosure import data_handling_disclosure
 from app.local_pipeline import LocalPipelineInputs
 from app.video import VideoCatalog, VideoCatalogEntry
 from app.web.private_journey_console import (
@@ -324,3 +325,16 @@ def test_the_console_is_built_from_the_environment_the_status_page_uses(
 
     assert console.package_directory == package.resolve()
     assert replace(console) == console
+
+
+# --- what approving would send travels with the payload, the same for every ride
+
+
+def test_the_payload_carries_the_fixed_data_handling_disclosure(tmp_path: Path) -> None:
+    """The figure says what a judgement costs; this says what it sends and keeps."""
+    package = _package(tmp_path / "package")
+
+    payload = _console(package)
+
+    assert payload["data_handling"] == data_handling_disclosure()
+    assert payload["data_handling"]["sent_only_if_judging_is_approved"] is True

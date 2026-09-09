@@ -127,6 +127,7 @@ def test_story_relevance_just_under_the_threshold_is_rejected() -> None:
     )
     assert decision.decision_status is DecisionStatus.REJECTED
     assert decision.updated_story_role is None
+    assert decision.needs_video_evidence is True
 
 
 def test_rejection_after_video_evidence_still_reports_needs_video_evidence_true() -> None:

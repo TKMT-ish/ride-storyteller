@@ -8,8 +8,13 @@ so one page reads from "what would this cost" to "watch the film".
 
 Everything in the payload is browser-safe by construction -- counts, sizes,
 money, and fixed reason codes. No path, file name, window identifier, or
-model text leaves the package. The one thing a viewer needs to decide is
-whether to spend, and for that they need the figure and nothing else.
+model text leaves the package. The one thing a viewer needs to decide about
+*this ride* is whether to spend, and for that they need the figure and
+nothing else -- but a spend sends footage of strangers who agreed to
+nothing, and deciding that honestly also needs to know what is sent, to
+whom, and for how long it is kept. That part is the same for every ride, so
+it travels as one fixed block (`app.data_handling_disclosure`) rather than
+recomputed stage by stage.
 
 Reading is free. Planning opens no video; the copies and the judgement are
 only reported on, never made or bought, by anything in this module.
@@ -28,6 +33,7 @@ from app.analysis_run import (
     AnalysisRunPlan,
     plan_analysis_run,
 )
+from app.data_handling_disclosure import data_handling_disclosure
 from app.private_journey_film import BOUGHT_ANALYSIS_PROVIDERS
 from app.web.private_journey_status import (
     PrivateJourneyStatus,
@@ -134,6 +140,9 @@ class PrivateJourneyConsole:
             "stages": stages,
             "chapters": film["chapters"],
             "next_action": _next_action(stages, str(film["next_action"])),
+            # What approving the judgement stage would send, to whom, and for
+            # how long it is kept -- fixed facts, the same for every package.
+            "data_handling": data_handling_disclosure(),
         }
 
     # --- the three stages the film's own status does not know about -----------

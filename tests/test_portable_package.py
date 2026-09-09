@@ -74,10 +74,52 @@ def test_a_malformed_map_is_refused(tmp_path: Path) -> None:
         load_film_sources(path)
 
 
+def test_a_map_that_is_not_even_a_document_is_refused(tmp_path: Path) -> None:
+    """Not just the wrong shape inside -- not a mapping at the top at all."""
+    path = tmp_path / FILM_SOURCES_FILE_NAME
+    path.write_text(json.dumps(["not", "a", "map"]))
+    with pytest.raises(PortablePackageError):
+        load_film_sources(path)
+
+    path.write_text("{not json")
+    with pytest.raises(PortablePackageError):
+        load_film_sources(path)
+
+
+def test_a_missing_map_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(PortablePackageError):
+        load_film_sources(tmp_path / FILM_SOURCES_FILE_NAME)
+
+
+def test_a_symlinked_map_is_refused_to_read_and_to_write(tmp_path: Path) -> None:
+    """A symlink can point the map somewhere its own safety checks never ran."""
+    real = tmp_path / "elsewhere.json"
+    real.write_text(json.dumps({"schema_version": FILM_SOURCES_SCHEMA_VERSION, "sources": {}}))
+    link = tmp_path / FILM_SOURCES_FILE_NAME
+    link.symlink_to(real)
+
+    with pytest.raises(PortablePackageError):
+        load_film_sources(link)
+    with pytest.raises(PortablePackageError):
+        write_film_sources(link, ())
+
+
 def test_a_source_naming_a_path_is_refused() -> None:
     """A clip name that walks out of the package is a clip from somewhere else."""
     with pytest.raises(PortablePackageError):
         PortableSource(event_id="a", file_name="../elsewhere.mp4")
+
+
+def test_a_source_missing_its_window_or_file_is_refused() -> None:
+    with pytest.raises(PortablePackageError):
+        PortableSource(event_id="", file_name="a.mp4")
+    with pytest.raises(PortablePackageError):
+        PortableSource(event_id="a", file_name="")
+
+
+def test_a_source_starting_before_its_clip_is_refused() -> None:
+    with pytest.raises(PortablePackageError):
+        PortableSource(event_id="a", file_name="a.mp4", start_s=-0.001)
 
 
 def test_a_package_without_a_map_carries_the_recordings(tmp_path: Path) -> None:
@@ -135,6 +177,23 @@ def test_a_window_whose_recording_is_gone_is_refused(tmp_path: Path) -> None:
     with pytest.raises(PortablePackageError):
         build_portable_sources(
             [("evt-1", tmp_path / "absent.MP4", 0.0, 12.0)],
+            tmp_path / "out",
+            probe_path=tmp_path / "probe",
+            work=tmp_path / "work",
+            blur=False,
+        )
+
+
+def test_a_window_naming_a_symlinked_recording_is_refused(tmp_path: Path) -> None:
+    """A symlink can point a trusted-looking name at footage never vetted as such."""
+    real = tmp_path / "real.MP4"
+    real.write_bytes(b"x")
+    link = tmp_path / "GX01.MP4"
+    link.symlink_to(real)
+
+    with pytest.raises(PortablePackageError):
+        build_portable_sources(
+            [("evt-1", link, 0.0, 12.0)],
             tmp_path / "out",
             probe_path=tmp_path / "probe",
             work=tmp_path / "work",
@@ -206,6 +265,177 @@ def test_no_track_asked_for_carries_no_music(tmp_path: Path) -> None:
     copy_music(tmp_path / "out", music_directory=tmp_path / "absent", track_id=None)
 
     assert not (tmp_path / "out" / "music").exists()
+
+
+# --- building the package from one already cut here -----------------------------
+
+
+def _cut_package(
+    tmp_path: Path,
+    *,
+    name: str = "day-x",
+    beats: list[dict] | None = None,
+    analysed: list[dict] | None = None,
+    catalog_entries: list[dict] | None = None,
+    recording_name: str = "GX01.MP4",
+    extra_carried: tuple[str, ...] = (),
+) -> tuple[Path, Path]:
+    """A package that has been judged and planned, ready to be made portable."""
+    package = tmp_path / name
+    video_root = tmp_path / f"{name}-videos"
+    video_root.mkdir(parents=True)
+    (video_root / recording_name).write_bytes(b"source")
+    package.mkdir()
+    (package / "journey-story-plan.json").write_text(
+        json.dumps({"beats": beats if beats is not None else [{"event_id": "a"}]})
+    )
+    (package / "gemini-video-analysis.json").write_text(
+        json.dumps(
+            {
+                "analysed": analysed
+                if analysed is not None
+                else [
+                    {
+                        "event_id": "a",
+                        "asset_id": "GX01",
+                        "start_offset_s": 30.0,
+                        "end_offset_s": 42.0,
+                    }
+                ]
+            }
+        )
+    )
+    (package / "local-video-catalog.json").write_text(
+        json.dumps(
+            {
+                "entries": catalog_entries
+                if catalog_entries is not None
+                else [{"asset_id": "GX01", "file_name": recording_name}]
+            }
+        )
+    )
+    for name in extra_carried:
+        (package / name).write_text(json.dumps({"carried": name}))
+    gpx = package / "ride.gpx"
+    gpx.write_bytes(b"<gpx/>")
+    (package / "local-pipeline-inputs.json").write_text(
+        json.dumps(
+            {
+                "schema_version": "local-pipeline-input-manifest-v1",
+                "gpx_path": str(gpx),
+                "video_root": str(video_root),
+                "video_to_gps_offset_s": -46831.551,
+                "target_duration_s": 300.0,
+                "output_language": "ja",
+            }
+        )
+    )
+    return package, video_root
+
+
+def test_build_package_carries_only_the_windows_the_plan_uses(tmp_path: Path) -> None:
+    """A window the plan repeats is cut once; a window it never names is dropped."""
+    from app.portable_package import build_package
+
+    package, _ = _cut_package(
+        tmp_path,
+        beats=[{"event_id": "a"}, {"event_id": "a"}, {"event_id": "b"}],
+        analysed=[
+            {"event_id": "a", "asset_id": "GX01", "start_offset_s": 30.0, "end_offset_s": 42.0},
+            {"event_id": "b", "asset_id": "GX01", "start_offset_s": 60.0, "end_offset_s": 72.0},
+            {"event_id": "c", "asset_id": "GX01", "start_offset_s": 90.0, "end_offset_s": 102.0},
+        ],
+        extra_carried=("gemini-window-ranking.json", "place-names.json"),
+    )
+    out = tmp_path / "portable"
+    run = _runner()
+
+    built = build_package(
+        package, out, probe_path=tmp_path / "probe", blur=False, music_track_id=None, runner=run
+    )
+
+    assert {source.event_id for source in built} == {"a", "b"}
+    assert len(run.calls) == 2  # type: ignore[attr-defined] -- "a" cut once, not twice
+    assert (out / "film-sources" / "a.mp4").is_file()
+    assert (out / "film-sources" / "b.mp4").is_file()
+    assert not (out / "film-sources" / "c.mp4").exists()
+    record = json.loads((out / "gemini-video-analysis.json").read_text())
+    assert {item["event_id"] for item in record["analysed"]} == {"a", "b"}
+    assert (out / "gemini-window-ranking.json").is_file()
+    assert (out / "place-names.json").is_file()
+    assert not (out / "analysis-look.json").exists()
+    assert (out / "ride.gpx").is_file()
+    manifest = json.loads((out / "local-pipeline-inputs.json").read_text())
+    assert manifest["gpx_path"] == str((out / "ride.gpx").resolve())
+    assert manifest["video_root"] == str((out / "film-sources").resolve())
+    assert manifest["video_to_gps_offset_s"] == pytest.approx(-46831.551)
+    assert manifest["target_duration_s"] == pytest.approx(300.0)
+    assert manifest["output_language"] == "ja"
+    assert not (out / "music").exists()
+
+
+def test_build_package_needs_a_plan_and_a_record_already_cut(tmp_path: Path) -> None:
+    from app.portable_package import build_package
+
+    package, _ = _cut_package(tmp_path, name="no-plan")
+    (package / "journey-story-plan.json").unlink()
+    with pytest.raises(PortablePackageError):
+        build_package(package, tmp_path / "out", probe_path=tmp_path / "probe", blur=False)
+
+    package, _ = _cut_package(tmp_path, name="no-record")
+    (package / "gemini-video-analysis.json").unlink()
+    with pytest.raises(PortablePackageError):
+        build_package(package, tmp_path / "out2", probe_path=tmp_path / "probe", blur=False)
+
+
+def test_build_package_refuses_a_plan_naming_no_footage(tmp_path: Path) -> None:
+    from app.portable_package import build_package
+
+    for index, empty in enumerate(([], [{"screen_duration_s": 1.0}])):
+        package, _ = _cut_package(tmp_path, name=f"no-footage-{index}", beats=empty)
+        with pytest.raises(PortablePackageError):
+            build_package(package, tmp_path / "out", probe_path=tmp_path / "probe", blur=False)
+
+
+def test_build_package_refuses_a_window_the_record_does_not_have(tmp_path: Path) -> None:
+    from app.portable_package import build_package
+
+    package, _ = _cut_package(
+        tmp_path,
+        beats=[{"event_id": "missing"}],
+        analysed=[
+            {"event_id": "a", "asset_id": "GX01", "start_offset_s": 0.0, "end_offset_s": 12.0}
+        ],
+    )
+    with pytest.raises(PortablePackageError):
+        build_package(package, tmp_path / "out", probe_path=tmp_path / "probe", blur=False)
+
+
+def test_build_package_refuses_a_window_naming_an_asset_the_catalog_lacks(tmp_path: Path) -> None:
+    from app.portable_package import build_package
+
+    package, _ = _cut_package(
+        tmp_path,
+        analysed=[
+            {
+                "event_id": "a",
+                "asset_id": "GX99",
+                "start_offset_s": 0.0,
+                "end_offset_s": 12.0,
+            }
+        ],
+    )
+    with pytest.raises(PortablePackageError):
+        build_package(package, tmp_path / "out", probe_path=tmp_path / "probe", blur=False)
+
+
+def test_build_package_refuses_a_window_whose_recording_is_gone(tmp_path: Path) -> None:
+    from app.portable_package import build_package
+
+    package, video_root = _cut_package(tmp_path)
+    (video_root / "GX01.MP4").unlink()
+    with pytest.raises(PortablePackageError):
+        build_package(package, tmp_path / "out", probe_path=tmp_path / "probe", blur=False)
 
 
 def _portable(tmp_path: Path) -> Path:

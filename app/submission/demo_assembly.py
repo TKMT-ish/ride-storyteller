@@ -40,6 +40,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import mkdtemp
+from typing import Any
 
 from app.chapter_card import (
     CARD_ASPECT_DENOMINATOR,
@@ -316,25 +317,43 @@ def demo_timeline(
     )
 
 
-def demo_subtitles(segments: tuple[Segment, ...]) -> str:
+def segment_seconds(segment: Segment) -> float:
+    """How long a segment is on screen: footage plays for its length, a card is held."""
+    if isinstance(segment, Excerpt | CaptionedExcerpt):
+        return segment.duration_s
+    return segment.hold_s
+
+
+def demo_subtitles(
+    segments: tuple[Any, ...],
+    *,
+    seconds: Callable[[Any], float] = segment_seconds,
+    spoken: Callable[[Any], tuple[str, ...]] | None = None,
+) -> str:
     """The demo's own subtitles, written from the timeline it is cut from.
 
     A hand-timed subtitle file drifts the moment a hold changes, and a demo
     whose captions and subtitles disagree is worse than one with neither.
     Every cue here is the text already on screen, timed by the same holds
-    the segments are cut to, so the two cannot come apart.
+    the segments are cut to, so the two cannot come apart. A caption held
+    unchanged across consecutive segments is one cue, not several: the
+    viewer sees one caption, so the file says one.
+
+    Another timeline with its own segment kinds passes `seconds` and
+    `spoken`, which say how long each of its segments is on screen and what
+    it says; the defaults know this module's kinds.
     """
-    cues: list[str] = []
+    say = spoken if spoken is not None else _spoken
+    cues: list[tuple[float, float, tuple[str, ...]]] = []
     at = 0.0
     for segment in segments:
-        length = (
-            segment.duration_s
-            if isinstance(segment, Excerpt | CaptionedExcerpt)
-            else segment.hold_s
-        )
-        lines = _spoken(segment)
+        length = seconds(segment)
+        lines = say(segment)
         if lines:
-            cues.append((at, at + length, lines))  # type: ignore[arg-type]
+            if cues and cues[-1][2] == lines and abs(cues[-1][1] - at) < 1e-6:
+                cues[-1] = (cues[-1][0], at + length, lines)
+            else:
+                cues.append((at, at + length, lines))
         at += length
     return "".join(
         f"{index}\n{_stamp(start)} --> {_stamp(end)}\n" + "\n".join(lines) + "\n\n"
@@ -349,6 +368,9 @@ def _spoken(segment: Segment) -> tuple[str, ...]:
     return ()
 
 
+spoken_lines = _spoken
+
+
 def _stamp(seconds: float) -> str:
     whole = int(seconds)
     milliseconds = int(round((seconds - whole) * 1000))
@@ -357,12 +379,20 @@ def _stamp(seconds: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{second:02d},{milliseconds:03d}"
 
 
-def timeline_duration_s(segments: tuple[Segment, ...]) -> float:
-    total = 0.0
-    for segment in segments:
-        is_footage = isinstance(segment, (Excerpt, CaptionedExcerpt))
-        total += segment.duration_s if is_footage else segment.hold_s
-    return total
+def timeline_duration_s(
+    segments: tuple[Any, ...], *, seconds: Callable[[Any], float] = segment_seconds
+) -> float:
+    return sum(seconds(segment) for segment in segments)
+
+
+def refuse_private_text(text: str, forbidden: tuple[str, ...], *, what: str = "a card") -> None:
+    """Refuse one piece of on-screen text that names a file, a path, a place or a time."""
+    for needle in forbidden:
+        if needle and needle in text:
+            raise DemoAssemblyError(f"{what} would show something private")
+    # "173 / 173" is a ratio; "/Users/..." or "a/b.mp4" is a path.
+    if re.search(r"/\S", text):
+        raise DemoAssemblyError(f"{what} would show a path")
 
 
 def assert_no_private_text(segments: tuple[Segment, ...], forbidden: tuple[str, ...]) -> None:
@@ -370,13 +400,7 @@ def assert_no_private_text(segments: tuple[Segment, ...], forbidden: tuple[str, 
     for segment in segments:
         if not isinstance(segment, (Card, CaptionedExcerpt)):
             continue
-        text = " ".join((segment.title, *segment.lines))
-        for needle in forbidden:
-            if needle and needle in text:
-                raise DemoAssemblyError("a card would show something private")
-        # "173 / 173" is a ratio; "/Users/..." or "a/b.mp4" is a path.
-        if re.search(r"/\S", text):
-            raise DemoAssemblyError("a card would show a path")
+        refuse_private_text(" ".join((segment.title, *segment.lines)), forbidden)
 
 
 # --- rendering ------------------------------------------------------------------

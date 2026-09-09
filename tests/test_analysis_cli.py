@@ -21,6 +21,7 @@ from app.analysis_cli import (
     _sign_in_understood,
     build_parser,
     command_judge,
+    command_lifecycle_check,
     command_migrate,
     command_plan,
     command_preflight,
@@ -781,3 +782,50 @@ def test_the_migration_takes_neither_a_package_nor_a_run_prefix() -> None:
         parser.parse_args(["migrate", "some-package"])
     with pytest.raises(SystemExit):
         parser.parse_args(["migrate", "--account", "rider-one", "--prefix", "run-1"])
+
+
+def test_a_lifecycle_check_needs_a_bucket_before_it_reads_anything() -> None:
+    with pytest.raises(AnalysisCommandError):
+        command_lifecycle_check(bucket="  ")
+
+
+def test_a_lifecycle_check_reports_the_backstop_comparison(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.bucket_lifecycle import BackstopCheck
+
+    check = BackstopCheck(
+        ok=True, expected_age_days=365, found_age_days=365, reason="a delete rule covers it"
+    )
+    monkeypatch.setattr("app.analysis_cli.evaluate_bucket_backstop", lambda *a, **k: check)
+
+    payload = command_lifecycle_check(bucket="rides")
+
+    assert payload == check.summary()
+
+
+def test_a_lifecycle_check_refusal_is_reported_rather_than_a_traceback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.bucket_lifecycle import LifecycleError
+
+    def _refuse(*_: object, **__: object) -> None:
+        raise LifecycleError("a backstop check needs a bucket to look at")
+
+    monkeypatch.setattr("app.analysis_cli.evaluate_bucket_backstop", _refuse)
+
+    with pytest.raises(SystemExit):
+        main(["lifecycle-check", "--bucket", "rides"])
+
+
+def test_the_lifecycle_check_changes_nothing_so_it_has_no_approval_flag() -> None:
+    """Unlike `retention` and `migrate`, there is nothing here to approve."""
+    parser = build_parser()
+    args = parser.parse_args(["lifecycle-check", "--bucket", "rides"])
+    assert not hasattr(args, "approved")
+
+
+def test_the_lifecycle_check_requires_a_bucket_on_the_command_line() -> None:
+    parser = build_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["lifecycle-check"])

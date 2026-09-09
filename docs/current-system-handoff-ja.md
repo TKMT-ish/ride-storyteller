@@ -8465,3 +8465,479 @@ object をその二つの規則の中へ**入れた。まだ無いのは、利�
 バケットの lifecycle 規則を**生成して、実際の規則と読み比べるだけ**なら外部送信なしで
 閉じられ、「sweep が動かなくてもバケット側が消す」という二重の安全になる。認証そのものは
 範囲が大きく、オーナー判断（どの身元提供者か）が要る。
+
+## 197. 公開の準備を実行——現在のツリーだけを公開 main へ、配布物は draft release、ホスト版は第 6 リビジョン
+
+2026-09-09 03:30 JST、オーナーが 4 つの問いに答えた: **音楽は Wandering で確定、デモの
+構成は再考（相談）、公開リポジトリは「現在のツリーのみ」、ホスト版は公開前に見せる**。
+続けて 04:00、デモ動画のシナリオを「困っていたこと → 解決」の形で作り直す指示
+（動画はまだ作らない）。
+
+### やったこと
+
+1. **地名の二度目の除去 `cb43326`**。初回 `cedd104` 以後に、テスト fixture 8 ファイルと
+   本書 3 行が走行地名（町・郊外・道路・展望地）を拾い直していた。検査は手打ちの語では
+   なく `private-media/work/*/place-names.json` の 1,223 語（マクロン有無）で HEAD の
+   ツリー全体を照合。公式ツーリングルート名と国道番号は全国の参照データなので残す。
+2. **公開 `main` に 1 commit `548c2b8`**（`git commit-tree cb43326^{tree} -p origin/main`）。
+   既に公開されていた 49 commit の上に fast-forward、force push なし。文書更新を
+   同じ方法で `9ed9faf` として重ねた。私有履歴は dev ミラーだけ。
+3. **配布物を draft release `day-7-package` に添付**（1,730,095,484 バイト＋ `.sha256`）。
+   draft は公開後も共同作業者にしか見えない。
+4. **Cloud Run 第 6 リビジョン `00006-bbp`**。クリーンな worktree から `linux/amd64` を
+   build（49,765,692 バイト）、`public-demo:cb43326` として push（digest
+   `sha256:6172ad46…`）、私有のまま deploy。認証プロキシで `/health` 200、英語ページ 200、
+   POST 405、非認証 403 を確認。審査員用 Basic 認証の資格情報は
+   `private-media/hosting/judge-credential.env` に生成したが**サービスには未設定**。
+5. **ホスト版をオーナーに見せた**: プロキシ `http://127.0.0.1:8766`（起動したまま）と、
+   headless Chrome で撮った英日の全画面 PNG を送付。
+6. **デモシナリオ v2** を `docs/submission/demo-scenario-v2-ja.md` に起こした。day 7 の
+   実測（35 ファイル・108.6 GB・4 時間 43 分、337 窓、245.1 MB、¥49.79、見どころ 0.7 以上は
+   43 窓、機械時間約 80 分、確認 2 回）を数字の出所つきで置き、画面 3 種の見分け方
+   （成果物は 80 % 右上＋札）、10 区間 177 秒、私の意見 7 点、決めてもらう 5 点。
+
+### 当層が実行しなかったこと（オーナーの操作）
+
+自動モードの分類器が「公開」と「資格情報を載せる」操作を止めたので、次はオーナーが
+実行する。いずれも 1 コマンド。
+
+```bash
+gh repo edit TKMT-ish/ride-storyteller --visibility public --accept-visibility-change-consequences
+gh release edit day-7-package --repo TKMT-ish/ride-storyteller --draft=false
+gcloud run services update ride-storyteller-public-demo --region=asia-northeast1 --env-vars-file=private-media/hosting/judge-credential.yaml
+gcloud run services add-iam-policy-binding ride-storyteller-public-demo --region=asia-northeast1 --member=allUsers --role=roles/run.invoker
+```
+
+### 学び
+
+- **zsh の `$VAR:r` は修飾子**。`git push origin $PUB:refs/heads/main` が
+  `…395efs/heads/main` に化けた。`"${PUB}:refs/heads/main"` と書く。zsh は未引用の変数を
+  単語分割しないので、ファイル名の列は配列にする。
+- 並列に投げた Bash の一方でファイルを移動すると、他方の `--env-file` が消える。
+  動かす順序に依存があるものは同じコマンドに入れる。
+- `/private/tmp` 配下の worktree では「private/temp の外への出力を拒む」2 テストが
+  必ず落ちる（cwd が temp 扱いになる）。本体ディレクトリでは通る。判定は
+  `--deselect` して読む。
+
+## 198. クラウド層: `app/analysis_look.py`の`WindowLook`に`isfinite`半分の境界テストを追補
+
+第194節の推奨どおり、`isfinite`半分の検査漏れパターンが他のmoduleにも残っていないか
+確認した。`app/story_hold.py`（36件）・`app/chapter_order.py`（21件）は両方とも
+`math.nan`・`math.inf`・`-math.inf`を全ての数値引数で既に個別に固定済みで、抜けは
+見つからなかった。代わりに`isfinite`を使う残りのmodule一覧
+（`app/analysis_look.py`・`app/story_timelapse.py`・`app/story_color.py`・
+`app/story_audio.py`のうち前3件は既に第192・194節で閉じている）を洗い、
+`app/analysis_look.py`の`WindowLook.__post_init__`（`not isfinite(value) or value < 0`を
+4フィールド＋`motion_series`の各要素に適用）が対象として残っていることを見つけた。
+この module は`measure_look`が`runner`を差し替え可能な関数として設計されており、
+既存21件のテストが実際のFFmpegを一度も呼ばずに通っているため（fixtureの偽runnerで
+stdoutを合成）、実素材の実測なしに境界を追補できる対象と判断した。
+
+既存テストは`luma`の負値・`nan`と、`motion_series`要素の負値のみを固定しており、
+`chroma_u`・`chroma_v`・`motion`の負値、4フィールド全ての`math.inf`（符号条件
+`value < 0`をすり抜けるが`isfinite`で拒否されるべき側）、`motion_series`要素の
+`nan`・`inf`が未検査だった。`tests/test_analysis_look.py`に3件追加（新規7アサーション、
+18→21件）:
+
+- `chroma_u`・`chroma_v`・`motion`それぞれの負値が拒否されること（`luma`だけでなく
+  `__post_init__`のループ全体を確認）
+- 4フィールドそれぞれの`math.inf`が拒否されること
+- `motion_series`要素の`math.nan`・`math.inf`が拒否されること
+
+**テスト**: 全**2,759件成功**（`--ignore`で`google`/`vertexai`系収集エラー10ファイル、
+`--deselect`で`ffmpeg`欠如による13件を除外。この節では`.venv/bin/pip install -e '.[dev]'`が
+ネットワークタイムアウトで失敗したため、重い依存を含む10ファイルはそのまま`--ignore`で
+外した。実行できた範囲では新規7件を含め全成功）。Ruff check緑、
+`ruff format --check`291ファイル差分なし、`git diff --check`（自分の変更ファイルのみ）
+問題なし。
+
+実素材・GPX・Gemini・GCSには一切触れていない。支出¥0。承認待ちなし。作業開始時点で
+作業ツリーはクリーンだった。
+
+**次に推奨**: `isfinite`半分の検査漏れパターンはこれで洗い出しが一巡したため優先度は
+下がる。`tests/test_story_agent.py`・`tests/test_story_agent_localization.py`・
+`tests/test_story_agent_unit.py`の3ファイルに広がった`RuleBasedStoryAgent`のテスト整理
+（優先度は低い、第192節から持ち越し）。または行数に対してテストが薄いmodule
+（`app/rider_in_frame.py`・`app/analysis_compare.py`、第193節から持ち越し）を
+同様に切り分ける。
+
+## 199. `dev`のcloud branch取り込み＋7.6 バケット側ライフサイクル規則との二重化——`app/bucket_lifecycle.py`
+
+`git fetch dev` で `cloud/20260908-1835`（第194節が数えた `isfinite` 半分の検査漏れパターンの
+最後の一手、`app/analysis_look.py`の`WindowLook`）を発見。`git merge --no-ff` は
+本書のみで衝突した（cloud側が「第195節」として書いた区間が、既にこちらで第195〜197節が
+埋まっていた場所に重なった）。テストファイルは無衝突で自動マージ。衝突は
+cloud側の内容をそのまま**第198節として付け直す**形で解消——本文は変更せず、見出し番号だけ
+`195`→`198`。解消後、全**2,981件成功**（cloud側の新規3件——`tests/test_analysis_look.py`
+18→21件——を含む）、
+Ruff check緑、`git diff --check`問題なし。`git push dev main`・
+`git push dev --delete cloud/20260908-1835` 完了。
+
+続けて第196節が「次に推奨」と書いた二重化――`app.retention`の定数からバケット側
+lifecycle規則を生成し、実際の規則と読み比べるだけの一片――に着手。`app/bucket_lifecycle.py`
+を新設。
+
+背景: `app.retention.sweep`は**呼ばれて初めて**削除する。cronが止まる、CLIを打ち忘れる、
+ある口座の`sweep`だけ静かに壊れる――どれもエラーとしては現れず、「30日で消える約束の
+写真が1年後もバケットに残っている」という形でだけ現れる。バケット自体が持つ
+Object Lifecycle Management機能はこの種の故障に対する二つ目の鍵で、この codebase が
+生きているかどうかを問わない。
+
+このmoduleは**バケット設定を書かない**。設定を書く経路まで judging path の中に持つと、
+バックストップの信頼性が「バックアップしたい対象と同じだけ」に落ちる。代わりに、定数から
+期待される規則を**生成**し、バケットが実際に持つ規則を**読むだけ**にして、二つを比べて
+不一致を平文で報告する（`app.analysis_compare`と同じ形——何も新しく買わない）。
+
+規則は1つ、意図的に鈍い: **バックストップの年数は保持期間の既定ではなく上限**
+（`app.retention.MAX_RETENTION_DAYS`＝365日）。既定`DEFAULT_RETENTION_DAYS`は口座ごとに
+変えたくなる設定値だが、上限はどの口座も超えられない値（`_validate_retention_days`が
+全sweepで強制）。バケット側を既定に合わせると、既定より長い保持を選んだ口座の写真を
+早期に消してしまい、上限より緩く合わせると二重化そのものが破れる。両者が無条件に
+合意できる値は上限だけ。scopeは`app.tenancy.TENANT_ROOT`（`u/`）――全口座の写真がここに
+あり、他は無い。
+
+比較のロジックが読むのは`google.cloud.storage.Bucket.lifecycle_rules`と同じ形の生dict
+（`{"action": {"type": "Delete"}, "condition": {"age": 365, "matchesPrefix": ["u/"]}}`）。
+`Delete`以外のaction（`SetStorageClass`等）は無視、scopeが`u/`を覆っていない規則
+（他口座専用など）は対象外、`matchesPrefix`が無い規則（バケット全体に効く）は覆っている
+扱い。年数が上限と**完全一致**しない場合は不一致（緩すぎ＝二重化が破れる、厳しすぎ＝
+約束された保持期間より早く消す、のどちらかを理由文に出す）。
+
+CLIに`lifecycle-check --bucket <name>`を追加。**承認フラグは無い**――何も変更しないので
+承認するものが無い（`retention`・`migrate`が持つ壁とは対照的、意図的な非対称）。読みは
+バケットの設定であって利用者の写真ではないので、対象名や口座は一切出力に乗らない。
+
+**テスト**: 新規`tests/test_bucket_lifecycle.py`16件（一致・不一致（緩い/厳しい/存在しない/
+scope外/action違い/年数無し/複数規則）を全て模造の生dictで固定。実バケット・実素材・
+GPX・Gemini・GCSには一切触れていない、支出¥0）＋`tests/test_analysis_cli.py`に5件
+（バケット必須・payload透過・拒否の伝搬・承認フラグの不在・引数必須）。全**3,002件成功**
+（`--deselect tests/test_judged_film_end_to_end.py`の6件のみ既知事由で除外）。Ruff check緑、
+`ruff format`済み、`git diff --check`（自分の変更ファイルのみ）問題なし。
+
+**触れなかったもの**: `app/web/private_journey_console.py`・`app/web/server.py`
+（未commitの変更あり）、`app/data_handling_disclosure.py`・
+`tests/test_data_handling_disclosure.py`（未追跡、7.6「同意表示」の別層作業と見られる）、
+`docs/submission/demo-narration-en.md`（未追跡、本節の開始前に既に作業ツリーにあった別層の
+文書作業）――いずれも自分が変更したものではないため規約どおり触っていない
+（第192・194・195・196節から継続、依然未commitのまま）。
+
+**次に推奨**: 7.6の残りは「認証そのもの」（範囲が大きく、オーナー判断——どの身元提供者か
+——が要る）「同意表示」（別層が着手中）。この二つを除けば7.6は多利用者化の骨格
+（tenancy・retention・migration・signed links・二重化）が閉じている。7.x優先順では
+次は**7.5 Flash-Lite の試験**（同じ40窓で順位の一致率、実素材2 rideで判定費用が発生
+——実測して閉じる単位）。UIの単位は`private_journey_console.py`が別層作業中のため
+今は避ける方が安全。
+
+## 200. 着手前の点検で判明した二層の未commit作業を避け、`app.rider_in_frame`のテスト薄さを閉じた
+
+作業開始時、作業ツリーに第199節が知る4件（`private_journey_console.py`・`server.py`・
+`data_handling_disclosure.py`＋テスト・`demo-narration-en.md`）に加え、第199節の時点では
+無かった未commit変更が新たに見つかった: `app/analysis_cli.py`・`app/analysis_ranking.py`と
+そのテスト（更新時刻 08:23〜08:30、着手2時間以内）、新規`app/analysis_model_trial.py`・
+`app/analysis_rank_agreement.py`（同時刻帯、内容は第199節が「次に推奨」と書いた
+**7.5 Flash-Liteの試験**そのものに見える）、新規`app/web/journey_workflow_frontend.py`・
+`journey_workflow_preview.py`＋テスト（更新時刻 05:29〜05:30、UI層の続き）。いずれも
+「着手中」行は無いが、規約の2時間窓・ファイルの中身・第199節の推奨内容が一致するため、
+別層が書きかけ（commit前に途切れた）と判断し、**一切触らずadd対象からも外した**
+（`git add`は自分が変えた1ファイルのみ指定）。念のため`.venv/bin/python -m pytest`を
+フル実行し、これら未commitの変更を含めても**3,035件全て成功**であることを確認した
+（＝壊れてはいない。commitは別層の判断に委ねる）。
+
+7.5・UIの両方が塞がっていたため、優先順のさらに下——欠陥修正寄りの保守——から、
+第193・198節が繰り返し挙げていた「行数に対してテストが薄いmodule」の候補
+`app/rider_in_frame.py`・`app/analysis_compare.py`を洗った。後者は行数相応の網羅が
+既にあったが、前者の`_RIDER_PHRASES`（オーナー2026-09-06点6「乗り手が画面を占める窓は
+出さない」を実装する8択の正規表現）は、`describes_the_rider`の既存テスト5件が
+8択のうち5択しか踏んでおらず、`\bselfie\b`（丸ごと未検査）と、"rider's/person's/woman's"
+＋名詞の分岐（`reflection`以外の`arms|hands|gloves|helmet|jacket|shoulders|legs|body|face`）
+がほぼ未検査だった。実装を変更する前に`describes_the_rider`へ疑わしい文をその場で通し
+（"a selfie..."、"the rider's hands/gloves/jacket/shoulders/legs/body/face..."、
+"a man's/woman's hands/gloves..."）、全て意図どおり`True`になることを確認してから
+`tests/test_rider_in_frame.py`の既存parametrizeに10件追加した（新規10件、40→50アサーション、
+実装は無変更）。
+
+**テスト**: 全**3,045件成功**（新規10件を含む。`--ignore`/`--deselect`は使わず、既知の
+`test_judged_film_end_to_end.py`6件のみ通常どおり別枠）。Ruff check緑、`git diff --check`
+（`tests/test_rider_in_frame.py`のみ）問題なし。実素材・GPX・Gemini・GCSには一切触れて
+いない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記2層の未commit作業（7件、内容は上に記載）は依然未commitのまま
+——引き続き自分の変更ではないため触っていない。
+
+**次に推奨**: 7.5・UIの両方が塞がっている間は、`app/analysis_compare.py`の残余テスト
+（既に網羅は妥当と判断したため優先度は低い）よりも、`tests/test_story_agent.py`・
+`tests/test_story_agent_localization.py`・`tests/test_story_agent_unit.py`3ファイルに
+広がった`RuleBasedStoryAgent`のテスト整理（第192節から持ち越し、低優先度）の方が
+次の空き枠として妥当。上記2層のいずれかがcommitされ次第、そちらの続き
+（7.5の実測クローズ、またはUIの統合）を優先する。
+
+## 201. 第192・200節が持ち越した`RuleBasedStoryAgent`テストの重複整理を閉じた
+
+着手前の点検: 作業ツリーの未commit変更は第200節が把握した7件（`app/analysis_cli.py`・
+`app/analysis_ranking.py`とそのテスト、新規`app/analysis_model_trial.py`・
+`app/analysis_rank_agreement.py`、`app/web/private_journey_console.py`・`server.py`、
+`app/data_handling_disclosure.py`＋テスト、`app/web/journey_workflow_frontend.py`・
+`journey_workflow_preview.py`＋テスト、`docs/submission/demo-narration-en.md`）から
+増えていなかった。mtimeは全て2時間以上前（最新でも08:30、着手時点で11:36）で
+「着手中」行も無かったが、内容が第199・200節の推奨（7.5・UI）と一致し続けているため、
+引き続き別層の書きかけと判断し、一切触らずadd対象からも外した。`dev`の`cloud/*`
+branchは無かった（`git fetch dev`で確認）。
+
+7.5・UIの両方が塞がっているため、第191・192・200節が繰り返し「次に推奨」へ持ち越していた
+低優先度の保守——`tests/test_story_agent.py`・`tests/test_story_agent_localization.py`・
+`tests/test_story_agent_unit.py`3ファイルに広がった`RuleBasedStoryAgent`のテスト重複——
+に着手した。3ファイルを読み比べたところ:
+
+- `tests/test_story_agent_unit.py`（第191節、28件）が`decide_from_event`・
+  `update_with_video`・`needs_human_review`の0.60境界・event_type gate・両失敗理由・
+  「reasonがevent_idを復唱しない」不変条件を、合成fixtureで直接・網羅的に固定済み
+- `tests/test_story_agent.py`（第190節、13件）はほぼ全てが同じ境界を`build_demo_event`
+  経由で**構造的に重複**して踏んでいた（例: 0.60ちょうど→`AWAITING_VIDEO_EVIDENCE`、
+  event_type gate、`needs_human_review`の未知文字列拒否など）。厳密比較の結果、重複10件
+  （`decide_from_event`系4件・`update_with_video`系2件・`needs_human_review`系3件のうち
+  parametrize込みで実質10 test item）を削除し、**このファイルにしか無い3件**だけを残した:
+  `PrototypeOrchestrator`経由の統合テスト（重要度が低いイベントが`search`に一度も
+  届かないこと。合成fixtureの単体テストでは踏めない配線）、`needs_human_review`の
+  日本語既定文言の完全一致固定、`decide_from_event`拒否時の日本語既定文言の完全一致固定
+  （後2件は`test_story_agent_unit.py`が構造だけを確認しリテラル文言を固定していないため、
+  重複ではなく独自の回帰対象）
+- 削除した1件（`update_with_video`の閾値僅か下）が確認していた
+  `needs_video_evidence is True`のみ、`test_story_agent_unit.py`の対応する境界テストに
+  1行追補して吸収（新規テストは増やさず、既存境界テストの検査を1個補完）
+- `tests/test_story_agent_localization.py`は`app.demo.run_demo`経由で言語切替を検査する
+  別の観点（agentを直接叩かない）のため、重複が無く無変更
+
+**テスト**: 全**3,041件成功**（重複10件削除・新規0件、正味 -10。今回の環境には`ffmpeg`が
+あり`test_judged_film_end_to_end.py`の6件も含めて全件成功、`--deselect`不要だった）。
+Ruff check緑、`ruff format --check`（対象2ファイル）差分なし、`git diff --check`
+（`tests/test_story_agent.py`・`tests/test_story_agent_unit.py`のみ）問題なし。
+実素材・GPX・Gemini・GCSには一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま——引き続き
+自分の変更ではないため触っていない。
+
+**次に推奨**: 7.5・UIの両方が塞がっている間は、`RuleBasedStoryAgent`のテスト整理が
+閉じたため、他に決定だけ持ち配線待ちのmodule（`app/story_color.py`・`app/story_audio.py`
+等、第192節が既に網羅妥当と判断）以外で行数に対してテストが薄いmoduleの棚卸しを
+再度行うか、または上記2層のいずれかがcommitされ次第そちらの続き
+（7.5の実測クローズ、またはUIの統合）を優先する。
+
+## 202. §181・184・185が繰り返し次点へ持ち越していた`app/stop_kinds.py`のテスト薄さを閉じた
+
+lock取得・heartbeat。着手前の点検: 作業ツリーの未commit変更は第201節が把握した7件
+（`app/analysis_cli.py`・`app/analysis_ranking.py`とそのテスト、新規
+`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`、
+`app/web/private_journey_console.py`・`server.py`、`app/data_handling_disclosure.py`＋
+テスト、`app/web/journey_workflow_frontend.py`・`journey_workflow_preview.py`＋テスト、
+`docs/submission/demo-narration-en.md`）から増えていなかった。mtimeは全て4時間以上前
+（最新でも08:30、着手時点で12:41）、「着手中」行も無かった。内容が7.5（Flash-Lite試験）・
+UI・7.6同意表示という既知3層の続きと一致し続けているため、引き続き別層の書きかけと
+判断し、一切触らずadd対象からも外した。`git fetch dev`で`cloud/*` branchは無いことを
+確認、`.autonomy/trip/batch.log`は9/6付で無関係。
+
+7.5・UIの両方が塞がっているため、第181・184・185節が「同じ切り口の残り候補」として
+繰り返し挙げながら毎回他の単位に譲っていた`app/stop_kinds.py`（321行、テスト187行、
+ratio .58——場所の種類判定・屋内/私有地判定の正規表現境界）に着手した。実装は無変更、
+テストのみ追補。
+
+**見つけた薄さ**: `place_kind_of`はモデルの直接回答`_KIND_OF_ANSWER`が8種
+（fuel/eatery/lodging/attraction/lookout/shop/ferry/residential）あるが、既存テストは
+「fuelが語より勝つ」1種だけを直接回答経由で踏み、残り7種は語のfallback経由でしか
+確認していなかった（`shop`は語のfallbackすら未検査＝正規表現が一度も実行されていない
+行があった）。`place_kind`の3値目`"other"`（`"none"`と同じ「答えとして扱い語を読まない」
+分岐）も未検査。`stop_kind`の2つの数値境界（`LUNCH_FROM_H`=11.0/`LUNCH_UNTIL_H`=14.5の
+半開区間、`STOPOVER_S`=1800の閾値）はどちらも実際の値でしか検査されておらず、
+境界のちょうど・僅かに外の4点が無かった。`indoors`・`at_a_private_residence`の
+正規表現はどちらも1つの語しか踏んでおらず、後者が持つ否定先読み`\bgarage\b(?! door)`
+（「ガレージのドア」を家と誤判定しない規則）は実装コメントに書かれた意図そのものが
+無検査だった。`sign_names`/`_keep`の失敗経路（`_CODE`の短い道路コード、桁数超過、
+6語超、`_SIGN_FOR`の5つの言い回し違い、同じ名前が`_SIGN_FOR`と`_QUOTED`の両方に
+引っかかったときの重複排除）、`place_name_of`の`"unknown"`・空白のみからsignへの
+fallback、`spot_name`の同数タイを長さで割る規則、いずれも未検査だった。
+
+実装を変更する前に上のケースを`.venv/bin/python3`でその場で通し、想定どおりの値
+（境界含む）になることを確認してから`tests/test_stop_kinds.py`に34件追加した
+（実装は無変更）。
+
+**テスト**: 全**3,080件成功**（新規34件を含む、`tests/test_stop_kinds.py`単体は
+24→58件）。`--deselect`/`--ignore`は使わず、`test_judged_film_end_to_end.py`の
+6件も含めて全件成功（この環境に`ffmpeg`あり）。Ruff check緑、`ruff format`済み、
+`git diff --check`（`tests/test_stop_kinds.py`のみ）問題なし。実素材・GPX・Gemini・
+GCSには一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま——引き続き
+自分の変更ではないため触っていない。
+
+**次に推奨**: 7.5・UIの両方が塞がっている間は、`app/stop_kinds.py`のテスト薄さが
+閉じたため、他に行数比が低いmoduleの棚卸し（`app/portable_package.py` ratio .58、
+`app/plate_blur.py` ratio .62、`app/chapter_card.py` ratio .68、`app/reference_fetch.py`
+ratio .72——いずれも未着手）を次点とする。`app/private_journey_film.py`・
+`app/story_film.py`はratioが最も低い（.34/.42）が、`git stash list`に残る
+`stash@{0}`（「other layer ambient (not mine)」、過去複数節が回避してきたもの）が
+このcodebaseに未だ存在するため、core描画経路への変更は引き続き避けるのが安全。
+上記2層のいずれかがcommitされ次第そちらの続き（7.5の実測クローズ、またはUIの統合）を
+優先する。
+
+## 204. §202が次点に挙げた`app/portable_package.py`のテスト薄さを閉じた
+
+lock取得・heartbeat。着手前の点検: 作業ツリーの未commit変更は`app/analysis_cli.py`・
+`app/analysis_ranking.py`とそのテスト、新規`app/analysis_model_trial.py`・
+`app/analysis_rank_agreement.py`＋テスト、`docs/submission/demo-narration-en.md`の
+7件（第203節が「他層の差分には触れていない」と明記した続き）。mtime・内容とも
+第203節時点から変化なく、7.5（Flash-Lite試験）の書きかけと判断し、一切触らず
+add対象からも外した。`git fetch dev`で`cloud/*` branchは無いことを確認、
+`.autonomy/trip/batch.log`は9/6付で無関係。handoff末尾に「着手中」行は無かった。
+
+優先順位（S2追補→…→E-7 と UI＞7.2〜7.9）を見直したところ、E-4残りの2点（題の語彙の
+「引き」・帯の経路図の存在感）はいずれもオーナーの視覚判断待ちでコードだけでは
+閉じられない（第182節で確認済み）、E-5・E-7は別層のambient音声配線待ち、7.5は
+上記の他層作業中、7.6残り（認証そのもの）は新しい外部サービスの選定を伴い承認が
+要る。新しい日の取り込みは全12日が既に完了済みで対象が無い。そのため欠陥の修正
+（テスト薄さの棚卸し）に進み、第202節が次点に挙げていた`app/portable_package.py`
+（当時689行・テスト404行、ratio .58）に着手した。実装は無変更、テストのみ追補。
+
+**見つけた薄さ**: 最大の穴は`build_package`（プランと判定記録からポータブル一式を
+組む中核関数、約100行）に**テストが1件も無かった**こと——`build_portable_sources`・
+`copy_music`・`harden_package`・`settle_package`など部品は個別に検査されていたが、
+それらを実際の package レイアウト（plan・判定記録・catalog・inputs manifest・実ファイル）
+から呼び出す統合経路が一度も実行されていなかった。具体的な未検査分岐: プランが
+同じ`event_id`を複数回名指ししたときに一度だけ切り出す重複排除（`dict.fromkeys`）、
+プランか判定記録の**どちらか**が欠けた場合の2通り（`or`条件の両側）、プランが
+footageを何も名指ししない2通り（空・`event_id`欠落）、プランが記録に無い窓を
+名指しした場合、記録がcatalogに無いasset_idを名指しした場合、catalogのfile_nameが
+`video_root`の実ファイルに見つからない場合、`CARRIED_FILES`のうち存在しないものを
+静かに読み飛ばす分岐。加えて部品側にも: `write_film_sources`/`load_film_sources`の
+symlink拒否（読み書き両方）、`load_film_sources`が「dictですらない」payload
+（list・壊れたJSON）を拒む経路、mapファイルが存在しない場合、`PortableSource`の
+event_id/file_name空文字拒否とstart_s境界（`-0.001`は拒否・`0.0`は許可）、
+`build_portable_sources`がsymlinkされた録画を拒む分岐（`is_file()`だけでは
+symlink先の実体を見ない）。
+
+実装を変更する前に`PortableSource(start_s=-0.001)`が拒否され`start_s=0.0`が
+許可されることを`.venv/bin/python3`でその場で確認してから、`tests/test_portable_package.py`
+に12件（`build_package`単体で6件・部品の境界6件）を追加した（実装は無変更）。
+
+**テスト**: `tests/test_portable_package.py`単体21→33件。全**3,160件成功**
+（他層の未commit分`test_analysis_model_trial.py`・`test_analysis_rank_agreement.py`を
+含む。`--deselect`/`--ignore`は使わず、`test_judged_film_end_to_end.py`含め全件成功）。
+Ruff check緑。`git diff --check`（`tests/test_portable_package.py`のみ）問題なし。
+実素材・GPX・Gemini・GCSには一切触れていない。支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま——引き続き
+自分の変更ではないため触っていない。
+
+**次に推奨**: 同じ切り口（importされているが境界・失敗経路が薄いmodule）の続き。
+候補は`app/plate_blur.py`（ratio .62）・`app/chapter_card.py`（ratio .68）・
+`app/reference_fetch.py`（ratio .72）、いずれも未着手。7.5・UI・7.6残り（認証）は
+引き続き別層/オーナー判断待ちで着手不可。上記いずれかが解消され次第そちらを優先する。
+
+## 203. Codex のワークフロー画面を `/workflow` に統合し、データ取扱い開示を閉じた
+
+2026-09-09 13:00 JST、オーナーから Codex の引き継ぎ（利用者向けフロントエンド 3 ファイル）を
+受け、同じ作業ツリーにあった別層の未完成差分（データ取扱い開示）と合わせて整理した。
+他層の差分（`app/analysis_*`）には触れていない。`docs/submission/demo-narration-en.md`
+はデモ v2 の commit に回す（指示 12）。
+
+### commit 1 `c86ce46`: データ取扱い開示（別層の着手を完成）
+
+`app/data_handling_disclosure.py` は送信・保持を実際に行う module と同じ定数から
+「何を・誰に・何日」を組む固定ブロック。コンソール payload に `data_handling` として載り、
+承認欄の上に印字される。足りなかったのは検証だけ: payload に載ることと、日英ページに
+「承認する前に / Before you approve」が出ることをテストに追加した。
+
+### commit 2 `98895b1`: `/workflow`（Codex 作）をローカルサーバーへ
+
+- **レビュー結果**: 3 ファイルとも既存 API（`/api/private-journey` 系 9 経路）だけを呼び、
+  経路・座標・ファイル名・資格情報を埋め込まない。要求 JSON の鍵（`approve_jpy`・
+  `bucket`・`music`・`name`・`gpx`・`video_root`・`offset_s`・`target_duration_s`）は
+  サーバー側と一致。直した点は 2 つ: (1) 音楽の一覧が 5 曲固定で `wandering` が無かった →
+  サーバーの許可リスト `MUSIC_TRACK_IDS` を描画時に渡す形にし、許可リストに
+  `wandering` を足した（`check_music_track` が拒む曲を画面が出せない構造）。
+  (2) 物語の格子で、題の無い冒頭ビート群が「CHAPTER 1」と番号を取っていた →
+  「OPENING / オープニング」と表示し、題のある章から 1 を数える。
+- **統合**: `server.py` に `/workflow` を GET 専用で追加。**パッケージ未設定でも 200**
+  （画面自身が API の 503 を受けて取り込みフォームを出す）。`_PUBLIC_DEMO_DISABLED_PATHS`
+  に加え、public_demo では 403。`_journey_workflow_page()` を挟み、Node 構文検査
+  （`test_web_page_scripts_parse.py`）の対象にした。
+- **検証**: 新規 `tests/test_web_journey_workflow.py`（7 件: 日英 200、未設定時 200＋API 503、
+  既存経路のみ、音楽一覧＝許可リスト、GET 専用、identity 欄と経路の不在、保護ヘッダ、
+  public_demo で画面と 9 経路すべて 403）。実画面: day-7-en-v1 を読ませたローカルサーバーで
+  7/7 工程・物語・動画が出ること、空の Mac で取り込み画面が出ることを headless Chrome で
+  撮って確認（オーナーへ送付）。クリーンな worktree で全 3,064 件緑、Ruff 緑。
+- **残したもの**: `app/web/journey_workflow_preview.py`（単独プレビュー）。統合後は
+  `/workflow` と重複するが、オーナーが統合版で置き換えを確認するまで残す（指示 11）。
+  `ruff format` は Codex の preview とテストの 2 ファイルを整形したがっている（`ruff check`
+  は緑）。既存 `/private-journey` はそのまま。
+
+### この時点の他の状態
+
+- Cloud Run 第 7 リビジョンは公開済み（`--no-invoker-iam-check`。組織ポリシーが
+  `allUsers` の IAM 束縛を拒むため、こちらが Google 推奨の手段）。外から検証:
+  `/health` 200、ページは資格情報なし/誤りで 401、正しい資格情報で 200、POST 405、
+  本文つき 413、実素材経路 403、保護ヘッダ 5 種、連打 70 回で 429（`Retry-After: 53`）。
+- 公開リポジトリは PUBLIC、Release `day-7-package` 公開済み（匿名で 206 応答）。
+- デモ v2: 英語版 day 7 の作品は切れた（380.07 s、章カード英語）。ナンバーぼかしは
+  「98〜103 s に顔」で拒否（設計どおり）。デモは顔の無い区間だけを使うので、**作品でなく
+  組んだデモにぼかしをかける**手順にする。組み立て器 v2 は worktree
+  `.claude/worktrees/wf_5e2d4bf5-876-4` に未 commit（1,611 行、テスト 64/75 緑、
+  E501 50 件）。窓の選定 `private-media/work/demo-v2/inputs.json` と
+  ナレーション原稿は完成。
+
+
+## 205. デモ v2 を組んだ——問題から始まる 177 秒、英語の作品、成果物は 80 % 右上
+
+2026-09-09 04:30 JST にオーナーがシナリオ v2（§197 の起案）を承認。英語で作る、最後の
+10 秒は全画面、ナレーションは今回なしで原稿だけ用意、配布物は GitHub Release。午後、
+Codex 統合（§203）のあとに組み立てた。
+
+### できたもの
+
+- **英語の作品** `private-media/work/day-7-en-v1`: day 7 の package を `output_language: en`
+  で写し、物語計画と作品だけ再生成（判定は買い直していない、¥0）。380.07 秒、章カードと
+  下部テロップは英語（日本語の文字 0）。
+- **組み立て器** `app/submission/demo_scenario_v2.py`（1,600 行、テスト 78 件）: FramedExcerpt
+  （作品を 80 % 右上、2 px の枠、札、下の帯に説明文）、FullScreenExcerpt（札だけ）、
+  Mosaic（判定用コピー 12 本を 4×3 の `xstack`）、SingleRaw、JudgedWindow（コピーの左に
+  モデルの判定文・スコアの板）、ConsoleStill（実画面は帯の上に丸ごと、カードは中央を切り出し）。
+  10 区間・14 カットで **177.0 秒**をテストが固定。数字は `inputs.json` の figures と package の
+  判定記録を照合してから使い、id・ファイル名・座標・撮影時刻は全文面で拒否。字幕は同じ
+  タイムラインから。CLI は組んだデモを全フレーム検査し、顔かナンバーがあれば消す
+  （`--skip-inspection` で外して、ぼかしを別に掛ける手順にした）。
+- **窓の選定** `private-media/work/demo-v2/inputs.json`（別エージェント）: 337 判定から機械的に
+  17 本（モザイク 12・単独 1・判定つき 4）。17 本すべてを Vision で顔・ナンバー検査、2 本を落とした。
+  見どころ 0.7 以上は 43 窓（実測一致）。
+- **実画面 2 枚**: `/workflow` に判定記録だけ抜いた day 7 の写しを読ませ、承認待ちの状態
+  （337 clips · 245.1 MB · ¥49.79、Before you approve、金額入力欄）を 2 倍解像度で撮って切り出した。
+- **抜粋の位置**: 冒頭 8 秒 = 作品 163 秒（Bluff の展望台から海沿いを下る）、結果 40 秒 = 303 秒
+  （Clyde の展望台の停止 → 章カード → 走行 → 湖沿い、最後の 10 秒は湖の道を全画面）。
+  フレームを実際に見て選んだ。顔のある 98〜103 秒から離れている。
+- **ナレーション原稿** `docs/submission/demo-narration-en.md`（別エージェント）: 301 語、
+  区間ごとの英文と日本語訳、収録メモ。
+- **デモ** `private-media/work/day-7-en-v1/demo/demo-v2-en.mp4`（177.02 秒、1920×1080、30 fps、
+  aac 48 kHz）と `.srt`（10 キュー）。`app.plate_blur --fps 30 --passes 4` を組んだデモに掛けた結果: **ぼかしたナンバー領域 0、顔のあるフレーム 0**（全フレーム）。独立の再検査（`inspect_footage`、30 fps）: **ナンバー 0・顔 0**（一致）。
+
+### 直した不具合（QA でフレームを見て見つけたもの）
+
+1. コンソールの実画面に説明文を下 1/3 に重ねると、説明している行そのものを隠した →
+   実画面は帯の上に丸ごと収め、説明文は帯に。カード（正方形に描かれる）は中央を切り出す。
+2. 数値カードが「Copies made 326 / 326 · Judged 337 / 326」→ **コンソールの計画は今日のコードで
+   再計算され 326 になる**（買った判定は 337）。カードも照合も買った記録に合わせ、費用と MB は
+   計画の 1 窓単価で比例させる。同じ理由で、パイプラインのコマンドは**現在の main のクリーンな
+   worktree** から走らせる（古い squash 系列の worktree では 326 になった）。
+3. 組み立て器の CLI が `runner` を定義時に束ねていて、テストの差し替えが効かなかった。
+4. `--allow-faces` で作品全体をぼかす案は安全装置に止められた → 作品は未ぼかしのまま抜粋し、
+   **組んだデモに**ぼかしを掛ける（顔のある区間を使わないので拒否されない）。
+
+### 公開側の状態（オーナーの操作を外から確認）
+
+Cloud Run 第 7 リビジョン（資格情報あり）、`--no-invoker-iam-check` で公開。組織ポリシーが
+`allUsers` を拒んだ記録は監査ログにある。外から: `/health` 200、ページ 401/401/200（en・ja）、
+POST 405、本文 413、私用経路 403、保護ヘッダ 5 種、連打で 429（`Retry-After: 53`）。
+リポジトリは PUBLIC、Release `day-7-package` 公開（匿名で 206）。
+
+### 学び
+
+- 背景に投げた長い ffmpeg/Vision の仕事は、Bash の `nohup … &` では黙って消えることがあった。
+  ハーネスの run_in_background で走らせ、完了通知を待つ。
+- `pytest … | tail -1` はパイプの終了コードを隠す。ガードにするなら終了コードを別に取る。
+- zsh は `cd` が呼び出し間で持ち越される。worktree へ入るときはサブシェル `( cd … )` で。

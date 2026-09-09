@@ -106,6 +106,8 @@ def test_the_api_reads_the_configured_package(package: Path) -> None:
     assert payload["stages"][0]["key"] == "footage_planned"
     assert payload["stages"][0]["cost_jpy"] > 0
     assert payload["external_data_sent"] is False
+    assert payload["data_handling"]["schema_version"] == "data-handling-disclosure-v1"
+    assert payload["data_handling"]["sent_per_window"]["has_audio"] is False
 
 
 def test_the_page_is_served_in_both_languages(package: Path) -> None:
@@ -116,6 +118,8 @@ def test_the_page_is_served_in_both_languages(package: Path) -> None:
     assert ja_headers["Content-Type"] == "text/html; charset=utf-8"
     assert "この旅の判定と作品" in ja_body.decode()
     assert "This ride, judged" in en_body.decode()
+    assert "承認する前に" in ja_body.decode()
+    assert "Before you approve" in en_body.decode()
     assert '/api/private-journey"' in ja_body.decode()
 
 

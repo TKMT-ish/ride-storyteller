@@ -39,6 +39,16 @@ def _analysis(description: str, *, rider_visible: str = "unknown") -> VideoAnaly
         "The video shows a person in full motorcycle gear, including a helmet with a chin bar.",
         "The rider's reflection is clearly visible in the mirror while stopped at a station.",
         "A man standing next to the motorcycle looks at the view.",
+        "A selfie taken at the summit with the mountains behind.",
+        "The rider's hands grip the handlebars tightly in view.",
+        "The rider's gloves are visible on the tank.",
+        "The rider's jacket fills most of the frame at the stop.",
+        "The rider's shoulders are visible in the mirror.",
+        "The rider's legs are visible near the footpegs.",
+        "The rider's body blocks the view of the road.",
+        "The rider's face is turned toward the camera.",
+        "A man's hands rest on the throttle at a red light.",
+        "A woman's gloves are seen briefly resting on the tank.",
     ],
 )
 def test_the_models_words_for_the_rider_are_recognised(description: str) -> None:

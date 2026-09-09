@@ -39,10 +39,16 @@ Three subcommands, and the split between them is the point.
   reach them at all. It reads the whole bucket, not a package, and refuses
   to move anything unless `--i-approve-migration` is typed. See
   `app.tenant_migration`.
+- `lifecycle-check` reads the bucket's own Object Lifecycle Management
+  rules and says whether one of them backstops `retention`'s ceiling
+  independently of this codebase ever running again. It changes nothing --
+  configuring the rule is left to the operator, the same way `retention`
+  and `migrate` leave the approval to a person. See `app.bucket_lifecycle`.
 
-Google is imported only inside `judge`, `rank` and `tournament`, after
-their approval flag has been checked. `plan` and `preflight` run on a
-machine with no cloud libraries at all.
+Google is imported only inside `judge`, `rank`, `tournament` and
+`lifecycle-check`, after their approval flag (or, for `lifecycle-check`,
+because it only ever reads bucket configuration) has been checked. `plan`
+and `preflight` run on a machine with no cloud libraries at all.
 """
 
 from __future__ import annotations
@@ -84,6 +90,7 @@ from app.analysis_tournament import (
     plan_tournament_cost,
     run_tournament,
 )
+from app.bucket_lifecycle import LifecycleError, evaluate_bucket_backstop
 from app.retention import (
     DEFAULT_RETENTION_DAYS,
     RetentionError,
@@ -461,6 +468,23 @@ def command_migrate(*, bucket: str, account_id: str, approved: bool) -> dict[str
     return payload
 
 
+def command_lifecycle_check(*, bucket: str) -> dict[str, object]:
+    """Say whether the bucket's own lifecycle rules backstop `retention`.
+
+    Read-only, always: this command has no approval flag because it never
+    changes anything. Configuring the rule is an operator decision made
+    outside this codebase, the same way `judge`'s spending decision is
+    made by a person typing `--i-approve-spending`, not by this module.
+    """
+    if not bucket.strip():
+        raise AnalysisCommandError("a backstop check needs a bucket to look at")
+    try:
+        check = evaluate_bucket_backstop(bucket)
+    except LifecycleError as error:
+        raise AnalysisCommandError(str(error)) from error
+    return check.summary()
+
+
 _ACCOUNT_HELP = (
     "the account these objects belong to; uploads go under its own prefix, "
     "and nothing outside it is sent"
@@ -615,6 +639,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="required: without it the migration lists and decides and stops",
     )
 
+    lifecycle_check = subcommands.add_parser(
+        "lifecycle-check",
+        help="say whether the bucket's own lifecycle rules backstop retention; changes nothing",
+    )
+    lifecycle_check.add_argument("--bucket", required=True, help="the GCS bucket to read")
+
     judge = with_common("judge", "upload and judge; THIS SPENDS MONEY")
     judge.add_argument("--bucket", default="", help="the GCS bucket to upload clips to")
     judge.add_argument("--prefix", default="", help="an object-name prefix within the bucket")
@@ -684,6 +714,8 @@ def main(argv: list[str] | None = None) -> None:
                 account_id=args.account_id,
                 approved=args.approved,
             )
+        elif args.command == "lifecycle-check":
+            payload = command_lifecycle_check(bucket=args.bucket)
         elif args.command == "stride-preview":
             payload = command_stride_preview(args.package, stride_s=args.stride_s)
         elif args.command == "tournament":

@@ -2,11 +2,19 @@
 
 ## Status
 
-The safe public demo is deployed to one **private** Cloud Run service in Tokyo.
-Its sixth revision, `ride-storyteller-public-demo-00006-bbp` (image tag
-`cb43326`, deployed 2026-09-09), is verified Ready with 100% traffic, but
-unauthenticated access has not been approved or enabled, and the judge
-credential is not yet set on the service. There is no public
+The safe public demo is deployed to one Cloud Run service in Tokyo and, since
+2026-09-09, **reachable by judges**: its seventh revision,
+`ride-storyteller-public-demo-00007-r5f` (image tag `cb43326`), carries the
+judge Basic credential; the owner disabled the service's invoker IAM check
+(`--no-invoker-iam-check`) after the organisation's domain-restricted-sharing
+policy refused an `allUsers` binding ("One or more users named in the policy
+do not belong to a permitted customer"). Verified from outside at
+<https://ride-storyteller-public-demo-q53n7masba-an.a.run.app>: `/health` 200 without a credential;
+the page 401 without or with a wrong credential and 200 with the judge's, in
+both languages; POST 405; a request body 413; every private route 403; the
+five protective headers; 429 with `Retry-After` after sixty requests in a
+minute. The credential is shared only through the Devpost testing
+instructions and lives in `private-media/hosting/judge-credential.yaml`. There is no public
 deployment evidence yet. Authenticated hosted verification confirms the exact
 GitHub AGPL Source link and the private/Google route blocks.
 
