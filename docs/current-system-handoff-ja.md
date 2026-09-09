@@ -9407,3 +9407,10 @@ stash `wip: other layer ambient` も同様。
 
 Gemini 累計 ≈¥776 / ¥1000（2026-09-09 以降 ¥0）。Cloud Run は min 0、予算アラート ¥1,000。
 
+### 追記（2026-09-09 23:50）: remote 名の整理
+
+`origin` = 私有ミラー `ride-storyteller-dev`（`dev` も同じ先の別名として残置）、**`public`** = 公開
+リポジトリ `ride-storyteller`。理由: デスクトップアプリは `origin/main` からの差分を数えるので、
+公開側（squash 系列、merge-base は 2026-09-02 の `3a27970`）を origin にしていると常に
++76k 行と表示されていた。公開 `main` へは `git push public <squash>:refs/heads/main`。
+

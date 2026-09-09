@@ -123,3 +123,12 @@ grep -rniE "実地名を列挙したパターン" app tests docs README.md devpo
 再検査の手順（公開 push の前に毎回）: HEAD のツリーを上記キャッシュの語で照合し、
 `docs/research-touring-video-editing-ja.md` 以外に走行地名が 0 件であることを確認
 してから、クリーンな worktree で全テスト・Ruff・`python -m app.submission` を通す。
+
+## 2026-09-09｜remote の名前を整理した
+
+デスクトップアプリが `origin` を基準に差分を数えるため、`origin` を私有ミラー
+（`ride-storyteller-dev`）に付け替え、公開リポジトリは **`public`** という remote 名にした
+（`dev` は従来どおり私有ミラーの別名として残す）。以後、公開 `main` へ載せるときは
+`git push public <squash>:refs/heads/main`。この文書の上のほうにある `git push origin …` は
+当時の名前で、いまなら `public` と読み替える。
+
