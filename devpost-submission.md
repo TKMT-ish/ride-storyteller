@@ -88,6 +88,11 @@ also implemented one slice on its own task plan: the fail-closed
 `ScriptExecutor` and the Director pipeline behind the `director_mode` opt-in,
 with their tests, which landed on 2026-09-01 and still pass.
 
+Both Codex and Claude Code were development-time coding assistants only. No
+non-Google AI model, agent framework, or AI API runs in the project itself. The
+on-device OCR and face detection (Apple Vision) used before publishing the demo
+video is a local pre-publication privacy check, not part of the agent pipeline.
+
 ## Key Features
 
 - Explainable GPS event extraction and stable story identifiers.
