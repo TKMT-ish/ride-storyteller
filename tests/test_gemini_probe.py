@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import sys
+
 import pytest
 
 from app.agent_runtime import (
@@ -7,6 +9,7 @@ from app.agent_runtime import (
     GoogleCloudRuntimeSettings,
     run_synthetic_gemini_probe,
 )
+from app.agent_runtime.gemini_probe import _create_vertex_ai_client
 
 
 class FakeResponse:
@@ -75,3 +78,53 @@ def test_synthetic_probe_rejects_an_empty_model_response() -> None:
 
     with pytest.raises(GeminiConnectionProbeError, match="returned no text"):
         run_synthetic_gemini_probe(_settings(), client_factory=lambda _: EmptyClient())
+
+
+def test_synthetic_probe_wraps_an_unexpected_error_from_the_client_factory() -> None:
+    def _factory(_settings: GoogleCloudRuntimeSettings) -> FakeClient:
+        raise ValueError("network is unreachable")
+
+    with pytest.raises(GeminiConnectionProbeError, match="probe failed") as excinfo:
+        run_synthetic_gemini_probe(_settings(), client_factory=_factory)
+    assert isinstance(excinfo.value.__cause__, ValueError)
+
+
+def test_synthetic_probe_lets_its_own_error_type_propagate_unchanged() -> None:
+    def _factory(_settings: GoogleCloudRuntimeSettings) -> FakeClient:
+        raise GeminiConnectionProbeError("already a probe error")
+
+    with pytest.raises(GeminiConnectionProbeError, match="already a probe error"):
+        run_synthetic_gemini_probe(_settings(), client_factory=_factory)
+
+
+def test_default_client_factory_builds_a_vertex_ai_client(monkeypatch: pytest.MonkeyPatch) -> None:
+    from google import genai
+
+    captured: dict[str, object] = {}
+
+    class FakeVertexClient:
+        def __init__(self, **kwargs: object) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr(genai, "Client", FakeVertexClient)
+
+    client = _create_vertex_ai_client(_settings())
+
+    assert isinstance(client, FakeVertexClient)
+    assert captured == {
+        "vertexai": True,
+        "project": "ride-storyteller",
+        "location": "global",
+    }
+
+
+def test_default_client_factory_rejects_a_missing_google_genai_sdk(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import google
+
+    monkeypatch.setitem(sys.modules, "google.genai", None)
+    monkeypatch.delattr(google, "genai", raising=False)
+
+    with pytest.raises(GeminiConnectionProbeError, match="SDK is not installed"):
+        _create_vertex_ai_client(_settings())

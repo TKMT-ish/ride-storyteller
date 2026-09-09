@@ -83,7 +83,10 @@ synchronized with the repository.
 
 IBM Bob was used separately during development to review the earlier codebase.
 Its findings about missing ADK wiring, evidence transitions, video transport, and
-boundary tests were then implemented and mapped to focused regression tests.
+boundary tests were then implemented and mapped to focused regression tests. Bob
+also implemented one slice on its own task plan: the fail-closed
+`ScriptExecutor` and the Director pipeline behind the `director_mode` opt-in,
+with their tests, which landed on 2026-09-01 and still pass.
 
 ## Key Features
 

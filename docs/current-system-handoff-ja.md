@@ -9198,3 +9198,118 @@ reference_fetch・portable_packageと同じ扱いで意図的に未検査のま�
 `app/agent_runtime/gemini_probe.py`（76%）——ただし着手前に「なぜ薄いか」（未配線か、単に検査が
 薄いだけか）を実測してから選ぶこと。7.5・UI・7.6残り（認証）・E-5・E-7は引き続き別層/オーナー
 判断待ち。
+
+## 211. `app/video/probe.py`のテスト薄さを閉じた——検証分岐21件と`main`が丸ごと未検査だった
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの7件
+（第203・204・206〜210節から変化なし、7.5 Flash-Lite試験の書きかけ）——引き続き自分の変更では
+ないため一切触れず、addの対象からも外した。`git fetch dev`は`cloud/*` branch無し。
+`git stash list`の`other layer ambient (not mine)`も変化なく存在し、`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路には触れていない。`.autonomy/trip/batch.log`は
+無関係（9/6付）。全3,220件が着手前に成功することを確認済み。
+
+第210節が挙げた次点（`app/web/journey_workflow_preview.py` 72%・`app/video/highlight_research.py`
+73%・`app/video/probe.py` 74%・`app/agent_runtime/gemini_probe.py` 76%）のうち、着手前に
+「なぜ薄いか」を実測して選んだ。`journey_workflow_preview.py`はローカル専用プレビュー鯖で
+未検査分の大半が`serve_forever()`を含む`main`（実サーバ起動はテストできない部類）。
+`highlight_research.py`は未検査の大半（122行）が単一のオーカストレータ関数
+`run_local_highlight_research`本体で、多数の協調先（Apple Vision・GPMF・ffmpeg）を全て
+差し替える大掛かりな統合テストが要る。対して`app/video/probe.py`は`app/video/local_catalog.py`・
+`app/video/highlight_discovery.py`から実際に呼ばれている配線済みの関数で、薄さは
+`LocalVideoMetadata.__post_init__`の検証6分岐・`probe_local_video_metadata`の失敗経路
+（タイムアウト・非0終了・不正JSON）・`_optional_positive_int`/`_parse_frame_rate`/
+`_parse_aware_time`の境界（数値でない値・0以下・欠損・タイムゾーン無し）・`_isoformat_utc`
+（既存テストは`recorded_start_time=None`のみで一度も呼ばれていなかった）、そして`main`
+（CLI、約10行）に**テストが1件も無かった**こと——最も自己完結していて安全に閉じられる
+候補として選んだ。
+
+**見つけた薄さ**: `LocalVideoMetadata`直接構築時の6検証（空`file_name`・`duration_s<=0`・
+tzなし`recorded_start_time`・width/heightの片側欠如・width/heightの0以下・
+`frames_per_second<=0`、いずれも既存テストは`probe_local_video_metadata`経由の間接検査
+のみで直接構築の検査が無かった）。`probe_local_video_metadata`の`is_symlink()`拒否、
+`subprocess.TimeoutExpired`・非0終了コード・不正JSON出力の3失敗経路（既存テストは
+`FileNotFoundError`のみ検査済み）。`_metadata_from_ffprobe_payload`のwidth片側欠如
+（`ffprobe`が高さだけ返す壊れた答え）。`_optional_positive_int`の3分岐（値が無い＝映像
+ストリームが無い場合の`None`・数値に変換できない値・0以下）。`_parse_frame_rate`の
+`None`を返す分岐（映像ストリームが無い）・数値でない文字列・0以下。`_parse_aware_time`の
+不正な文字列・タイムゾーン無しの2分岐。`_isoformat_utc`本体（非UTCオフセットからの
+変換、既存テストは`recorded_start_time=None`の経路のみ）。
+
+実装を変更する前に上のケースを`.venv/bin/python3`でその場ですべて通し、想定どおりの
+値・例外になることを確認してから`tests/test_video_probe.py`に21件追加した（実装は無変更）。
+`main`は`app/portable_package.py`の`test_main_builds_and_reports_the_clip_count`と同じ作法
+（`monkeypatch.setattr(probe_module, "probe_local_video_metadata", ...)`で実`ffprobe`呼び出しを
+避け、`monkeypatch.setattr(sys, "argv", ...)`で`main()`を直接呼ぶ）で検査した。Ruffが1件
+（長い行）指摘したため変数を切り出して解消。
+
+**テスト**: `tests/test_video_probe.py`単体6→27件。`app/video/probe.py`単体の被覆は
+**99%（133中132行）**——残る1行は`if __name__ == "__main__":`の起動ガード（plate_blur・
+reference_fetch・portable_package・video/exportと同じ扱いで意図的に未検査のまま）。全
+**3,241件成功**（他層の未commit分4テストファイルを含む。`--deselect`/`--ignore`は使わず
+全件成功）。作業後`coverage`は`pip uninstall`、`.coverage`ファイルも削除し、pytest再実行で
+coverageパッケージ無しでも3,241件成功を確認。Ruff check緑、`git diff --check`
+（`tests/test_video_probe.py`のみ）問題なし。実素材・GPX・Gemini・GCSには一切触れていない。
+支出¥0。承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも触れていない。
+
+**次に推奨**: 同じ切り口の次点は`app/web/journey_workflow_preview.py`（72%、`main`の
+`serve_forever()`を除く部分のみテスト可能）・`app/agent_runtime/gemini_probe.py`（76%）——
+`app/video/highlight_research.py`（73%）は`run_local_highlight_research`本体の統合テストが
+要るため単独の大きめの単位として改めて計画してから着手すること。7.5・UI・7.6残り（認証）・
+E-5・E-7は引き続き別層/オーナー判断待ち。
+
+## 212. `app/agent_runtime/gemini_probe.py`のテスト薄さを閉じた——例外分岐4件が未検査だった
+
+lock取得・heartbeat。着手前の点検: 未commit差分は`app/analysis_cli.py`・`app/analysis_ranking.py`
+とそのテスト、`app/analysis_model_trial.py`・`app/analysis_rank_agreement.py`＋テストの7件
+（第203・204・206〜211節から変化なし、mtimeは9/9 08:26〜13:19、7.5 Flash-Lite試験の書きかけ）——
+引き続き自分の変更ではないため一切触れず、addの対象からも外した。`git fetch dev`は`cloud/*`
+branch無し。`git stash list`の`other layer ambient (not mine)`も変化なく存在し、
+`app/story_film.py`・`app/private_journey_film.py`のcore描画経路には触れていない。
+`.autonomy/trip/batch.log`は無関係（9/6付）。全3,241件が着手前に成功することを確認済み。
+
+品質の単位（S2追補・Q1・E-3・E-4・Q5）は完了済み、E-1・E-2も完了・配線済み、E-6も完了。
+E-5・E-7は研究文書の指示どおり「別層がambient音声を配線中の間は避ける」対象で
+（`git stash`に現存する別層のambient作業と衝突するため）引き続き避けた。7.5は上記
+未commit7件が同じ主題で進行中のため触れず、7.6残り（認証）は新しい設計判断を要するため
+見送り、新しい日の素材の取り込みはオーナーの合図待ち（第91節時点の決定）。第211節の
+次点どおり`.venv/bin/pip install coverage`（開発時解析のみ）で
+`app/web/journey_workflow_preview.py`（72%）と`app/agent_runtime/gemini_probe.py`（76%）を
+実測し比較。前者は`main`の`serve_forever()`部分を除けば閉じられるが、後者の方が
+既存のGemini呼び出し検査（`FakeClient`差し替え）と地続きで自己完結していたため
+`gemini_probe.py`を選んだ。
+
+**見つけた薄さ**: `run_synthetic_gemini_probe`の`except Exception`（クライアント生成・
+呼び出しで想定外の例外が出たとき`GeminiConnectionProbeError`へ変換する経路、既存テストは
+`GeminiConnectionProbeError`を直接送出するケースの検査が無かったため、そちらが素通りで
+再送出されることも未検査だった）。既定の`client_factory`である`_create_vertex_ai_client`
+本体（`google.genai`のimport成功時に`genai.Client(vertexai=True, project=..., location=...)`
+を呼ぶ経路、および`google-genai` SDKが無いときの`ImportError`→`GeminiConnectionProbeError`
+変換）——既存テストは全て`client_factory`を差し替えており、既定の生成経路には一度も
+到達していなかった。
+
+実装を変更する前に`.venv/bin/python3`でその場ですべて通した。既定経路の`ImportError`検査は
+`sys.modules["google.genai"] = None`だけでは不十分で（このリポジトリの他モジュールが既に
+`google.genai`をimport済みのため`google`パッケージの`genai`属性がキャッシュされ、
+`from google import genai`がsys.modules照会を経ずに属性参照で解決してしまう）、
+`monkeypatch.delattr(google, "genai", raising=False)`でそのキャッシュも外して初めて
+想定どおり`ImportError`を再現できることを確認してから`tests/test_gemini_probe.py`に
+4件追加した（実装は無変更）。
+
+**テスト**: `tests/test_gemini_probe.py`単体3→7件。`app/agent_runtime/gemini_probe.py`単体の
+被覆は**100%（38中38行）**。全**3,245件成功**（他層の未commit分4テストファイルを含む。
+`--deselect`/`--ignore`は使わず全件成功）。作業後`coverage`は`pip uninstall`、`.coverage`
+ファイルも削除し、pytest再実行でcoverageパッケージ無しでも3,245件成功を確認。Ruff check緑、
+`git diff --check`（`tests/test_gemini_probe.py`のみ）問題なし。実素材・GPX・Gemini・GCSには
+一切触れていない（`google.genai`の呼び出しは全てfake/monkeypatch差し替え）。支出¥0。
+承認待ちなし。
+
+**触れなかったもの**: 上記の別層未commit作業7件は依然未commitのまま。`app/story_film.py`・
+`app/private_journey_film.py`のcore描画経路（ambient音声層待ち）にも触れていない。
+
+**次に推奨**: 同じ切り口の次点は`app/web/journey_workflow_preview.py`（72%、`main`の
+`serve_forever()`を除く部分と`application`の委譲分岐がテスト可能）。7.5・UI・7.6残り（認証）・
+E-5・E-7は引き続き別層/オーナー判断待ち。

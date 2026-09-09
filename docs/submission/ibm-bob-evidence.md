@@ -91,3 +91,14 @@ application, processed private media, or reviewed later unverified changes.
   submission-specific participant answers are confirmed.
 - Real-video Gemini analysis is not yet evidence; no private media transfer has
   been authorized.
+
+## Later session: Bob implemented the executor and the Director pipeline (2026-08-30)
+
+A second kind of evidence, beyond review findings: Bob's own task plan and the
+files it wrote (`app/executor.py`, `app/director_pipeline.py`,
+`app/agents/vertex_director.py`, their tests, and the `director_mode` opt-in in
+`app/local_pipeline.py`), all landed in commit `08f7099` on 2026-09-01 and
+still passing today. The thread and its verification are in
+[`ibm-bob-director-session.md`](ibm-bob-director-session.md); the sanitised
+screenshot of the session is gallery image `10-ibm-bob-plan-and-files.png`.
+
