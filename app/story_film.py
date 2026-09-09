@@ -596,8 +596,10 @@ class HeadlessChromiumRasteriser:
             "--hide-scrollbars",
             "--no-sandbox",
             f"--window-size={size},{size}",
-            f"--screenshot={self.output_path(html_path, output_directory)}",
-            html_path.as_uri(),
+            f"--screenshot={self.output_path(html_path, output_directory).resolve()}",
+            # A file URI has no relative form; a package named relatively (as
+            # a judge names it from the clone) must still draw its cards.
+            html_path.resolve().as_uri(),
         )
 
     def output_path(self, html_path: Path, output_directory: Path) -> Path:

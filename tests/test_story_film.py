@@ -520,3 +520,20 @@ def test_a_missing_ffmpeg_is_reported_plainly(tmp_path: Path) -> None:
             tmp_path / "film.mp4",
             runner=absent,
         )
+
+
+def test_chromium_is_given_absolute_paths_even_for_a_relative_package(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A judge names the package relatively from the clone; a file URI has no relative form."""
+    monkeypatch.chdir(tmp_path)
+    html_path = Path("cards") / "card-001.html"
+    html_path.parent.mkdir()
+    html_path.write_text("<html></html>", encoding="utf-8")
+
+    command = build_card_raster_command(html_path, Path("cards"), rasteriser=HEADLESS_CHROMIUM)
+
+    assert command[-1] == html_path.resolve().as_uri()
+    assert command[-1].startswith("file:///")
+    screenshot = next(part for part in command if part.startswith("--screenshot="))
+    assert Path(screenshot.removeprefix("--screenshot=")).is_absolute()
